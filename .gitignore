@@ -8,9 +8,9 @@ node_modules/
 out/
 
 # SQLite Database (Local Server Data)
-data/
-data/*.db
-data/*.db-journal
+/data/
+/data/*.db
+/data/*.db-journal
 nexusfit.db
 nexusfit.db-journal
 
