@@ -12,6 +12,11 @@ Everything is in Greek, mobile-first, offline-capable, and driven by a single
 admin-editable configuration object, so the same codebase can be re-branded for
 another gym without touching components.
 
+> **Interactive demo:** [evangelosmoschou.github.io/NexusFit](https://evangelosmoschou.github.io/NexusFit/)
+> — a browser-only build of the landing page, member portal and AI workout engine.
+> It replaces `/api/*` with an in-browser mock and keeps data in `localStorage`
+> (`site/src/mockApi.ts`); it is not a hosted instance of the real app.
+
 ---
 
 ## Table of Contents
@@ -82,6 +87,7 @@ another gym without touching components.
 | Database | **`node:sqlite`** (`DatabaseSync`) — Node's built-in SQLite, no external driver |
 | AI | **Google Gemini** (`gemini-2.0-flash-lite`) with a local deterministic fallback |
 | Testing | **Vitest 5** (Node environment) |
+| Demo | **Vite 8** static build with an in-browser mock API (GitHub Pages) |
 | Lint | ESLint 9 + `eslint-config-next` |
 | Runtime | **Node.js 22** (Docker image is `node:22-alpine`) |
 
@@ -172,6 +178,13 @@ NexusFit/
 │
 ├── scripts/
 │   └── create-tenant.mjs         Tenant provisioning CLI (npm run tenant:create)
+│
+├── site/                         Static interactive demo (Vite → GitHub Pages)
+│   ├── src/                      Demo shell, in-browser mock API, test
+│   ├── vite.config.mts
+│   └── index.html
+│
+├── .github/workflows/pages.yml   Builds the demo and deploys it to GitHub Pages
 │
 └── src/
     ├── app/
@@ -276,6 +289,7 @@ variable to be set — without it, admin login returns `503`.
 | `npm test` | `vitest run` |
 | `npm run format` / `format:check` | Prettier write / check |
 | `npm run tenant:create -- <id> <name> <domain> <password>` | Provision a tenant (see [Multi-tenancy](#multi-tenancy-many-gyms-one-deployment)) |
+| `npm run demo:dev` / `demo:build` | Vite interactive demo (dev server / static build in `site/dist`) |
 | `npm run docker:build` / `docker:up` / `docker:down` | Docker workflow (see [Deployment](#deployment)) |
 
 ---
@@ -520,6 +534,7 @@ Gitea/Forgejo Actions — see `docs/CI.md` for the runner setup.
 | `src/lib/aiWorkoutEngine.test.ts` | Exact day count (3/4/5/6), split per frequency, day renumbering for cycled 5–6 day splits, 4-vs-3 sets by session length, goal-driven reps/rest, shoulder-injury exercise exclusion. |
 | `src/lib/api.test.ts` | `adminRoute` guard: rejects missing/tampered cookies (`401`), passes authenticated requests, wraps handler throws into a `500` envelope. |
 | `src/lib/sqliteDb.test.ts` | Uses an isolated temp `SQLITE_DATA_DIR`; covers seeding, member PIN auth, invalid-PIN rejection, plan persistence/round-trip, invalid payloads, admin member listing (asserts `pin_code` never leaks), member upsert/delete, lead create + status update, gym-config get/update. Cleans up in `afterAll`. |
+| `src/lib/demoMockApi.test.ts` | Demo mock API: config, demo login, plan persistence across logins, export attachment, erasure, lead submissions. |
 
 ---
 
@@ -552,6 +567,12 @@ Note that such paths are ephemeral — this is suitable for testing, not durable
 
 `.next/standalone/` plus `npm run serve:prod` embed only the files the server needs,
 so no `node_modules` install is required at runtime.
+
+**GitHub Pages (interactive demo)** — `.github/workflows/pages.yml` builds `site/`
+with Vite and deploys it to
+[evangelosmoschou.github.io/NexusFit](https://evangelosmoschou.github.io/NexusFit/).
+The demo answers every `/api/*` request in the browser via `site/src/mockApi.ts` and
+persists data in `localStorage`; it deliberately has no server-side functionality.
 
 ---
 
