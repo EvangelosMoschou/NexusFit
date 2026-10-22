@@ -527,7 +527,9 @@ npm test        # vitest run
 ```
 
 CI runs `lint`, `typecheck`, `test` and `build` on every push and pull request via
-Gitea/Forgejo Actions — see `docs/CI.md` for the runner setup.
+Gitea/Forgejo Actions — see `docs/CI.md` for the runner setup. GitHub Actions
+additionally builds and deploys the static demo to Pages on every push to `main`
+(`.github/workflows/pages.yml`).
 
 | Test file | Coverage |
 |---|---|
