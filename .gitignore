@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+
+# SQLite Database (Local Server Data)
+data/
+data/*.db
+data/*.db-journal
+nexusfit.db
+nexusfit.db-journal
+
+# Environment variables
+.env*.local
+.env
+.env.production
+.env.development
+.env.test
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS Files
+.DS_Store
+*.pem
+
+# Agent/session artifacts
+.omo/
+.codegraph
+.commandcode/
+
+# Local-only/private documents (never committed)
+.private/
+
+# TS incremental build cache
+tsconfig.tsbuildinfo
+*.tsbuildinfo

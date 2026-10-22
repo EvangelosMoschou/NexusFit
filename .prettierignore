@@ -1,0 +1,7 @@
+.next
+out
+node_modules
+data
+deploy/backups
+package-lock.json
+*.md

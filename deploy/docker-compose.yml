@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  nexusfit_app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: nexusfit_gym_site
+    restart: always
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - CRON_SECRET=${CRON_SECRET}
+    volumes:
+      # Persistent storage for local SQLite database
+      - nexusfit_data:/app/data
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: nexusfit_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - SITE_DOMAIN=${SITE_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - nexusfit_app
+
+  db_backup:
+    image: alpine:3.20
+    container_name: nexusfit_db_backup
+    restart: always
+    volumes:
+      - nexusfit_data:/data:ro
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["while true; do ts=$$(date +%Y%m%d_%H%M%S); tar -czf /backups/nexusfit_db_$$ts.tar.gz -C /data . && echo \"backup $$ts ok\"; find /backups -name 'nexusfit_db_*.tar.gz' -mtime +14 -delete; sleep 86400; done"]
+
+  # GDPR data-retention job: deletes lead inquiries older than the policy window
+  retention_cron:
+    image: alpine:3.20
+    container_name: nexusfit_retention
+    restart: always
+    depends_on:
+      - nexusfit_app
+    environment:
+      - CRON_SECRET=${CRON_SECRET}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["apk add --no-cache curl >/dev/null 2>&1; while true; do curl -fsS -X POST -H \"x-cron-secret: $$CRON_SECRET\" http://nexusfit_app:3000/api/cron/retention && echo \"retention ok\"; sleep 86400; done"]
+
+volumes:
+  nexusfit_data:
+  caddy_data:
+  caddy_config:

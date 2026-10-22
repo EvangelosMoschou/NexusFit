@@ -1,0 +1,181 @@
+================================================================================
+          NEXUSFIT - 50 ΚΑΝΟΝΕΣ & CHECKLIST ΓΙΑ ΕΠΑΓΓΕΛΜΑΤΙΚΑ WEBSITES
+      (30 Anti-Vibecoding Red Flags to Avoid + 20 Essential Features to Add)
+================================================================================
+
+ΜΕΡΟΣ Α: 30 ΣΗΜΑΔΙΑ "VIBECODED" WEBSITES (ΤΙ ΝΑ ΑΠΟΦΕΥΓΟΥΜΕ ΑΥΣΤΗΡΑ)
+--------------------------------------------------------------------------------
+Αυτά είναι τα κλασικά λάθη που προδίδουν πρόχειρο AI-generated κώδικα και μειώνουν
+την αξιοπιστία και το conversion rate της ιστοσελίδας:
+
+1. Harsh Gradients:
+   Υπερβολικά, έντονα gradients χωρίς ισορροπία. Προτιμάμε solid matte επιφάνειες 
+   (#0C0D0E, #141518) και καθαρά hairlines (#2A2D35).
+
+2. Lucide Icons Overload:
+   Υπερφόρτωση με τυχαία εικονίδια παντού. Χρησιμοποιούμε εικονίδια μόνο όπου προσφέρουν
+   πραγματική χρηστικότητα, δίνοντας προτεραιότητα σε καθαρή τυπογραφία.
+
+3. Pure White Backgrounds:
+   Εκτυφλωτικό #FFFFFF φόντο. Χρησιμοποιούμε ισορροπημένα off-white/light gray ή 
+   προσεγμένα dark themes.
+
+4. Rainbow Coloring:
+   Χρήση 5+ διαφορετικών neon χρωμάτων (κίτρινο, πράσινο, ροζ, μπλε, μωβ μαζί).
+   Ορίζουμε ΜΙΑ βασική παλέτα με 1 διακριτικό accent color.
+
+5. Harsh Glowing Drop Shadows:
+   Υπερβολικές neon σκιές που δείχνουν ερασιτεχνικές. Χρησιμοποιούμε flat hairlines
+   ή ανεπαίσθητα shadows.
+
+6. 3 Feature Cards in a Row Cliché:
+   Η κλασική διάταξη 3 ίδιων generic καρτών. Αντικαθιστούμε με πραγματικά structured
+   specs, live widgets ή πίνακες σύγκρισης 2 στηλών.
+
+7. Emojis Spam:
+   Χρήση emojis (π.χ. ✨, 🔥, 🏋️, 🎯) σε τίτλους και λίστες. Απαγορεύονται σε σοβαρά 
+   B2B και premium fitness brands.
+
+8. Liquid Glass / Glassmorphism Overkill:
+   Βαριά backdrop-blur(20px) εφέ που προκαλούν lag στην κάρτα γραφικών (GPU).
+   Χρησιμοποιούμε αποδοτικά, καθαρά background colors.
+
+9. Em Dashes Abuse:
+   Υπερβολική χρήση μεγάλων παυλών στα κείμενα. Προτιμάμε καθαρή σύνταξη.
+
+10. Generic Inter / Geist Font Overload:
+    Χρήση των ίδιων default AI fonts χωρίς ρύθμιση font-weight, line-height και 
+    letter-spacing.
+
+11. Colored Left Stripe:
+    Η κλασική χρωματιστή γραμμή στην αριστερή πλευρά κάθε κάρτας.
+
+12. Fake Testimonials:
+    Ψεύτικες κριτικές με φωτογραφίες από stock sites και ονόματα τύπου "John D.".
+    Καλύτερα καθόλου κριτικές παρά ψεύτικες.
+
+13. Bento Grids Everywhere:
+    Τυχαία bento boxes διαφορετικών μεγεθών χωρίς ιεραρχία πληροφορίας.
+
+14. Terminal Window Gimmick:
+    Παράθυρα τύπου fake Mac terminal με εντολές που δεν εξυπηρετούν τίποτα σε μη-dev sites.
+
+15. "It's not X, it's Y" Copy Cliché:
+    Κλισέ copywriter φράσεις (π.χ. "It's not a gym, it's a superpower"). Γράφουμε
+    απευθείας τι προσφέρει η υπηρεσία.
+
+16. Checkmark Bullets Spam:
+    Πράσινα tick marks σε κάθε γραμμή κειμένου. Χρησιμοποιούμε καθαρή τυπογραφία και πίνακες.
+
+17. 3 Pricing Tiers Gimmick:
+    Εξαναγκασμός σε Basic/Pro/Enterprise. Για γυμναστήρια: 1 καθαρή τιμή συνδρομής 
+    και προαιρετικό AI Add-on.
+
+18. No Real Product Demos (Το μεγαλύτερο λάθος):
+    Αφηρημένα λόγια χωρίς να δείχνεις το ίδιο το προϊόν. Πρέπει να υπάρχει LIVE 
+    Interactive Demo widget απευθείας στη σελίδα!
+
+19. Soft Corner Radius (Pills & Rounded-3xl):
+    Υπερβολικά στρογγυλεμένα κουμπιά. Χρησιμοποιούμε πειθαρχημένο 6px-10px border radius.
+
+20. Purple & Black Neon Vomit:
+    Ο τυπικός AI συνδυασμός μωβ-μαύρο. Προτιμάμε τεχνικό matte obsidian & titanium.
+
+21. No Skeleton Loaders:
+    Έλλειψη skeleton loading states όταν φορτώνουν δεδομένα ή αποτελέσματα AI.
+
+22. Radial Orbs:
+    Θολές χρωματιστές μπάλες που επιπλέουν στο background.
+
+23. Dot Grids:
+    Το υπερχρησιμοποιημένο background pattern με κουκκίδες.
+
+24. Sparkle Icons:
+    Το εικονίδιο ✨ σε κάθε κουμπί ή τίτλο που αναφέρει AI.
+
+25. Animated Arrows:
+    Βελάκια που αναπηδούν δεξιά-αριστερά χωρίς λόγο.
+
+26. No TOS (Terms of Service):
+    Έλλειψη πραγματικών Όρων Χρήσης και λειτουργίας.
+
+27. No Privacy Policy (GDPR):
+    Έλλειψη Πολιτικής Απορρήτου και διαχείρισης δεδομένων.
+
+28. Excessive Hover Scale Animations:
+    Κάρτες που μεγαλώνουν με scale-105 όταν περνάει το ποντίκι.
+
+29. Blinding Neon Colors:
+    Υπερβολικά neon χρώματα που κουράζουν τα μάτια του χρήστη.
+
+30. Basic Pastel Colors:
+    Χλωμά παστέλ χρώματα που στερούνται δυναμισμού.
+
+
+================================================================================
+ΜΕΡΟΣ Β: 20 ΑΠΑΡΑΙΤΗΤΑ FEATURES ΠΟΥ ΠΡΕΠΕΙ ΝΑ ΕΧΕΙ ΚΑΘΕ ΣΥΓΧΡΟΝΟ WEBSITE
+================================================================================
+
+1. Dark Mode / Clean Theme Architecture:
+   Καθαρό, αποδοτικό visual theme με άριστη αντίθεση κειμένου (WCAG AAA).
+
+2. Simple Cookie Consent Banner:
+   Μινιμαλιστικό GDPR banner συγκατάθεσης cookies με επιλογές Αποδοχή / Μόνο Απαραίτητα.
+
+3. Site Search & Command Palette:
+   Γρήγορη αναζήτηση περιεχομένου (π.χ. αναζήτηση ασκήσεων, μαθημάτων) με shortcut Ctrl+K.
+
+4. Scroll to Top Button:
+   Διακριτικό κουμπί επιστροφής στην κορυφή που εμφανίζεται μόνο μετά από scroll.
+
+5. Responsive Mobile Navigation:
+   Γρήγορο drawer/hamburger menu βελτιστοποιημένο για χειρισμό με ένα χέρι σε smartphone.
+
+6. Skeleton Loading States:
+   Οπτική ένδειξη φόρτωσης περιεχομένου αντί για κενό χώρο ή generic spinners.
+
+7. Refined Hover & Active States:
+   Διακριτική αλλαγή opacity/border color στα διαδραστικά στοιχεία χωρίς περιττά άλματα.
+
+8. Scroll Reading Progress Bar:
+   Λεπτή γραμμή ένδειξης κύλισης στο πάνω μέρος της οθόνης (2px).
+
+9. One-Click Copy Button:
+   Κουμπί άμεσης αντιγραφής κειμένου / προγράμματος στο clipboard με οπτική επιβεβαίωση.
+
+10. Dedicated Print Stylesheet (@media print):
+    Ειδικό CSS ώστε η εκτύπωση σε χαρτί ή PDF να είναι πεντακάθαρη (χωρίς headers/κουμπιά).
+
+11. Sticky Header with Blur Transition:
+    Header που μένει σταθερό κατά το scroll με διακριτικό background opacity.
+
+12. "Skip to Content" Accessibility Link:
+    Σύνδεσμος προσβασιμότητας για χρήστες με πληκτρολόγιο/screen readers (a11y).
+
+13. Input & Form Validation States:
+    Ξεκάθαρη οπτική ένδειξη έγκυρων / μη έγκυρων πεδίων στη φόρμα.
+
+14. UTM Parameter Tracking (Marketing Attribution):
+    Αυτόματη καταγραφή utm_source, utm_medium, utm_campaign από το URL για attribution.
+
+15. Form Success State:
+    Καθαρή επιβεβαίωση καταχώρησης με οδηγίες για τα επόμενα βήματα.
+
+16. Form Error State:
+    Σαφή μηνύματα σφάλματος όταν λείπουν υποχρεωτικά πεδία.
+
+17. Confirmation & Detail Modals:
+    Ελαφριά dialogs για προβολή λεπτομερειών χωρίς απομάκρυνση από τη σελίδα.
+
+18. Last Updated Date Badge:
+    Ημερομηνία τελευταίας ενημέρωσης (π.χ. στο πρόγραμμα ή στο FAQ) για αξιοπιστία.
+
+19. Expandable FAQ Accordion:
+    Διαδραστικές συχνές ερωτήσεις που ανοίγουν/κλείνουν ομαλά.
+
+20. Floating Contact / Quick Inquiry Button:
+    Σταθερό κουμπί άμεσης επικοινωνίας/απορίας στην κάτω γωνία της οθόνης.
+
+================================================================================
+Όλα τα παραπάνω 50 σημεία έχουν ήδη εφαρμοστεί πλήρως στην πλατφόρμα του NexusFit!
+================================================================================

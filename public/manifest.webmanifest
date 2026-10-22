@@ -1,0 +1,19 @@
+{
+  "name": "Nexus Athletics - Fitness & AI Coach",
+  "short_name": "NexusFit",
+  "description": "Το γυμναστήριο σου στο κινητό σου με τον έξυπνο AI Workout Copilot.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08080A",
+  "theme_color": "#CCFF00",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["fitness", "lifestyle", "health"]
+}
