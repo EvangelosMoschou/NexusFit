@@ -30,6 +30,9 @@ yarn-error.log*
 .DS_Store
 *.pem
 
+# Demo build output
+site/dist/
+
 # Agent/session artifacts
 .omo/
 .codegraph

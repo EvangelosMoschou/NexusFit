@@ -44,10 +44,21 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
   const [isErasing, setIsErasing] = useState(false);
   const exerciseLogs = getExerciseLogs();
 
-  // GDPR: the export endpoint replies with Content-Disposition: attachment, so
-  // assigning the URL downloads the file without navigating away.
-  const handleExportData = () => {
-    window.location.assign("/api/member/export");
+  // GDPR: fetch the export so it downloads as a file without leaving the page.
+  const handleExportData = async () => {
+    try {
+      const res = await fetch("/api/member/export");
+      if (!res.ok) return;
+      const disposition = res.headers.get("content-disposition");
+      const match = disposition?.match(/filename="?([^";]+)"?/);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = match?.[1] ?? "nexusfit-member-export.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {}
   };
 
   // GDPR: erasure is irreversible and removes the member plus all saved plans.
