@@ -1,0 +1,8 @@
+{$SITE_DOMAIN:localhost} {
+	reverse_proxy nexusfit_app:3000
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+	}
+}

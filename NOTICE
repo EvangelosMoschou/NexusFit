@@ -1,0 +1,33 @@
+NexusFit
+Copyright (C) 2026 Evangelos Moschou
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>. The full text is
+included in the LICENSE file at the root of this repository.
+
+--------------------------------------------------------------------------------
+COMMERCIAL LICENSING
+
+A separate commercial license is available for organisations that need to use,
+modify, or host NexusFit (or a derivative) without the source-disclosure
+obligations of the AGPL. Contact the maintainer through the repository's issue
+tracker to arrange one.
+
+--------------------------------------------------------------------------------
+TRADEMARKS AND THIRD-PARTY CONTENT
+
+The GNU Affero General Public License applies to the source code only. The names
+"NexusFit" and "Nexus Athletics", their logos, brand assets, marketing copy, and
+the sample gym content (pricing, class schedule, trainers, facilities) are not
+part of the licensed work and remain the property of their respective owners.
+Replace the sample content and branding before deploying a public instance.
+
+Member data must never be committed to this repository.
