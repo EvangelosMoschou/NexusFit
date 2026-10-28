@@ -30,6 +30,20 @@ function normalizeHost(host: string | null | undefined): string {
   return host.split(":")[0].trim().toLowerCase();
 }
 
+// Chooses the password the default tenant is seeded with.
+//
+// Production must never fall back to a known password: an operator who forgets
+// ADMIN_PASSWORD would expose /admin with "admin". Returning null there means
+// the tenant is not seeded at all, so admin login answers 503 until the
+// variable is configured. Development keeps the convenience fallback.
+export function adminSeedPassword(
+  nodeEnv: string | undefined,
+  adminPassword: string | undefined
+): string | null {
+  if (adminPassword) return adminPassword;
+  return nodeEnv === "production" ? null : "admin";
+}
+
 export function getRegistry(): DatabaseSync {
   if (registry) return registry;
 
@@ -55,16 +69,22 @@ export function getRegistry(): DatabaseSync {
   // (localhost, the current single-gym deployment) with no tenant at all.
   const existing = db.prepare("SELECT id FROM tenants WHERE id = ?").get(DEFAULT_TENANT_ID);
   if (!existing) {
-    const seedPassword = process.env.ADMIN_PASSWORD || "admin";
-    db.prepare(
-      "INSERT INTO tenants (id, name, domains, admin_password_hash, created_at) VALUES (?, ?, ?, ?, ?)"
-    ).run(
-      DEFAULT_TENANT_ID,
-      defaultGymConfig.gymName,
-      JSON.stringify([]),
-      hashPin(seedPassword),
-      new Date().toISOString()
-    );
+    const seedPassword = adminSeedPassword(process.env.NODE_ENV, process.env.ADMIN_PASSWORD);
+    if (seedPassword) {
+      db.prepare(
+        "INSERT INTO tenants (id, name, domains, admin_password_hash, created_at) VALUES (?, ?, ?, ?, ?)"
+      ).run(
+        DEFAULT_TENANT_ID,
+        defaultGymConfig.gymName,
+        JSON.stringify([]),
+        hashPin(seedPassword),
+        new Date().toISOString()
+      );
+    } else {
+      console.warn(
+        "[tenants] ADMIN_PASSWORD is not set; refusing to seed the default tenant. Admin login will return 503."
+      );
+    }
   }
 
   registry = db;

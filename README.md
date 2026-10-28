@@ -301,7 +301,7 @@ variable to be set — without it, admin login returns `503`.
 |---|---|---|---|
 | `GEMINI_API_KEY` | No | — | Google AI Studio key. When absent, the AI chat uses the local engine. |
 | `GEMINI_MODEL` | No | `gemini-2.0-flash-lite` | Documented in the env example; **currently the route hardcodes the model** (see Known Gaps). |
-| `ADMIN_PASSWORD` | For admin | — | Seeds the **default tenant's** admin password in the registry on first run. Additional tenants get their own password via `npm run tenant:create`. |
+| `ADMIN_PASSWORD` | For admin | — | Seeds the **default tenant's** admin password in the registry on first run. In production a missing value does **not** fall back to a default: the tenant is not seeded and admin login returns `503`. Development falls back to `admin` for convenience. Additional tenants get their own password via `npm run tenant:create`. |
 | `SESSION_SECRET` | Production | — | HMAC key used to sign member session cookies. Member login returns `503` in production if unset or shorter than 16 characters. Generate with `openssl rand -hex 32`. |
 | `CRON_SECRET` | For retention | — | Shared secret required by `POST /api/cron/retention`. The route returns `503` if unset. |
 | `SQLITE_DATA_DIR` | No | `<cwd>/data` | Directory for `nexusfit.db`. Useful on read-only filesystems (e.g. Vercel → `/tmp`). When `VERCEL` is set and this is missing, the app falls back to `/tmp/nexusfit` and logs a warning. |

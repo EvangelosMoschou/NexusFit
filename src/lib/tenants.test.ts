@@ -8,7 +8,13 @@ process.env.SQLITE_DATA_DIR = tempDir;
 process.env.ADMIN_PASSWORD = "default-admin-pw";
 
 import { getRepository } from "./db";
-import { createTenant, getTenant, listTenants, resolveTenantId } from "./tenants";
+import {
+  adminSeedPassword,
+  createTenant,
+  getTenant,
+  listTenants,
+  resolveTenantId,
+} from "./tenants";
 import { DEFAULT_TENANT_ID } from "./sqliteDb";
 
 afterAll(() => {
@@ -59,6 +65,19 @@ describe("tenant registry", () => {
     expect(createTenant({ id: "BAD ID", name: "Bad", adminPassword: "pw" })).toBe(false);
     expect(createTenant({ id: "ok-id", name: "", adminPassword: "pw" })).toBe(false);
     expect(createTenant({ id: "ok-id", name: "No password", adminPassword: "" })).toBe(false);
+  });
+});
+
+describe("default tenant admin seed", () => {
+  it("requires ADMIN_PASSWORD in production instead of falling back to a known password", () => {
+    expect(adminSeedPassword("production", undefined)).toBeNull();
+    expect(adminSeedPassword("production", "")).toBeNull();
+    expect(adminSeedPassword("production", "s3cret-admin")).toBe("s3cret-admin");
+  });
+
+  it("keeps the development fallback", () => {
+    expect(adminSeedPassword("development", undefined)).toBe("admin");
+    expect(adminSeedPassword(undefined, undefined)).toBe("admin");
   });
 });
 
