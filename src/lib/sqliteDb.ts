@@ -183,6 +183,13 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
       "2026-10-15",
       new Date().toISOString()
     );
+  } else if (tenantId === DEFAULT_TENANT_ID && (!row || row.count === 0)) {
+    // Empty members table on a production host: the demo accounts were
+    // deliberately not created. Surfacing it here makes a failed demo login
+    // diagnosable from the deployment logs.
+    console.warn(
+      "[sqliteDb] SEED_DEMO_MEMBERS is not set; demo member accounts were not created."
+    );
   }
 
   // Seed default site config if empty

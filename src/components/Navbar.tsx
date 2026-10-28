@@ -39,7 +39,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Brand Logo */}
           <button
             type="button"
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            onClick={() => {
+              // Returning to the top should also leave the section anchor
+              // behind, otherwise the URL keeps showing e.g. #facilities.
+              if (window.location.hash) {
+                history.replaceState(null, "", window.location.pathname + window.location.search);
+              }
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             aria-label={`${config.gymName} - Επιστροφή στην αρχή`}
             className="flex items-center gap-2.5 group"
           >
