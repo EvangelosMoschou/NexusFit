@@ -38,15 +38,6 @@ export default function AdminPortalPage() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>("Monday");
 
-  // Check auth session
-  useEffect(() => {
-    const authSession = sessionStorage.getItem("nexus_admin_auth");
-    if (authSession === "true") {
-      setIsAuthenticated(true);
-      fetchAdminData();
-    }
-  }, []);
-
   const fetchAdminData = async () => {
     try {
       // Fetch config, leads and members in parallel
@@ -72,6 +63,15 @@ export default function AdminPortalPage() {
       }
     } catch {}
   };
+
+  // Check auth session
+  useEffect(() => {
+    const authSession = sessionStorage.getItem("nexus_admin_auth");
+    if (authSession === "true") {
+      setIsAuthenticated(true);
+      fetchAdminData();
+    }
+  }, []);
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
