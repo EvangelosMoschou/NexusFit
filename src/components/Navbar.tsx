@@ -3,17 +3,27 @@
 import React, { useState } from "react";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { Menu, X, Search, LogIn, Dumbbell } from "lucide-react";
+import { MemberMenu, PortalTab } from "@/components/MemberMenu";
+import { MemberUser } from "@/lib/auth";
 
 interface NavbarProps {
   onOpenContact: () => void;
   onOpenSearch: () => void;
   onOpenLogin: () => void;
+  onGoHome: () => void;
+  member?: MemberUser | null;
+  onLogout?: () => void;
+  onSelectMemberTab?: (tab: PortalTab) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenContact,
   onOpenSearch,
   onOpenLogin,
+  onGoHome,
+  member,
+  onLogout,
+  onSelectMemberTab,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { config } = useGymConfig();
@@ -24,6 +34,11 @@ export const Navbar: React.FC<NavbarProps> = ({
     { label: "Συνδρομές", href: "#pricing" },
     { label: "Επικοινωνία", href: "#contact" },
   ];
+
+  const memberMenu =
+    member && onLogout && onSelectMemberTab ? (
+      <MemberMenu member={member} onSelectTab={onSelectMemberTab} onLogout={onLogout} />
+    ) : null;
 
   return (
     <>
@@ -39,15 +54,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Brand Logo */}
           <button
             type="button"
-            onClick={() => {
-              // Returning to the top should also leave the section anchor
-              // behind, otherwise the URL keeps showing e.g. #facilities.
-              if (window.location.hash) {
-                history.replaceState(null, "", window.location.pathname + window.location.search);
-              }
-              window.scrollTo({ top: 0, behavior: "smooth" });
-            }}
-            aria-label={`${config.gymName} - Επιστροφή στην αρχή`}
+            onClick={onGoHome}
+            aria-label={`${config.gymName} - Επιστροφή στην αρχική σελίδα`}
             className="flex items-center gap-2.5 group"
           >
             <div className="w-8 h-8 rounded-lg bg-accent text-black font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
@@ -82,13 +90,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Search className="w-3.5 h-3.5" />
             </button>
 
-            <button
-              onClick={onOpenLogin}
-              className="px-3.5 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
-            >
-              <LogIn className="w-3.5 h-3.5 text-accent" />
-              <span>Σύνδεση Μέλους</span>
-            </button>
+            {memberMenu ?? (
+              <button
+                onClick={onOpenLogin}
+                className="px-3.5 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
+              >
+                <LogIn className="w-3.5 h-3.5 text-accent" />
+                <span>Σύνδεση Μέλους</span>
+              </button>
+            )}
 
             <button
               onClick={onOpenContact}
@@ -100,17 +110,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Mobile Menu Trigger */}
           <div className="flex items-center gap-2 md:hidden">
-            <button
-              onClick={onOpenLogin}
-              className="px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-xs font-bold text-white"
-            >
-              Login
-            </button>
+            {memberMenu ?? (
+              <button
+                onClick={onOpenLogin}
+                className="px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-xs font-bold text-white"
+              >
+                Σύνδεση
+              </button>
+            )}
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-1.5 rounded-lg border border-border text-white"
-              aria-label="Open menu"
+              aria-label={mobileMenuOpen ? "Κλείσιμο μενού" : "Άνοιγμα μενού"}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -131,15 +143,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               </a>
             ))}
             <div className="pt-2 space-y-2">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenLogin();
-                }}
-                className="w-full py-2.5 rounded-lg bg-surface-elevated border border-border text-white font-bold text-xs text-center"
-              >
-                Σύνδεση Μέλους (Member Login)
-              </button>
+              {!memberMenu && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenLogin();
+                  }}
+                  className="w-full py-2.5 rounded-lg bg-surface-elevated border border-border text-white font-bold text-xs text-center"
+                >
+                  Σύνδεση Μέλους
+                </button>
+              )}
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);

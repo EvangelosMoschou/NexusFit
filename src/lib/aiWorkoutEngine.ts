@@ -42,16 +42,16 @@ export function generateSmartWorkoutPlan(prefs: UserPreferences): GeneratedWorko
 
   if (daysPerWeek === 3) {
     splitType = "full_body";
-    splitName = "3-Day Full Body High-Frequency Split";
-    coachAdvice = "Ιδανική συχνότητα για μέγιστη πρωτεϊνοσύνθεση. Εστιάστε στην εκτέλεση βασικών πολυαρθρικών ασκήσεων με RPE 7.5 - 8.5.";
+    splitName = "Πρόγραμμα 3 Ημερών – Πλήρες Σώμα";
+    coachAdvice = "Ιδανική συχνότητα για μέγιστη πρωτεϊνοσύνθεση. Εστιάστε στην εκτέλεση βασικών πολυαρθρικών ασκήσεων με ένταση 7,5 - 8,5.";
   } else if (daysPerWeek === 4) {
     splitType = "upper_lower";
-    splitName = "4-Day Upper / Lower Hypertrophy Split";
-    coachAdvice = "Εξαιρετική ισορροπία όγκου προπόνησης και ανάρρωσης. Δώστε έμφαση στην προοδευτική υπερφόρτωση (progressive overload) στα πρώτα σύνθετα σετ.";
+    splitName = "Πρόγραμμα 4 Ημερών – Άνω / Κάτω Σώμα";
+    coachAdvice = "Εξαιρετική ισορροπία όγκου προπόνησης και ανάρρωσης. Δώστε έμφαση στη σταδιακή αύξηση επιβάρυνσης στα πρώτα σύνθετα σετ.";
   } else if (daysPerWeek >= 5) {
     splitType = "push_pull_legs";
-    splitName = `${daysPerWeek}-Day Push / Pull / Legs High-Volume Split`;
-    coachAdvice = "Υψηλός όγκος ανά μυϊκή ομάδα. Διασφαλίστε επαρκή ύπνο (7-8 ώρες) και κατανάλωση πρωτεΐνης (1.6 - 2.2g / kg βάρους).";
+    splitName = `Πρόγραμμα ${daysPerWeek} Ημερών – Ώθηση / Έλξη / Πόδια`;
+    coachAdvice = "Υψηλός όγκος ανά μυϊκή ομάδα. Διασφαλίστε επαρκή ύπνο (7-8 ώρες) και κατανάλωση πρωτεΐνης (1,6 - 2,2 γρ. ανά κιλό σωματικού βάρους).";
   }
 
   // 2. Adjust Rep ranges & RPE targets based on primary goal
@@ -157,7 +157,7 @@ export function generateSmartWorkoutPlan(prefs: UserPreferences): GeneratedWorko
   if (splitType === "full_body") {
     // Day 1: Full Body A
     days.push(
-      buildDay(1, "Ημέρα 1: Total Body Power (A)", "Στήθος, Τετρακέφαλοι & Πλάτη", [
+      buildDay(1, "Ημέρα 1: Δύναμη Πλήρους Σώματος (Α)", "Στήθος, Τετρακέφαλοι & Πλάτη", [
         { muscle: "chest", slice: [0, 1], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Στήθος" },
         { muscle: "legs", slice: [0, 1], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Πόδια (Τετρακέφαλοι)" },
         { muscle: "back", slice: [0, 1], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Πλάτη" },
@@ -167,7 +167,7 @@ export function generateSmartWorkoutPlan(prefs: UserPreferences): GeneratedWorko
 
     // Day 2: Full Body B
     days.push(
-      buildDay(2, "Ημέρα 2: Total Body Volume (B)", "Πλάτη, Οπίσθιοι Μηριαίοι & Στήθος", [
+      buildDay(2, "Ημέρα 2: Όγκος Πλήρους Σώματος (Β)", "Πλάτη, Οπίσθιοι Μηριαίοι & Στήθος", [
         { muscle: "back", slice: [1, 2], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Πλάτη (Κάθετη Έλξη)" },
         { muscle: "legs", slice: [1, 2], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Οπίσθιοι Μηριαίοι" },
         { muscle: "chest", slice: [1, 2], sets: isolationSets, reps: isolationReps, rpe: 8.5, restSeconds: restIsolation, muscleGroup: "Στήθος" },
@@ -176,7 +176,7 @@ export function generateSmartWorkoutPlan(prefs: UserPreferences): GeneratedWorko
 
     // Day 3: Full Body C
     days.push(
-      buildDay(3, "Ημέρα 3: Total Body Hypertrophy (C)", "Ώμοι, Χέρια & Πόδια", [
+      buildDay(3, "Ημέρα 3: Υπερτροφία Πλήρους Σώματος (Γ)", "Ώμοι, Χέρια & Πόδια", [
         { muscle: "shoulders", slice: [0, 1], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Ώμοι" },
         { muscle: "legs", slice: [0, 1], sets: targetSets, reps: isolationReps, rpe: 8.5, restSeconds: restIsolation, muscleGroup: "Πόδια" },
         { muscle: "arms", slice: [0, 2], sets: isolationSets, reps: isolationReps, rpe: 9, restSeconds: restIsolation, muscleGroup: "Χέρια (Δικέφαλοι / Τρικέφαλοι)" },
@@ -187,7 +187,7 @@ export function generateSmartWorkoutPlan(prefs: UserPreferences): GeneratedWorko
     // splits repeat the cycle instead of returning fewer days than requested.
     const splitDays: Array<{ dayName: string; focus: string; slots: ExerciseSlot[] }> = [
       {
-        dayName: "Ημέρα 1: Upper Body Power",
+        dayName: "Ημέρα 1: Δύναμη Άνω Σώματος",
         focus: "Στήθος, Πλάτη & Ώμοι",
         slots: [
           { muscle: "chest", slice: [0, 1], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Στήθος" },
@@ -196,22 +196,22 @@ export function generateSmartWorkoutPlan(prefs: UserPreferences): GeneratedWorko
         ],
       },
       {
-        dayName: "Ημέρα 2: Lower Body Quad & Hamstring",
+        dayName: "Ημέρα 2: Κάτω Σώμα – Τετρακέφαλοι & Οπίσθιοι",
         focus: "Τετρακέφαλοι, Γλουτοί & Γάμπες",
         slots: [
           { muscle: "legs", slice: [0, 2], sets: targetSets, reps: primaryReps, rpe: 8.5, restSeconds: restCompound, muscleGroup: "Πόδια" },
         ],
       },
       {
-        dayName: "Ημέρα 3: Upper Body Hypertrophy & Arms",
+        dayName: "Ημέρα 3: Υπερτροφία Άνω Σώματος & Χέρια",
         focus: "Πλάτη, Στήθος & Βραχίονες",
         slots: [
-          { muscle: "back", slice: [1, 2], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Πλάτη (Lat Pulldown)" },
+          { muscle: "back", slice: [1, 2], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Πλάτη (Κάθετη Έλξη)" },
           { muscle: "arms", slice: [0, 2], sets: isolationSets, reps: isolationReps, rpe: 9, restSeconds: restIsolation, muscleGroup: "Χέρια" },
         ],
       },
       {
-        dayName: "Ημέρα 4: Lower Body Posterior Chain & Core",
+        dayName: "Ημέρα 4: Κάτω Σώμα – Οπίσθια Αλυσίδα & Κορμός",
         focus: "Οπίσθιοι Μηριαίοι, Γλουτοί & Κοιλιακοί",
         slots: [
           { muscle: "legs", slice: [1, 2], sets: targetSets, reps: primaryReps, rpe: 8, restSeconds: restCompound, muscleGroup: "Οπίσθιοι Μηριαίοι" },
@@ -239,9 +239,9 @@ export function generateSmartWorkoutPlan(prefs: UserPreferences): GeneratedWorko
     "2-3 σταδιακά σετ προθέρμανσης στην πρώτη άσκηση της ημέρας με προοδευτική αύξηση κιλών",
   ];
 
-  let weeklyCardioRecommendation = "2 συνεδρίες 20-25 λεπτών Zone 2 cardio (διάδρομος με κλίση ή ποδήλατο) ανά εβδομάδα.";
+  let weeklyCardioRecommendation = "2 συνεδρίες 20-25 λεπτών αερόβιας χαμηλής έντασης (διάδρομος με κλίση ή ποδήλατο) ανά εβδομάδα.";
   if (goal === "fat_loss") {
-    weeklyCardioRecommendation = "3-4 συνεδρίες 30 λεπτών Zone 2 cardio ή 2 συνεδρίες HIIT 15 λεπτών μετά την προπόνηση.";
+    weeklyCardioRecommendation = "3-4 συνεδρίες 30 λεπτών αερόβιας χαμηλής έντασης ή 2 συνεδρίες υψηλής έντασης 15 λεπτών μετά την προπόνηση.";
   }
 
   return {

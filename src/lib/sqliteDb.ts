@@ -161,16 +161,21 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
+    // Demo members should not appear expired a year from now.
+    const seedExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+
     insertMember.run(
       "mem-8492",
       "NX-8492",
       "Γεώργιος Παπαδόπουλος",
       "george@nexusathletics.gr",
       hashPin("1234"),
-      "All-Access & NexusFit AI Copilot (45€ + 14€/mo)",
+      "Ευεξία & Ψηφιακός Βοηθός (59€/μήνα)",
       1,
       "active",
-      "2026-12-31",
+      seedExpiry,
       new Date().toISOString()
     );
 
@@ -180,10 +185,10 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
       "Μαρία Κωνσταντίνου",
       "maria@nexusathletics.gr",
       hashPin("1234"),
-      "Standard Gym Access (45€/mo)",
+      "Συνδρομή Ευεξίας (45€/μήνα)",
       0,
       "active",
-      "2026-10-15",
+      seedExpiry,
       new Date().toISOString()
     );
   } else if (tenantId === DEFAULT_TENANT_ID && (!row || row.count === 0)) {

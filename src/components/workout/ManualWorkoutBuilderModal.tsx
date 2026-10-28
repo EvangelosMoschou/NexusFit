@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { GeneratedWorkoutPlan, WorkoutDay, WorkoutExerciseItem } from "@/types";
 import { X, Plus, Trash2, Save } from "lucide-react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { muscleGroupLabel } from "@/lib/format";
 
 interface ManualWorkoutBuilderModalProps {
   isOpen: boolean;
@@ -28,7 +29,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
   const [days, setDays] = useState<WorkoutDay[]>([
     {
       dayNumber: 1,
-      dayName: "Ημέρα 1: Upper Body / Στήθος & Πλάτη",
+      dayName: "Ημέρα 1: Άνω Σώμα / Στήθος & Πλάτη",
       focus: "Στήθος & Πλάτη",
       estimatedMinutes: 60,
       exercises: [
@@ -266,7 +267,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                         >
                           {PLACEHOLDER_EXERCISES.map((dbEx) => (
                             <option key={dbEx.id} value={dbEx.id}>
-                              {dbEx.greekName} ({dbEx.name}) - {dbEx.muscleGroup}
+                              {dbEx.greekName} - {muscleGroupLabel(dbEx.muscleGroup)}
                             </option>
                           ))}
                         </select>
@@ -290,7 +291,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                         </div>
 
                         <div>
-                          <label className="block text-[10px] text-tertiary mb-0.5">Reps</label>
+                          <label className="block text-[10px] text-tertiary mb-0.5">Επαναλήψεις</label>
                           <input
                             type="text"
                             value={ex.reps}

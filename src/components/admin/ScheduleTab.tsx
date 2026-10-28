@@ -120,12 +120,12 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   onChange={(e) => updateClass(item.id, { category: e.target.value as GymClassSchedule["category"] })}
                   className="w-full px-2 py-1 rounded bg-background border border-border text-white text-xs"
                 >
-                  <option value="Strength">Strength</option>
-                  <option value="HIIT">HIIT</option>
-                  <option value="Pilates">Pilates</option>
-                  <option value="Yoga">Yoga</option>
-                  <option value="Boxing">Boxing</option>
-                  <option value="Cycling">Cycling</option>
+                  <option value="Strength">Δύναμη</option>
+                  <option value="HIIT">Υψηλή Ένταση</option>
+                  <option value="Pilates">Πιλάτες</option>
+                  <option value="Yoga">Γιόγκα</option>
+                  <option value="Boxing">Πυγμαχία</option>
+                  <option value="Cycling">Ποδηλασία</option>
                 </select>
               </div>
 

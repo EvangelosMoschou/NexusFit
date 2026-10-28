@@ -8,20 +8,22 @@ import { MemberUser } from "@/lib/auth";
 const PLANS_KEY_PREFIX = "nexusfit_demo_plans_";
 let currentMemberCode: string | null = null;
 
+const demoExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
 const aiSubscription = {
   tier: "all_inclusive_ai" as const,
-  tierName: "All-Access & NexusFit AI Copilot (45€ + 14€/mo)",
+  tierName: "Ευεξία & Ψηφιακός Βοηθός (59€/μήνα)",
   status: "active" as const,
-  expiresAt: "2026-12-31",
+  expiresAt: demoExpiry,
   autoRenew: true,
   hasAIAccess: true,
 };
 
 const standardSubscription = {
   tier: "standard" as const,
-  tierName: "Standard Gym Access (45€/mo)",
+  tierName: "Συνδρομή Ευεξίας (45€/μήνα)",
   status: "active" as const,
-  expiresAt: "2026-10-15",
+  expiresAt: demoExpiry,
   autoRenew: true,
   hasAIAccess: false,
 };

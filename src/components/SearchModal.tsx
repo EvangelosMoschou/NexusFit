@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { exercisesDatabase } from "@/data/exercisesData";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { equipmentLabel, muscleGroupLabel } from "@/lib/format";
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -101,10 +102,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                   >
                     <div>
                       <div className="font-semibold text-white">{ex.greekName}</div>
-                      <div className="text-[11px] text-tertiary">{ex.name} • {ex.muscleGroup}</div>
+                      <div className="text-[11px] text-tertiary">{muscleGroupLabel(ex.muscleGroup)}</div>
                     </div>
                     <span className="text-[10px] font-mono text-accent uppercase">
-                      {ex.equipment}
+                      {equipmentLabel(ex.equipment)}
                     </span>
                   </div>
                 ))}

@@ -4,6 +4,7 @@ import React from "react";
 import { X, Send, Bot, User } from "lucide-react";
 import { useLocalAgentChat } from "@/lib/useLocalAgentChat";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { equipmentLabel, muscleGroupLabel } from "@/lib/format";
 
 interface AICoachChatModalProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ interface AICoachChatModalProps {
 
 export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onClose }) => {
   const { input, setInput, messages, loading, send } = useLocalAgentChat(
-    "Γεια σας! Είμαι ο AI Coach του NexusFit. Έχω πρόσβαση στη βάση δεδομένων του γυμναστηρίου για όλες τις ασκήσεις, τα μηχανήματα και την ασφάλεια τραυματισμών. Πώς μπορώ να σας βοηθήσω στη σημερινή σας προπόνηση;"
+    "Γεια σας! Είμαι ο ψηφιακός προπονητής του NexusFit. Έχω πρόσβαση στη βάση δεδομένων του γυμναστηρίου για όλες τις ασκήσεις, τα μηχανήματα και την ασφάλεια τραυματισμών. Πώς μπορώ να σας βοηθήσω στη σημερινή σας προπόνηση;"
   );
 
   useEscapeKey(isOpen, onClose);
@@ -20,10 +21,10 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
   if (!isOpen) return null;
 
   const quickPrompts = [
-    "Εναλλακτική για Bench Press",
+    "Εναλλακτική για Πιέσεις Πάγκου",
     "Ευαισθησία στη μέση",
     "Ενόχληση στον ώμο",
-    "Σετ & Reps για Υπερτροφία",
+    "Σετ & Επαναλήψεις για Υπερτροφία",
     "Πόση πρωτεΐνη χρειάζομαι;",
   ];
 
@@ -31,7 +32,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Συνομιλία με τον AI Coach"
+      aria-label="Συνομιλία με τον ψηφιακό προπονητή"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
     >
       <div className="relative w-full max-w-2xl bg-surface border border-border rounded-xl shadow-2xl flex flex-col h-[600px] max-h-[90vh] overflow-hidden">
@@ -44,9 +45,9 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-white">NexusFit AI Fitness Agent</h3>
+                <h3 className="text-sm font-bold text-white">Ψηφιακός Βοηθός NexusFit</h3>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] text-emerald-400 font-mono">Live DB Connected</span>
+                <span className="text-[10px] text-emerald-400 font-mono">Συνδεδεμένη βάση ασκήσεων</span>
               </div>
               <p className="text-[11px] text-secondary">
                 Άμεσες απαντήσεις για ασκήσεις, εναλλακτικές και ασφάλεια
@@ -115,10 +116,10 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
                         >
                           <div>
                             <div className="font-semibold text-white">{ex.greekName}</div>
-                            <div className="text-[10px] text-tertiary">{ex.name} • {ex.muscleGroup}</div>
+                            <div className="text-[10px] text-tertiary">{muscleGroupLabel(ex.muscleGroup)}</div>
                           </div>
                           <span className="font-mono text-[10px] text-accent uppercase">
-                            {ex.equipment}
+                            {equipmentLabel(ex.equipment)}
                           </span>
                         </div>
                       ))}
@@ -146,7 +147,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
           {loading && (
             <div className="flex gap-2 items-center text-xs text-secondary p-2">
               <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-              <span>Ο AI Agent αναζητά στη βάση δεδομένων...</span>
+              <span>Ο βοηθός αναζητά στη βάση δεδομένων...</span>
             </div>
           )}
         </div>
@@ -161,7 +162,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
         >
           <input
             type="text"
-            placeholder="Ρωτήστε τον AI Coach (π.χ. 'Πονάει ο ώμος μου, τι να κάνω;')..."
+            placeholder="Ρωτήστε τον ψηφιακό προπονητή (π.χ. 'Πονάει ο ώμος μου, τι να κάνω;')..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             className="flex-1 px-3.5 py-2 rounded-lg bg-background border border-border text-white text-xs outline-none focus:border-border-light placeholder:text-tertiary"
@@ -170,7 +171,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
             type="submit"
             disabled={!input.trim() || loading}
             className="p-2.5 rounded-lg bg-white hover:bg-white/90 disabled:opacity-50 text-black font-bold transition-colors shadow-sm"
-            aria-label="Send"
+            aria-label="Αποστολή"
           >
             <Send className="w-3.5 h-3.5" />
           </button>

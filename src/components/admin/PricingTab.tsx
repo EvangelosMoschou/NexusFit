@@ -37,7 +37,7 @@ export const PricingTab: React.FC<PricingTabProps> = ({ config, setConfig }) => 
                   checked={plan.popular}
                   onChange={(e) => updatePlan(planIdx, { popular: e.target.checked })}
                 />
-                <span>Δημοφιλές Badge</span>
+                <span>Δημοφιλές Πλαίσιο</span>
               </label>
             </div>
 

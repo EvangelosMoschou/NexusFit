@@ -33,7 +33,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
         </div>
 
         <div>
-          <label className="block text-[11px] text-secondary mb-1">Email Επικοινωνίας</label>
+          <label className="block text-[11px] text-secondary mb-1">Ηλεκτρονικό Ταχυδρομείο</label>
           <input
             type="email"
             value={config.email}
