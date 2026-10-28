@@ -3,6 +3,7 @@
 import React from "react";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { MapPin, Dumbbell, Users, Clock, Award } from "lucide-react";
+import { BackgroundDecor } from "@/components/BackgroundDecor";
 
 interface HeroProps {
   onOpenContact: () => void;
@@ -13,8 +14,9 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
   const { config } = useGymConfig();
 
   return (
-    <section className="pt-28 pb-16 border-b border-border bg-background">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+    <section className="relative overflow-hidden pt-28 pb-16 border-b border-border bg-background">
+      <BackgroundDecor />
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           
           {/* Left Column: Athletic Presentation */}
