@@ -17,7 +17,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Col 1 */}
           <div className="space-y-2">
-            <div className="font-bold text-sm text-white uppercase">
+            <div className="font-bold text-sm text-primary uppercase">
               {config.gymName}
             </div>
             <p className="text-tertiary text-xs leading-relaxed">
@@ -30,18 +30,18 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
 
           {/* Col 2 */}
           <div className="space-y-2">
-            <div className="font-semibold text-white">Πλοήγηση</div>
+            <div className="font-semibold text-primary">Πλοήγηση</div>
             <ul className="space-y-1.5 text-secondary">
-              <li><a href="#facilities" className="hover:text-white transition-colors">Εγκαταστάσεις</a></li>
-              <li><a href="#schedule" className="hover:text-white transition-colors">Πρόγραμμα Ομαδικών</a></li>
-              <li><a href="#pricing" className="hover:text-white transition-colors">Συνδρομές & Ψηφιακό Πρόσθετο</a></li>
-              <li><a href="#contact" className="hover:text-white transition-colors">Ηλεκτρονική Εγγραφή</a></li>
+              <li><a href="#facilities" className="hover:text-primary transition-colors">Εγκαταστάσεις</a></li>
+              <li><a href="#schedule" className="hover:text-primary transition-colors">Πρόγραμμα Ομαδικών</a></li>
+              <li><a href="#pricing" className="hover:text-primary transition-colors">Συνδρομές & Ψηφιακό Πρόσθετο</a></li>
+              <li><a href="#contact" className="hover:text-primary transition-colors">Ηλεκτρονική Εγγραφή</a></li>
             </ul>
           </div>
 
           {/* Col 3 */}
           <div className="space-y-2">
-            <div className="font-semibold text-white">Ωράριο & Τοποθεσία</div>
+            <div className="font-semibold text-primary">Ωράριο & Τοποθεσία</div>
             <div className="space-y-1 text-tertiary">
               <div>Δευτέρα - Παρασκευή: {config.workingHours.weekdays}</div>
               <div>Σάββατο: {config.workingHours.saturday}</div>
@@ -52,12 +52,12 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
 
           {/* Col 4 */}
           <div className="space-y-2">
-            <div className="font-semibold text-white">Νομικά & Επικοινωνία</div>
+            <div className="font-semibold text-primary">Νομικά & Επικοινωνία</div>
             <ul className="space-y-1.5 text-secondary">
               <li>
                 <button
                   onClick={() => onOpenLegal("tos")}
-                  className="hover:text-white transition-colors text-left"
+                  className="hover:text-primary transition-colors text-left"
                 >
                   Όροι Χρήσης (TOS)
                 </button>
@@ -65,7 +65,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
               <li>
                 <button
                   onClick={() => onOpenLegal("privacy")}
-                  className="hover:text-white transition-colors text-left"
+                  className="hover:text-primary transition-colors text-left"
                 >
                   Πολιτική Απορρήτου (Privacy Policy)
                 </button>
@@ -77,13 +77,13 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
                     clearConsent();
                     window.location.reload();
                   }}
-                  className="hover:text-white transition-colors text-left"
+                  className="hover:text-primary transition-colors text-left"
                 >
                   Διαχείριση Cookies
                 </button>
               </li>
               <li>
-                <a href={`mailto:${config.email}`} className="hover:text-white transition-colors">
+                <a href={`mailto:${config.email}`} className="hover:text-primary transition-colors">
                   {config.email}
                 </a>
               </li>

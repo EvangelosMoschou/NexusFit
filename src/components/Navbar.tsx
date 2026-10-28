@@ -47,12 +47,12 @@ export const Navbar: React.FC<NavbarProps> = ({
     <>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 z-[70] px-4 py-2 bg-white text-black text-xs font-bold rounded-lg shadow-lg"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 z-[70] px-4 py-2 bg-btn text-btn-ink text-xs font-bold rounded-lg shadow-lg"
       >
         Μετάβαση στο περιεχόμενο
       </a>
 
-      <header className="fixed top-0 left-0 right-0 z-50 bg-[#181A20]/95 border-b border-border py-3.5 backdrop-blur-md">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-surface/95 border-b border-border py-3.5 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           {/* Brand Logo */}
           <button
@@ -61,10 +61,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             aria-label={`${config.gymName} - Επιστροφή στην αρχική σελίδα`}
             className="flex items-center gap-2.5 group"
           >
-            <div className="w-8 h-8 rounded-lg bg-accent text-black font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
               <Dumbbell className="w-4 h-4 stroke-[2.5]" />
             </div>
-            <span className="font-bold text-base tracking-tight text-white uppercase">
+            <span className="font-bold text-base tracking-tight text-primary uppercase">
               {config.gymName}
             </span>
           </button>
@@ -75,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <a
                 key={link.label}
                 href={link.href}
-                className="text-xs font-semibold text-secondary hover:text-white transition-colors"
+                className="text-xs font-semibold text-secondary hover:text-primary transition-colors"
               >
                 {link.label}
               </a>
@@ -87,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenSearch}
               aria-label="Αναζήτηση"
-              className="p-2 rounded-lg bg-surface border border-border text-secondary hover:text-white hover:bg-surface-elevated transition-colors flex items-center gap-1.5 text-xs"
+              className="p-2 rounded-lg bg-surface border border-border text-secondary hover:text-primary hover:bg-surface-elevated transition-colors flex items-center gap-1.5 text-xs"
               title="Αναζήτηση"
             >
               <Search className="w-3.5 h-3.5" />
@@ -96,7 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {memberMenu ?? (
               <button
                 onClick={onOpenLogin}
-                className="px-3.5 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
+                className="px-3.5 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
               >
                 <LogIn className="w-3.5 h-3.5 text-accent" />
                 <span>Σύνδεση Μέλους</span>
@@ -105,7 +105,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={onOpenContact}
-              className="px-4 py-2 rounded-lg bg-white hover:bg-white/90 text-black font-bold text-xs tracking-tight transition-colors shadow-sm"
+              className="px-4 py-2 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs tracking-tight transition-colors shadow-sm"
             >
               Επικοινωνία & Επίσκεψη
             </button>
@@ -116,7 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {memberMenu ?? (
               <button
                 onClick={onOpenLogin}
-                className="px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-xs font-bold text-white"
+                className="px-2.5 py-1.5 rounded-lg bg-surface-elevated border border-border text-xs font-bold text-primary"
               >
                 Σύνδεση
               </button>
@@ -124,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 rounded-lg border border-border text-white"
+              className="p-1.5 rounded-lg border border-border text-primary"
               aria-label={mobileMenuOpen ? "Κλείσιμο μενού" : "Άνοιγμα μενού"}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -140,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 key={link.label}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block py-2 text-sm font-medium text-secondary hover:text-white border-b border-border/40"
+                className="block py-2 text-sm font-medium text-secondary hover:text-primary border-b border-border/40"
               >
                 {link.label}
               </a>
@@ -152,7 +152,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setMobileMenuOpen(false);
                     onOpenLogin();
                   }}
-                  className="w-full py-2.5 rounded-lg bg-surface-elevated border border-border text-white font-bold text-xs text-center"
+                  className="w-full py-2.5 rounded-lg bg-surface-elevated border border-border text-primary font-bold text-xs text-center"
                 >
                   Σύνδεση Μέλους
                 </button>
@@ -162,7 +162,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setMobileMenuOpen(false);
                   onOpenContact();
                 }}
-                className="w-full py-2.5 rounded-lg bg-white text-black font-bold text-xs text-center"
+                className="w-full py-2.5 rounded-lg bg-btn text-btn-ink font-bold text-xs text-center"
               >
                 Επικοινωνία & Επίσκεψη
               </button>

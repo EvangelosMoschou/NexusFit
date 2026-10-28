@@ -43,7 +43,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({ config, setC
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold text-white flex items-center gap-2">
+          <h2 className="text-base font-bold text-primary flex items-center gap-2">
             <Megaphone className="w-4 h-4 text-accent" />
             Ανακοινώσεις Γυμναστηρίου
           </h2>
@@ -56,7 +56,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({ config, setC
         <button
           type="button"
           onClick={addAnnouncement}
-          className="px-3.5 py-2 rounded-lg bg-white hover:bg-white/90 text-black font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
+          className="px-3.5 py-2 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
         >
           <Plus className="w-3.5 h-3.5" />
           Νέα Ανακοίνωση
@@ -79,7 +79,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({ config, setC
                     value={item.title}
                     onChange={(e) => updateAnnouncement(item.id, { title: e.target.value })}
                     placeholder="π.χ. Δεν θα γίνουν σήμερα τα μαθήματα γιόγκα"
-                    className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs font-bold outline-none focus:border-border-light"
+                    className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-bold outline-none focus:border-border-light"
                   />
                 </div>
 
@@ -89,7 +89,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({ config, setC
                     type="date"
                     value={item.date ?? ""}
                     onChange={(e) => updateAnnouncement(item.id, { date: e.target.value })}
-                    className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs font-mono outline-none focus:border-border-light"
+                    className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-mono outline-none focus:border-border-light"
                   />
                 </div>
 
@@ -102,7 +102,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({ config, setC
                         level: e.target.value as GymAnnouncement["level"],
                       })
                     }
-                    className="w-full px-2 py-2 rounded bg-background border border-border text-white text-xs"
+                    className="w-full px-2 py-2 rounded bg-background border border-border text-primary text-xs"
                   >
                     <option value="info">Ενημέρωση</option>
                     <option value="warning">Προσοχή</option>
@@ -117,7 +117,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({ config, setC
                   value={item.body}
                   onChange={(e) => updateAnnouncement(item.id, { body: e.target.value })}
                   placeholder="Γράψτε την ανακοίνωση που θα δουν τα μέλη και οι επισκέπτες."
-                  className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs outline-none focus:border-border-light resize-none"
+                  className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none focus:border-border-light resize-none"
                 />
               </div>
 

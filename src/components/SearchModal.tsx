@@ -72,11 +72,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
             placeholder="Αναζήτηση ασκήσεων, ομαδικών μαθημάτων ή εγκαταστάσεων..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent text-white text-xs outline-none placeholder:text-tertiary"
+            className="flex-1 bg-transparent text-primary text-xs outline-none placeholder:text-tertiary"
           />
           <button
             onClick={onClose}
-            className="text-[11px] font-mono text-tertiary px-1.5 py-0.5 rounded border border-border hover:text-white"
+            className="text-[11px] font-mono text-tertiary px-1.5 py-0.5 rounded border border-border hover:text-primary"
           >
             ESC
           </button>
@@ -101,7 +101,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                     className="p-2.5 rounded hover:bg-surface-elevated cursor-pointer flex items-center justify-between text-xs transition-colors"
                   >
                     <div>
-                      <div className="font-semibold text-white">{ex.greekName}</div>
+                      <div className="font-semibold text-primary">{ex.greekName}</div>
                       <div className="text-[11px] text-tertiary">{muscleGroupLabel(ex.muscleGroup)}</div>
                     </div>
                     <span className="text-[10px] font-mono text-accent uppercase">
@@ -128,7 +128,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                     className="p-2.5 rounded hover:bg-surface-elevated flex items-center justify-between text-xs"
                   >
                     <div>
-                      <div className="font-semibold text-white">{cl.className}</div>
+                      <div className="font-semibold text-primary">{cl.className}</div>
                       <div className="text-[11px] text-tertiary">{cl.dayGreek} • {cl.time}</div>
                     </div>
                     <span className="text-[10px] font-mono text-secondary">

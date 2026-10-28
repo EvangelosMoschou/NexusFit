@@ -62,7 +62,7 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
         aria-label="Μενού μέλους"
         className="flex items-center gap-1.5 rounded-full p-0.5 pr-1.5 border border-border bg-surface-elevated hover:bg-border transition-colors"
       >
-        <span className="w-7 h-7 rounded-full bg-accent text-black text-[11px] font-extrabold flex items-center justify-center">
+        <span className="w-7 h-7 rounded-full bg-accent text-accent-ink text-[11px] font-extrabold flex items-center justify-center">
           {initials(member.fullName)}
         </span>
         <ChevronDown className={`w-3.5 h-3.5 text-secondary transition-transform ${open ? "rotate-180" : ""}`} />
@@ -75,7 +75,7 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
           className="absolute right-0 mt-2 w-64 rounded-xl bg-surface border border-border shadow-2xl overflow-hidden z-[60]"
         >
           <div className="px-4 py-3 border-b border-border">
-            <div className="text-xs font-bold text-white truncate">{member.fullName}</div>
+            <div className="text-xs font-bold text-primary truncate">{member.fullName}</div>
             <div className="text-[11px] text-tertiary font-mono mt-0.5">
               {member.memberCode}
             </div>
@@ -90,7 +90,7 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
                   role="menuitem"
                   type="button"
                   onClick={() => handleSelect(item.tab)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-secondary hover:text-white hover:bg-surface-elevated transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-secondary hover:text-primary hover:bg-surface-elevated transition-colors text-left"
                 >
                   <Icon className="w-4 h-4 shrink-0" />
                   <span>{item.label}</span>
@@ -107,7 +107,7 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
                 setOpen(false);
                 onLogout();
               }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-secondary hover:text-white hover:bg-surface-elevated transition-colors text-left"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-secondary hover:text-primary hover:bg-surface-elevated transition-colors text-left"
             >
               <LogOut className="w-4 h-4 shrink-0" />
               <span>Αποσύνδεση</span>

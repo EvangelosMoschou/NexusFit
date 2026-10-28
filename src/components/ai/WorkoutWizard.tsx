@@ -116,7 +116,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-secondary hover:text-white hover:bg-surface-elevated transition-colors border border-border"
+                className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-elevated transition-colors border border-border"
                 aria-label="Κλείσιμο"
               >
                 <X className="w-4 h-4" />
@@ -152,7 +152,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
             {step === 1 && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-primary">
                     Επιλέξτε τον κύριο προπονητικό σας στόχο
                   </h3>
                   <p className="text-xs text-secondary mt-0.5">
@@ -169,11 +169,11 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                         onClick={() => setPreferences({ ...preferences, goal: g.id })}
                         className={`p-3.5 rounded-lg border cursor-pointer transition-colors ${
                           selected
-                            ? "bg-surface-elevated border-accent text-white"
-                            : "bg-background border-border text-secondary hover:text-white hover:border-border-light"
+                            ? "bg-surface-elevated border-accent text-primary"
+                            : "bg-background border-border text-secondary hover:text-primary hover:border-border-light"
                         }`}
                       >
-                        <div className="font-bold text-xs text-white mb-1">{g.title}</div>
+                        <div className="font-bold text-xs text-primary mb-1">{g.title}</div>
                         <div className="text-[11px] text-tertiary leading-relaxed">{g.desc}</div>
                       </div>
                     );
@@ -186,7 +186,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
             {step === 2 && (
               <div className="space-y-5">
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-primary">
                     Επίπεδο εμπειρίας και διαθέσιμες ημέρες
                   </h3>
                   <p className="text-xs text-secondary mt-0.5">
@@ -204,11 +204,11 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                         onClick={() => setPreferences({ ...preferences, experience: exp.id })}
                         className={`p-3 rounded-lg border text-left transition-colors ${
                           preferences.experience === exp.id
-                            ? "bg-surface-elevated border-accent text-white"
-                            : "bg-background border-border text-secondary hover:text-white"
+                            ? "bg-surface-elevated border-accent text-primary"
+                            : "bg-background border-border text-secondary hover:text-primary"
                         }`}
                       >
-                        <div className="text-xs font-bold text-white">{exp.title}</div>
+                        <div className="text-xs font-bold text-primary">{exp.title}</div>
                         <div className="text-[10px] text-tertiary">{exp.subtitle}</div>
                       </button>
                     ))}
@@ -225,8 +225,8 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                         onClick={() => setPreferences({ ...preferences, daysPerWeek: days })}
                         className={`py-2 rounded-lg border text-xs font-mono font-bold transition-colors ${
                           preferences.daysPerWeek === days
-                            ? "bg-white text-black font-bold border-white"
-                            : "bg-background border-border text-secondary hover:text-white"
+                            ? "bg-btn text-btn-ink font-bold border-btn"
+                            : "bg-background border-border text-secondary hover:text-primary"
                         }`}
                       >
                         {days} Ημέρες
@@ -241,7 +241,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
             {step === 3 && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-primary">
                     Περιορισμοί & τραυματισμοί
                   </h3>
                   <p className="text-xs text-secondary mt-0.5">
@@ -258,8 +258,8 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                         onClick={() => toggleInjury(inj.id)}
                         className={`p-3 rounded-lg border cursor-pointer flex items-center justify-between text-xs transition-colors ${
                           isSelected
-                            ? "bg-surface-elevated border-accent text-white"
-                            : "bg-background border-border text-secondary hover:text-white"
+                            ? "bg-surface-elevated border-accent text-primary"
+                            : "bg-background border-border text-secondary hover:text-primary"
                         }`}
                       >
                         <span>{inj.label}</span>
@@ -277,7 +277,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
             {step === 4 && (
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-primary">
                     Διάρκεια ανά προπόνηση
                   </h3>
                   <p className="text-xs text-secondary mt-0.5">
@@ -297,11 +297,11 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                       onClick={() => setPreferences({ ...preferences, durationMinutes: dur.mins })}
                       className={`p-3 rounded-lg border text-left transition-colors ${
                         preferences.durationMinutes === dur.mins
-                          ? "bg-surface-elevated border-accent text-white"
-                          : "bg-background border-border text-secondary hover:text-white"
+                          ? "bg-surface-elevated border-accent text-primary"
+                          : "bg-background border-border text-secondary hover:text-primary"
                       }`}
                     >
-                      <div className="text-xs font-bold text-white">{dur.label}</div>
+                      <div className="text-xs font-bold text-primary">{dur.label}</div>
                       <div className="text-[10px] text-tertiary">{dur.desc}</div>
                     </button>
                   ))}
@@ -315,7 +315,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                 <button
                   type="button"
                   onClick={() => setStep(step - 1)}
-                  className="px-3.5 py-1.5 rounded-lg bg-surface-elevated text-xs font-medium text-secondary hover:text-white transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg bg-surface-elevated text-xs font-medium text-secondary hover:text-primary transition-colors"
                 >
                   Προηγούμενο
                 </button>
@@ -325,7 +325,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                 <button
                   type="button"
                   onClick={() => setStep(step + 1)}
-                  className="px-4 py-2 rounded-lg bg-white text-black font-bold text-xs hover:bg-white/90 transition-colors shadow-sm"
+                  className="px-4 py-2 rounded-lg bg-btn text-btn-ink font-bold text-xs hover:bg-btn-hover transition-colors shadow-sm"
                 >
                   Επόμενο
                 </button>
@@ -333,7 +333,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                 <button
                   type="button"
                   onClick={handleGenerate}
-                  className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black font-bold text-xs transition-colors shadow-sm"
+                  className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs transition-colors shadow-sm"
                 >
                   Παραγωγή Προγράμματος
                 </button>

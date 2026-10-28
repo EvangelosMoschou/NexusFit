@@ -40,7 +40,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
           <span className="text-[11px] font-mono text-accent uppercase font-bold">
             Συνδρομές & Τιμές
           </span>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-primary tracking-tight mt-1">
             Κόστος Συνδρομής & Ψηφιακό Πρόσθετο
           </h2>
           <p className="text-secondary text-xs sm:text-sm mt-1">
@@ -58,8 +58,8 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               onClick={() => setBillingPeriod("month")}
               className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 billingPeriod === "month"
-                  ? "bg-white text-black font-bold shadow-sm"
-                  : "text-secondary hover:text-white"
+                  ? "bg-btn text-btn-ink font-bold shadow-sm"
+                  : "text-secondary hover:text-primary"
               }`}
             >
               Μηνιαία
@@ -68,8 +68,8 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               onClick={() => setBillingPeriod("quarter")}
               className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 billingPeriod === "quarter"
-                  ? "bg-white text-black font-bold shadow-sm"
-                  : "text-secondary hover:text-white"
+                  ? "bg-btn text-btn-ink font-bold shadow-sm"
+                  : "text-secondary hover:text-primary"
               }`}
             >
               Τρίμηνη (-{discountPct(basePlan.priceQuarter, basePlan.priceMonth)}%)
@@ -78,8 +78,8 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               onClick={() => setBillingPeriod("year")}
               className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 billingPeriod === "year"
-                  ? "bg-white text-black font-bold shadow-sm"
-                  : "text-secondary hover:text-white"
+                  ? "bg-btn text-btn-ink font-bold shadow-sm"
+                  : "text-secondary hover:text-primary"
               }`}
             >
               Ετήσια (-{discountPct(basePlan.priceYear, basePlan.priceMonth)}%)
@@ -95,7 +95,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               <div className="text-[11px] font-mono uppercase text-tertiary mb-1">
                 Βασική Συνδρομή
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">
+              <h3 className="text-lg font-bold text-primary mb-2">
                 {basePlan.name}
               </h3>
               <p className="text-secondary text-xs mb-6 leading-relaxed">
@@ -103,7 +103,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               </p>
 
               <div className="flex items-baseline gap-1.5 pb-6 mb-6 border-b border-border">
-                <span className="text-4xl font-extrabold text-white font-mono">
+                <span className="text-4xl font-extrabold text-primary font-mono">
                   {formatEuro(periodTotal(basePlan))}
                 </span>
                 <span className="text-xs text-secondary">/ {periodLabel}</span>
@@ -122,7 +122,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
 
             <button
               onClick={() => onSelectPlan(basePlan.name)}
-              className="w-full py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border transition-colors text-center"
+              className="w-full py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold border border-border transition-colors text-center"
             >
               Πληροφορίες & Επίσκεψη στη Γραμματεία
             </button>
@@ -136,13 +136,13 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
                   Προτεινόμενο Πακέτο
                 </span>
                 {aiAddonDiff > 0 && (
-                  <span className="text-[10px] bg-accent text-black font-bold px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] bg-accent text-accent-ink font-bold px-2 py-0.5 rounded-md">
                     +{formatEuro(aiAddonDiff)} Ψηφιακό Πρόσθετο
                   </span>
                 )}
               </div>
 
-              <h3 className="text-lg font-bold text-white mb-2">
+              <h3 className="text-lg font-bold text-primary mb-2">
                 {aiPlan.name}
               </h3>
               <p className="text-secondary text-xs mb-6 leading-relaxed">
@@ -150,7 +150,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               </p>
 
               <div className="flex items-baseline gap-1.5 pb-6 mb-6 border-b border-border">
-                <span className="text-4xl font-extrabold text-white font-mono">
+                <span className="text-4xl font-extrabold text-primary font-mono">
                   {formatEuro(periodTotal(aiPlan))}
                 </span>
                 <span className="text-xs text-secondary">/ {periodLabel}</span>
@@ -161,7 +161,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
                 {aiPlan.features.map((feature) => (
                   <div key={feature} className="flex items-start gap-2">
                     <span className="text-accent font-bold">—</span>
-                    <span className="text-white">{feature}</span>
+                    <span className="text-primary">{feature}</span>
                   </div>
                 ))}
               </div>
@@ -170,14 +170,14 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
             <div className="space-y-2">
               <button
                 onClick={() => onSelectPlan(aiPlan.name)}
-                className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-black text-xs font-bold transition-colors text-center shadow-sm"
+                className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink text-xs font-bold transition-colors text-center shadow-sm"
               >
                 Ενεργοποίηση στη Ρεσεψιόν ({formatEuro(periodTotal(aiPlan))})
               </button>
 
               <button
                 onClick={onOpenAIWizard}
-                className="w-full py-1.5 text-secondary hover:text-white text-[11px] font-medium transition-colors text-center"
+                className="w-full py-1.5 text-secondary hover:text-primary text-[11px] font-medium transition-colors text-center"
               >
                 Δοκιμή προγράμματος χωρίς εγγραφή
               </button>

@@ -3,6 +3,7 @@ import { Navbar } from "@/components/Navbar";
 import type { PortalTab } from "@/components/MemberMenu";
 import { Hero } from "@/components/Hero";
 import { Announcements } from "@/components/Announcements";
+import { ThemePreviewSwitcher } from "@/components/ThemePreviewSwitcher";
 import { Facilities } from "@/components/Facilities";
 import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
@@ -43,12 +44,12 @@ function DemoBanner() {
     <div className="fixed bottom-3 left-3 z-[80] max-w-[calc(100vw-1.5rem)] rounded-lg border border-border bg-surface/95 px-3 py-2 text-[11px] text-secondary shadow-xl backdrop-blur flex flex-wrap items-center gap-x-2 gap-y-1">
       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
       <span>
-        <strong className="text-white">Διαδραστική επίδειξη</strong> — τα δεδομένα μένουν σε αυτόν τον περιηγητή.
+        <strong className="text-primary">Διαδραστική επίδειξη</strong> — τα δεδομένα μένουν σε αυτόν τον περιηγητή.
       </span>
       <span className="font-mono text-tertiary">Σύνδεση: NX-8492 / 1234</span>
       <button
         onClick={resetDemo}
-        className="px-2 py-0.5 rounded bg-surface-elevated hover:bg-border text-white font-semibold"
+        className="px-2 py-0.5 rounded bg-surface-elevated hover:bg-border text-primary font-semibold"
       >
         Επαναφορά
       </button>
@@ -127,7 +128,7 @@ export function DemoApp() {
   if (member && view === "portal" && network.isLiteMode) {
     return (
       <>
-        <main className="min-h-screen bg-[#111317] text-white">
+        <main className="min-h-screen bg-background text-primary">
           <GymFloorLiteMode
             member={member}
             onExitLiteMode={network.toggleLiteMode}
@@ -200,6 +201,7 @@ export function DemoApp() {
 
           <ScrollTopButton />
           <PWAInstallPrompt />
+          <ThemePreviewSwitcher />
         </main>
         <DemoBanner />
       </>
@@ -244,6 +246,7 @@ export function DemoApp() {
         <CookieBanner onOpenPrivacy={() => setLegalModalType("privacy")} />
         <ScrollTopButton />
         <FloatingContact />
+        <ThemePreviewSwitcher />
 
         {isSearchOpen && (
           <SearchModal

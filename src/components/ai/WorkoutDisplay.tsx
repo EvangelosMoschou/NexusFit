@@ -82,7 +82,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
       role="dialog"
       aria-modal="true"
       aria-label="Πρόγραμμα προπόνησης"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 overflow-y-auto print:p-0 print:bg-white print:text-black"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 overflow-y-auto print:p-0 print:bg-btn print:text-btn-ink"
     >
       <div className="relative w-full max-w-4xl bg-surface border border-border p-6 sm:p-8 rounded-lg shadow-2xl my-8 print:border-none print:shadow-none print:bg-transparent">
         
@@ -99,7 +99,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
                 </span>
               )}
             </div>
-            <h2 className="text-xl font-bold text-white print:text-black mt-0.5">
+            <h2 className="text-xl font-bold text-primary print:text-btn-ink mt-0.5">
               {plan.splitName}
             </h2>
             <div className="text-xs text-secondary mt-1">
@@ -111,7 +111,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
           <div className="flex items-center gap-2 print:hidden">
             <button
               onClick={handleCopy}
-              className="px-3 py-1.5 rounded bg-surface-elevated hover:bg-border text-xs font-semibold text-white border border-border flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 rounded bg-surface-elevated hover:bg-border text-xs font-semibold text-primary border border-border flex items-center gap-1.5 transition-colors"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-accent" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? "Αντιγράφηκε" : "Αντιγραφή"}</span>
@@ -119,7 +119,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
 
             <button
               onClick={handlePrint}
-              className="px-3 py-1.5 rounded bg-surface-elevated hover:bg-border text-xs font-semibold text-white border border-border flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 rounded bg-surface-elevated hover:bg-border text-xs font-semibold text-primary border border-border flex items-center gap-1.5 transition-colors"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Εκτύπωση</span>
@@ -128,7 +128,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
             <button
               onClick={onReset}
               aria-label="Κλείσιμο"
-              className="p-1.5 rounded text-secondary hover:text-white hover:bg-surface-elevated transition-colors"
+              className="p-1.5 rounded text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
               title="Κλείσιμο"
             >
               <X className="w-5 h-5" />
@@ -138,7 +138,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
 
         {/* Coach Advice */}
         <div className="p-3.5 rounded bg-surface-card border border-border mb-6 text-xs text-secondary leading-relaxed">
-          <strong className="text-white">Προπονητική Οδηγία: </strong>
+          <strong className="text-primary">Προπονητική Οδηγία: </strong>
           {plan.coachAdvice}
         </div>
 
@@ -150,8 +150,8 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
               onClick={() => setActiveDayIdx(idx)}
               className={`px-3.5 py-1.5 rounded text-xs font-semibold whitespace-nowrap transition-colors ${
                 activeDayIdx === idx
-                  ? "bg-white text-black font-bold"
-                  : "bg-surface-card border border-border text-secondary hover:text-white"
+                  ? "bg-btn text-btn-ink font-bold"
+                  : "bg-surface-card border border-border text-secondary hover:text-primary"
               }`}
             >
               {day.dayName.split(":")[0]}
@@ -162,7 +162,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
         {/* Active Day Table with Progressive Overload Cookie Logger */}
         <div className="bg-background rounded border border-border overflow-hidden mb-6">
           <div className="p-3.5 bg-surface-card border-b border-border flex items-center justify-between">
-            <div className="text-xs font-bold text-white">{activeDay.dayName}</div>
+            <div className="text-xs font-bold text-primary">{activeDay.dayName}</div>
             <div className="text-[11px] text-tertiary">Εστίαση: {activeDay.focus}</div>
           </div>
 
@@ -172,7 +172,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
               return (
                 <div key={i} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                   <div>
-                    <div className="font-semibold text-white">
+                    <div className="font-semibold text-primary">
                       {i + 1}. {ex.greekName}
                     </div>
                     <div className="text-[11px] text-tertiary">
@@ -185,7 +185,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
                     )}
                     {prevLog && (
                       <div className="text-[10px] text-secondary font-mono mt-1">
-                        Τελευταία καταγραφή: <span className="text-white font-bold">{prevLog.weightKg} kg</span> ({prevLog.date})
+                        Τελευταία καταγραφή: <span className="text-primary font-bold">{prevLog.weightKg} kg</span> ({prevLog.date})
                       </div>
                     )}
                   </div>
@@ -193,7 +193,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
                   <div className="flex flex-wrap items-center gap-2.5 shrink-0 font-mono text-[11px]">
                     <div className="bg-surface-card px-2 py-1 rounded border border-border">
                       <span className="text-tertiary">Σετ: </span>
-                      <span className="text-white font-bold">{ex.sets} x {ex.reps}</span>
+                      <span className="text-primary font-bold">{ex.sets} x {ex.reps}</span>
                     </div>
 
                     <div className="bg-surface-card px-2 py-1 rounded border border-border">
@@ -223,7 +223,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
         {/* Warmup & Cardio */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 text-xs">
           <div className="p-3 rounded bg-surface border border-border space-y-1">
-            <div className="font-semibold text-white">Προθέρμανση</div>
+            <div className="font-semibold text-primary">Προθέρμανση</div>
             <ul className="text-tertiary text-[11px] space-y-1">
               {plan.warmupProtocol.map((item, idx) => (
                 <li key={idx}>— {item}</li>
@@ -232,7 +232,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
           </div>
 
           <div className="p-3 rounded bg-surface border border-border space-y-1">
-            <div className="font-semibold text-white">Αερόβια Άσκηση</div>
+            <div className="font-semibold text-primary">Αερόβια Άσκηση</div>
             <p className="text-tertiary text-[11px] leading-relaxed">
               {plan.weeklyCardioRecommendation}
             </p>
@@ -243,13 +243,13 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
         <div className="pt-4 border-t border-border flex items-center justify-between print:hidden">
           <button
             onClick={onReset}
-            className="text-xs text-secondary hover:text-white transition-colors"
+            className="text-xs text-secondary hover:text-primary transition-colors"
           >
             Νέα Παραγωγή Προγράμματος
           </button>
           <button
             onClick={onOpenBooking}
-            className="px-4 py-2 rounded bg-white hover:bg-white/90 text-black font-bold text-xs transition-colors"
+            className="px-4 py-2 rounded bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors"
           >
             Επικοινωνία με τη Γραμματεία
           </button>

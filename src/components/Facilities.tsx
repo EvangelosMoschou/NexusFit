@@ -18,7 +18,7 @@ export const Facilities: React.FC = () => {
           <span className="text-[11px] font-mono text-accent uppercase font-bold">
 Χώροι & Εξοπλισμός
           </span>
-          <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-primary tracking-tight mt-1">
             Εγκαταστάσεις & Χώροι
           </h2>
           <p className="text-secondary text-xs sm:text-sm mt-1">
@@ -43,7 +43,7 @@ export const Facilities: React.FC = () => {
                   </span>
                 </div>
 
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-primary">
                   {fac.title}
                 </h3>
 

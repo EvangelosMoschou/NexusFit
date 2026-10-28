@@ -26,7 +26,7 @@ export const FloatingContact: React.FC = () => {
       {/* Floating Button */}
       <button
         onClick={() => setOpen(!open)}
-        className="fixed bottom-6 left-6 z-40 p-3 rounded-full bg-surface border border-border text-white hover:bg-surface-elevated transition-colors shadow-xl flex items-center gap-2 text-xs font-semibold"
+        className="fixed bottom-6 left-6 z-40 p-3 rounded-full bg-surface border border-border text-primary hover:bg-surface-elevated transition-colors shadow-xl flex items-center gap-2 text-xs font-semibold"
         aria-label="Γρήγορη επικοινωνία"
       >
         <MessageSquare className="w-4 h-4 text-accent" />
@@ -38,20 +38,20 @@ export const FloatingContact: React.FC = () => {
         <div className="fixed bottom-20 left-6 z-50 w-[320px] sm:w-[360px] bg-surface border border-border rounded-lg shadow-2xl p-5 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div>
-              <div className="text-xs font-bold text-white">Άμεση Επικοινωνία</div>
+              <div className="text-xs font-bold text-primary">Άμεση Επικοινωνία</div>
               <div className="text-[11px] text-secondary">Απαντάμε εντός 24 ωρών</div>
             </div>
             <button
               onClick={() => setOpen(false)}
               aria-label="Κλείσιμο φόρμας"
-              className="p-1 rounded text-secondary hover:text-white"
+              className="p-1 rounded text-secondary hover:text-primary"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {sent ? (
-            <div className="py-6 text-center space-y-2 text-xs text-white">
+            <div className="py-6 text-center space-y-2 text-xs text-primary">
               <div className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center mx-auto">
                 <Check className="w-4 h-4" />
               </div>
@@ -70,7 +70,7 @@ export const FloatingContact: React.FC = () => {
                   placeholder="name@example.com"
                   value={senderEmail}
                   onChange={(e) => setSenderEmail(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded bg-background border border-border text-white text-xs outline-none focus:border-border-light"
+                  className="w-full px-3 py-1.5 rounded bg-background border border-border text-primary text-xs outline-none focus:border-border-light"
                 />
               </div>
 
@@ -84,13 +84,13 @@ export const FloatingContact: React.FC = () => {
                   placeholder="Γράψτε την απορία σας..."
                   value={msg}
                   onChange={(e) => setMsg(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded bg-background border border-border text-white text-xs outline-none focus:border-border-light resize-none"
+                  className="w-full px-3 py-1.5 rounded bg-background border border-border text-primary text-xs outline-none focus:border-border-light resize-none"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2 rounded bg-white hover:bg-white/90 text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full py-2 rounded bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Αποστολή Μηνύματος</span>

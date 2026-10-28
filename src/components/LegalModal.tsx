@@ -30,13 +30,13 @@ export const LegalModal: React.FC<LegalModalProps> = ({ type, onClose }) => {
     >
       <div className="relative w-full max-w-2xl bg-surface border border-border p-6 sm:p-8 rounded-lg shadow-2xl max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
-          <h3 className="text-lg font-bold text-white">
+          <h3 className="text-lg font-bold text-primary">
             {type === "tos" ? "Όροι Χρήσης & Λειτουργίας" : "Πολιτική Απορρήτου (GDPR)"}
           </h3>
           <button
             onClick={onClose}
             aria-label="Κλείσιμο"
-            className="p-1.5 rounded text-secondary hover:text-white hover:bg-surface-elevated transition-colors"
+            className="p-1.5 rounded text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -53,7 +53,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ type, onClose }) => {
         <div className="mt-6 pt-4 border-t border-border flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-surface-elevated hover:bg-border text-white text-xs font-semibold rounded transition-colors"
+            className="px-4 py-2 bg-surface-elevated hover:bg-border text-primary text-xs font-semibold rounded transition-colors"
           >
             Κλείσιμο
           </button>

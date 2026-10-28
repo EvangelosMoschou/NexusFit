@@ -9,10 +9,10 @@ export default function NotFound() {
       {/* Header Logo */}
       <header className="max-w-6xl mx-auto w-full py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-accent text-black font-extrabold flex items-center justify-center text-sm shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm">
             <Dumbbell className="w-4 h-4 stroke-[2.5]" />
           </div>
-          <span className="font-bold text-base tracking-tight text-white uppercase">
+          <span className="font-bold text-base tracking-tight text-primary uppercase">
             {defaultGymConfig.gymName}
           </span>
         </Link>
@@ -25,7 +25,7 @@ export default function NotFound() {
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">
             Η σελίδα δεν βρέθηκε
           </h1>
           <p className="text-secondary text-sm leading-relaxed max-w-md mx-auto">
@@ -39,11 +39,11 @@ export default function NotFound() {
             href="/"
             className="p-4 rounded-xl bg-surface border border-border hover:border-border-light transition-colors group flex items-start gap-3"
           >
-            <div className="p-2 rounded-lg bg-surface-elevated text-accent group-hover:bg-accent group-hover:text-black transition-colors">
+            <div className="p-2 rounded-lg bg-surface-elevated text-accent group-hover:bg-accent group-hover:text-accent-ink transition-colors">
               <Home className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-xs text-white">Αρχική Σελίδα</div>
+              <div className="font-bold text-xs text-primary">Αρχική Σελίδα</div>
               <div className="text-[11px] text-secondary">Επιστροφή στην αρχική σελίδα</div>
             </div>
           </Link>
@@ -52,11 +52,11 @@ export default function NotFound() {
             href="/#schedule"
             className="p-4 rounded-xl bg-surface border border-border hover:border-border-light transition-colors group flex items-start gap-3"
           >
-            <div className="p-2 rounded-lg bg-surface-elevated text-accent group-hover:bg-accent group-hover:text-black transition-colors">
+            <div className="p-2 rounded-lg bg-surface-elevated text-accent group-hover:bg-accent group-hover:text-accent-ink transition-colors">
               <Calendar className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-xs text-white">Πρόγραμμα Ομαδικών</div>
+              <div className="font-bold text-xs text-primary">Πρόγραμμα Ομαδικών</div>
               <div className="text-[11px] text-secondary">Δείτε το εβδομαδιαίο ωρολόγιο</div>
             </div>
           </Link>
@@ -66,7 +66,7 @@ export default function NotFound() {
         <div className="pt-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white hover:bg-white/90 text-black font-bold text-xs transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors shadow-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Επιστροφή στο Nexus Athletics</span>

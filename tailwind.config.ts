@@ -1,5 +1,11 @@
 import type { Config } from "tailwindcss";
 
+// Themeable palette.
+//
+// Every colour resolves to an RGB triplet held in a CSS variable, so the whole
+// site can be recoloured by switching `data-theme` on <html> without touching
+// a single component. The `/<alpha-value>` form keeps opacity modifiers such as
+// `bg-surface/50` working.
 const config: Config = {
   content: [
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -9,24 +15,29 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Friendly, Soft Slate & Graphite Theme (Pleasant Light-Dark)
-        background: "#181A20", // Warm soft charcoal, not pitch black
-        surface: "#21242D",
-        "surface-card": "#282C37",
-        "surface-elevated": "#313643",
-        border: "#3B4151",
-        "border-light": "#4A5266",
-        
-        // Friendly, Warm Athletic Accent (Warm Amber-Orange / Soft Coral)
+        background: "rgb(var(--bg-rgb) / <alpha-value>)",
+        surface: "rgb(var(--surface-rgb) / <alpha-value>)",
+        "surface-card": "rgb(var(--surface-card-rgb) / <alpha-value>)",
+        "surface-elevated": "rgb(var(--surface-elevated-rgb) / <alpha-value>)",
+        border: "rgb(var(--border-rgb) / <alpha-value>)",
+        "border-light": "rgb(var(--border-light-rgb) / <alpha-value>)",
+
+        foreground: "rgb(var(--ink-rgb) / <alpha-value>)",
+        primary: "rgb(var(--ink-rgb) / <alpha-value>)",
+        secondary: "rgb(var(--muted-rgb) / <alpha-value>)",
+        tertiary: "rgb(var(--faint-rgb) / <alpha-value>)",
+
         accent: {
-          DEFAULT: "#38BDF8", // Soft friendly sky cyan / or clean athletic teal
-          hover: "#0284C7",
+          DEFAULT: "rgb(var(--accent-rgb) / <alpha-value>)",
+          hover: "rgb(var(--accent-hover-rgb) / <alpha-value>)",
+          ink: "rgb(var(--accent-ink-rgb) / <alpha-value>)",
           warm: "#F59E0B",
           emerald: "#10B981",
         },
-        primary: "#F3F4F6",
-        secondary: "#A5ADC1",
-        tertiary: "#7E879C",
+
+        btn: "rgb(var(--btn-rgb) / <alpha-value>)",
+        "btn-hover": "rgb(var(--btn-hover-rgb) / <alpha-value>)",
+        "btn-ink": "rgb(var(--btn-ink-rgb) / <alpha-value>)",
       },
       borderRadius: {
         DEFAULT: "8px",
