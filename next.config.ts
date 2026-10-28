@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const securityHeaders = [
@@ -29,6 +30,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone", // Bundles a minimal standalone production Node.js server
+  // Without this, Next walks up looking for a lockfile and can pick a parent
+  // directory as the workspace root, nesting the standalone output under it.
+  outputFileTracingRoot: path.resolve(__dirname),
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true, // Enable Brotli/Gzip compression
