@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { defaultGymConfig } from "@/config/gymConfig";
 import { hashPin } from "./passwordHash";
 import { DEFAULT_TENANT_ID, getDataDir } from "./sqliteDb";
+import { isDemoMode } from "./flags";
 
 export interface Tenant {
   id: string;
@@ -33,14 +34,19 @@ function normalizeHost(host: string | null | undefined): string {
 // Chooses the password the default tenant is seeded with.
 //
 // Production must never fall back to a known password: an operator who forgets
-// ADMIN_PASSWORD would expose /admin with "admin". Returning null there means
-// the tenant is not seeded at all, so admin login answers 503 until the
-// variable is configured. Development keeps the convenience fallback.
+// ADMIN_PASSWORD would expose /admin with a known password. Returning null
+// there means the tenant is not seeded at all, so admin login answers 503 until
+// the variable is configured. Development and explicit demo mode keep a known
+// fallback for convenience.
+export const DEMO_ADMIN_PASSWORD = "admin1";
+
 export function adminSeedPassword(
   nodeEnv: string | undefined,
-  adminPassword: string | undefined
+  adminPassword: string | undefined,
+  demoMode = false
 ): string | null {
   if (adminPassword) return adminPassword;
+  if (demoMode) return DEMO_ADMIN_PASSWORD;
   return nodeEnv === "production" ? null : "admin";
 }
 
@@ -67,7 +73,11 @@ export function getRegistry(): DatabaseSync {
   // (localhost, the current single-gym deployment) with no tenant at all.
   const existing = db.prepare("SELECT id FROM tenants WHERE id = ?").get(DEFAULT_TENANT_ID);
   if (!existing) {
-    const seedPassword = adminSeedPassword(process.env.NODE_ENV, process.env.ADMIN_PASSWORD);
+    const seedPassword = adminSeedPassword(
+      process.env.NODE_ENV,
+      process.env.ADMIN_PASSWORD,
+      isDemoMode()
+    );
     if (seedPassword) {
       db.prepare(
         "INSERT INTO tenants (id, name, domains, admin_password_hash, created_at) VALUES (?, ?, ?, ?, ?)"
@@ -80,7 +90,7 @@ export function getRegistry(): DatabaseSync {
       );
     } else {
       console.warn(
-        "[tenants] ADMIN_PASSWORD is not set; refusing to seed the default tenant. Admin login will return 503."
+        "[tenants] ADMIN_PASSWORD is not set; refusing to seed the default tenant. Set ADMIN_PASSWORD, or DEMO_MODE=1 for a demo deployment."
       );
     }
   }

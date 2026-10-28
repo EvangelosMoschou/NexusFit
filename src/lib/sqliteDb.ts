@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { GeneratedWorkoutPlan, GymConfig } from "@/types";
 import { defaultGymConfig } from "@/config/gymConfig";
 import { hashPin, verifyPin } from "./passwordHash";
+import { envFlag, isDemoMode } from "./flags";
 
 export interface DbMember {
   id: string;
@@ -150,7 +151,9 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
   const countStmt = db.prepare("SELECT COUNT(*) as count FROM members");
   const row = countStmt.get() as { count: number } | undefined;
   const demoSeedAllowed =
-    process.env.NODE_ENV !== "production" || process.env.SEED_DEMO_MEMBERS === "1";
+    process.env.NODE_ENV !== "production" ||
+    isDemoMode() ||
+    envFlag(process.env.SEED_DEMO_MEMBERS);
 
   if (tenantId === DEFAULT_TENANT_ID && demoSeedAllowed && (!row || row.count === 0)) {
     const insertMember = db.prepare(`
@@ -188,7 +191,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
     // deliberately not created. Surfacing it here makes a failed demo login
     // diagnosable from the deployment logs.
     console.warn(
-      "[sqliteDb] SEED_DEMO_MEMBERS is not set; demo member accounts were not created."
+      "[sqliteDb] Demo members were not seeded. Set DEMO_MODE=1 (or SEED_DEMO_MEMBERS=1) on a demo deployment."
     );
   }
 
