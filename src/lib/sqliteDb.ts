@@ -53,9 +53,7 @@ function databasePathFor(tenantId: string, dataDir: string): string {
   if (tenantId === DEFAULT_TENANT_ID) return path.join(dataDir, "nexusfit.db");
 
   const tenantDir = path.join(dataDir, "tenants");
-  if (!fs.existsSync(tenantDir)) {
-    fs.mkdirSync(tenantDir, { recursive: true });
-  }
+  fs.mkdirSync(tenantDir, { recursive: true });
   return path.join(tenantDir, `${tenantId}.db`);
 }
 
@@ -81,9 +79,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
 
   // Writable data directory override (e.g. /tmp on read-only-FS hosts like Vercel).
   const dataDir = getDataDir();
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
+  fs.mkdirSync(dataDir, { recursive: true });
 
   const dbPath = databasePathFor(tenantId, dataDir);
   const db = new DatabaseSync(dbPath);

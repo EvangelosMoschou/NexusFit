@@ -81,14 +81,14 @@ another gym without touching components.
 
 | Layer | Choice |
 |---|---|
-| Framework | **Next.js 15.5.28** (App Router, React Server Components, `output: "standalone"`) |
-| UI | **React 19**, **TailwindCSS 3.4**, **lucide-react** icons |
+| Framework | **Next.js 16.4.3** (App Router, React Server Components, Turbopack, `output: "standalone"`) |
+| UI | **React 19.3**, **TailwindCSS 3.4**, **lucide-react** icons |
 | Language | **TypeScript 5** (strict) |
 | Database | **`node:sqlite`** (`DatabaseSync`) — Node's built-in SQLite, no external driver |
 | AI | **Google Gemini** (`gemini-2.0-flash-lite`) with a local deterministic fallback |
 | Testing | **Vitest 5** (Node environment) |
 | Demo | **Vite 8** static build with an in-browser mock API (GitHub Pages) |
-| Lint | ESLint 9 + `eslint-config-next` |
+| Lint | ESLint 9 + `eslint-config-next` (flat config, `eslint.config.mjs`) |
 | Runtime | **Node.js 22** (Docker image is `node:22-alpine`) |
 
 There are only **four** runtime dependencies (`next`, `react`, `react-dom`,

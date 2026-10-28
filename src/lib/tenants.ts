@@ -48,9 +48,7 @@ export function getRegistry(): DatabaseSync {
   if (registry) return registry;
 
   const dir = getDataDir();
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  fs.mkdirSync(dir, { recursive: true });
 
   const db = new DatabaseSync(path.join(dir, "registry.db"));
   db.exec(`
