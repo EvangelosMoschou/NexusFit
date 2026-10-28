@@ -33,6 +33,9 @@ yarn-error.log*
 # Demo build output
 site/dist/
 
+# Local database backups (Docker sidecar)
+deploy/backups/
+
 # Agent/session artifacts
 .omo/
 .codegraph

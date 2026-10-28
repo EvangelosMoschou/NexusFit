@@ -1,0 +1,21 @@
+# Never ship local state, secrets or build output into the image.
+.git
+.gitignore
+.github
+.gitea
+.next
+node_modules
+data
+deploy/backups
+site
+docs
+.private
+.omo
+.codegraph
+.commandcode
+*.log
+tsconfig.tsbuildinfo
+.env
+.env.*
+**/.env
+**/.env.*

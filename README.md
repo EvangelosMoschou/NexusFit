@@ -310,7 +310,8 @@ variable to be set — without it, admin login returns `503`.
 | `SQLITE_DATA_DIR` | No | `<cwd>/data` | Directory for `nexusfit.db`. Useful on read-only filesystems (e.g. Vercel → `/tmp`). When `VERCEL` is set and this is missing, the app falls back to `/tmp/nexusfit` and logs a warning. |
 | `DEMO_MODE` | No | — | One-variable demo setup: seeds the demo members (`NX-8492` / `NX-3109`, PIN `1234`), seeds the admin password `admin1` and signs sessions with a known demo secret, even when `NODE_ENV=production`. **Never on a real deployment.** |
 | `SEED_DEMO_MEMBERS` | No | — | Narrower alternative to `DEMO_MODE`: seeds only the demo members (`NX-8492` / `NX-3109`, PIN `1234`) in production. Demo instances only. |
-| `NEXT_PUBLIC_SITE_URL` | No | — | Canonical site URL used for SEO metadata. |
+| `NEXT_PUBLIC_SITE_URL` | No | — | Canonical site URL used for SEO metadata (`metadataBase`). Build-time: rebuild to change. |
+| `NEXT_PUBLIC_THEME_PREVIEW` | No | `0` | Build-time flag. `1` enables the theme preview control and the `?theme=` override. Keep `0` in production. |
 | `PORT` / `HOSTNAME` | No | `3000` / — | Standalone/Docker server binding. |
 | `SITE_DOMAIN` | Docker only | `localhost` | Domain Caddy uses for TLS in `docker-compose.yml`. |
 
@@ -513,7 +514,8 @@ with an offline AI coach and an exercise checklist that makes **zero network req
 - **Admin auth** — `adminAuth.ts` derives a SHA-256 token from `ADMIN_PASSWORD` and
   compares the cookie value; there is no server-side session store.
 - **Member auth** — scrypt-hashed PINs, `timingSafeEqual` comparison, and an **HMAC-SHA256 signed** session cookie (HttpOnly, `Secure` in production) that cannot be forged from a guessable member id.
-- **Rate limiting** on the AI endpoint.
+- **Rate limiting** on the AI endpoint, member login (per IP and per member
+  code), admin login and lead submissions.
 - **No known-credential accounts in production** — demo members (`NX-8492` / PIN
   `1234`) and the `admin1` admin fallback are seeded only outside production and
   only for the default tenant, unless `DEMO_MODE=1` (or, for the members alone,
@@ -553,20 +555,30 @@ additionally builds and deploys the static demo to Pages on every push to `main`
 Three supported paths, all detailed in `deploy/DEPLOYMENT_GUIDE.md`.
 
 **Docker Compose (recommended for a VPS)** — `deploy/docker-compose.yml` brings up
-three services:
+four services:
 
 - `nexusfit_app` — the app built from `deploy/Dockerfile` (multi-stage `node:22-alpine`,
   runs as a non-root user, executes the standalone `server.js`), bound to
   `127.0.0.1:3000` with the SQLite file on the named volume `nexusfit_data`.
-- `caddy` — TLS termination and reverse proxy on ports 80/443 (`deploy/Caddyfile`).
-- `db_backup` — an Alpine sidecar that tars the database daily and prunes backups
-  older than 14 days.
+  It has a `/api/health` healthcheck and capped Docker logs.
+- `caddy` — TLS termination, compression and reverse proxy on ports 80/443
+  (`deploy/Caddyfile`).
+- `db_backup` — a `node:22-alpine` sidecar that writes a **consistent** snapshot
+  (`VACUUM INTO`) of every database daily and keeps 14 days.
+- `retention_cron` — calls the GDPR retention endpoint daily.
+
+Required secrets are enforced by compose; copy `deploy/.env.production.example`
+to `deploy/.env` and fill it in. `.dockerignore` keeps local databases and
+`.env` files out of the image.
 
 ```bash
-npm run docker:build
-GEMINI_API_KEY=… SITE_DOMAIN=example.com npm run docker:up
-npm run docker:down
+cp deploy/.env.production.example deploy/.env   # fill in the values
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs -f nexusfit_app
 ```
+
+Step-by-step Hetzner notes (DNS, firewall, updates, restore) are in
+[`deploy/HETZNER.md`](./deploy/HETZNER.md).
 
 **PM2 (bare-metal)** — `deploy/ecosystem.config.js` runs `next start` in cluster mode
 across all cores.
@@ -609,9 +621,6 @@ persists data in `localStorage`; it deliberately has no server-side functionalit
 
 ## Known Gaps & Roadmap
 
-- **PWA theme mismatch** — `public/manifest.webmanifest` still ships the old lime theme
-  (`#CCFF00` / `#08080A`) while the app uses the sky-cyan/graphite palette
-  (`#38BDF8` / `#181A20`).
 - **`GEMINI_MODEL` is documented but not read** — the chat route hardcodes
   `gemini-2.0-flash-lite`, so setting the env var has no effect today.
 - **One database per tenant** — isolation comes from separate SQLite files rather
@@ -622,7 +631,10 @@ persists data in `localStorage`; it deliberately has no server-side functionalit
   in a shared process one gym's login burst briefly stalls the others. Async
   `scrypt` behind the `Repository` boundary is the remaining task.
 - **In-memory rate limiting** — resets on restart and is per-process, so it does
-  not hold under a PM2 cluster or multiple containers.
+  not hold under a PM2 cluster or multiple containers. The Docker setup is
+  single-instance by design.
+- **Theme preview control** — enabled only in builds compiled with
+  `NEXT_PUBLIC_THEME_PREVIEW=1`; a normal production build ships without it.
 - **TLS per gym is manual** — a new gym's domain must be added to the reverse
   proxy configuration (Caddy issues the certificate automatically once listed).
 - **Local plan storage is per-device** — a member's plans live in `localStorage` and are

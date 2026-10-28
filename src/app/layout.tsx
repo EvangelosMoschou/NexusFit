@@ -11,6 +11,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: process.env.NEXT_PUBLIC_SITE_URL
+    ? new URL(process.env.NEXT_PUBLIC_SITE_URL)
+    : undefined,
   title: `${defaultGymConfig.gymName} | Σύγχρονο Γυμναστήριο & Ψηφιακός Βοηθός Προπόνησης`,
   description: `${defaultGymConfig.description} Εξατομικευμένη προπονητική καθοδήγηση και ομαδικά προγράμματα.`,
   manifest: "/manifest.webmanifest",
@@ -52,13 +55,16 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="NexusFit" />
         <link rel="apple-touch-icon" href="/icons/icon.svg" />
-        {/* Applies the saved preview theme before paint to avoid a flash. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html:
-              "try{var q=new URLSearchParams(location.search).get('theme');var t=(q==='sand'||q==='volt'||q==='coastal')?q:localStorage.getItem('nexusfit_theme_preview');if(t==='sand'||t==='volt'||t==='coastal'){document.documentElement.setAttribute('data-theme',t)}}catch(e){}",
-          }}
-        />
+        {/* Applies the saved preview theme before paint to avoid a flash.
+            Included only in builds that explicitly enable the preview. */}
+        {process.env.NEXT_PUBLIC_THEME_PREVIEW === "1" && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html:
+                "try{var q=new URLSearchParams(location.search).get('theme');var t=(q==='sand'||q==='volt'||q==='coastal')?q:localStorage.getItem('nexusfit_theme_preview');if(t==='sand'||t==='volt'||t==='coastal'){document.documentElement.setAttribute('data-theme',t)}}catch(e){}",
+            }}
+          />
+        )}
       </head>
       <body className="bg-background text-foreground antialiased selection:bg-accent selection:text-accent-ink">
         {children}

@@ -3,9 +3,11 @@ import { getRepository } from "@/lib/db";
 import { signMemberId } from "@/lib/session";
 import { MEMBER_COOKIE, SECURE_COOKIES } from "@/lib/cookies";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantId = resolveTenantIdFromHeaders(req.headers);
     const body = await req.json();
     const { identifier, pin } = body;
 
@@ -16,10 +18,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const member = await getRepository(resolveTenantIdFromHeaders(req.headers)).authenticateMember(
-      identifier,
-      pin
+    // PINs are short, so the login endpoint needs a brake: one bucket per
+    // source address and a tighter one per member code, both per tenant.
+    const ipLimit = checkRateLimit(
+      `login:member:ip:${tenantId}:${getClientIp(req.headers)}`,
+      20,
+      60_000
     );
+    const idLimit = checkRateLimit(
+      `login:member:id:${tenantId}:${String(identifier).trim().toLowerCase()}`,
+      5,
+      60_000
+    );
+    if (!ipLimit.allowed || !idLimit.allowed) {
+      const retryAfter = Math.max(ipLimit.retryAfterSeconds, idLimit.retryAfterSeconds, 1);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Πολλές προσπάθειες σύνδεσης. Δοκιμάστε ξανά σε λίγο.",
+        },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
+    }
+
+    const member = await getRepository(tenantId).authenticateMember(identifier, pin);
 
     if (!member) {
       return NextResponse.json(
