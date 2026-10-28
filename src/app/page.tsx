@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Navbar } from "@/components/Navbar";
+import type { PortalTab } from "@/components/MemberMenu";
 import { Hero } from "@/components/Hero";
 import { Facilities } from "@/components/Facilities";
 import { Timetable } from "@/components/Timetable";
@@ -63,6 +64,8 @@ const PWAInstallPrompt = dynamic(
 
 export default function Home() {
   const [member, setMember] = useState<MemberUser | null>(null);
+  const [view, setView] = useState<"home" | "portal">("home");
+  const [portalTab, setPortalTab] = useState<PortalTab>("overview");
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isAIWizardOpen, setIsAIWizardOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
@@ -85,6 +88,26 @@ export default function Home() {
   }, []);
 
   const isMemberAIActive = member?.subscription.hasAIAccess && member?.subscription.status === "active";
+
+  // The brand always returns to the landing page, keeping the session intact.
+  const goHome = () => {
+    setView("home");
+    if (window.location.hash) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openMemberTab = (tab: PortalTab) => {
+    setPortalTab(tab);
+    setView("portal");
+    window.scrollTo({ top: 0 });
+  };
+
+  const handleLogout = () => {
+    setMember(null);
+    setView("home");
+  };
 
   const handleOpenContact = (planName?: string) => {
     if (planName) {
@@ -112,8 +135,8 @@ export default function Home() {
     }
   };
 
-  // 1. If User is LOGGED IN:
-  if (member) {
+  // 1. If User is LOGGED IN and opened the member area:
+  if (member && view === "portal") {
     // If on slow network / offline / lite mode -> Show Barebones Zero-Bandwidth Gym Floor View
     if (network.isLiteMode) {
       return (
@@ -143,7 +166,9 @@ export default function Home() {
         
         <MemberPortalPage
           member={member}
-          onLogout={() => setMember(null)}
+          initialTab={portalTab}
+          onGoHome={goHome}
+          onLogout={handleLogout}
           onLaunchAIWizard={() => {
             if (isMemberAIActive) setIsAIWizardOpen(true);
           }}
@@ -210,13 +235,17 @@ export default function Home() {
         onOpenContact={() => handleOpenContact()}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenLogin={() => setIsLoginOpen(true)}
+        onGoHome={goHome}
+        member={member}
+        onLogout={handleLogout}
+        onSelectMemberTab={openMemberTab}
       />
 
       <div id="main-content">
         {/* Public Hero */}
         <Hero
           onOpenContact={() => handleOpenContact()}
-          onOpenLogin={() => setIsLoginOpen(true)}
+          onOpenLogin={() => (member ? openMemberTab("overview") : setIsLoginOpen(true))}
         />
 
         {/* Facilities */}

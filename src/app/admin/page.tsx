@@ -159,7 +159,7 @@ export default function AdminPortalPage() {
             <div className="w-12 h-12 rounded-xl bg-accent text-black font-extrabold flex items-center justify-center mx-auto shadow-md">
               <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Nexus Athletics Admin Portal</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">Nexus Athletics — Πίνακας Διαχείρισης</h1>
             <p className="text-xs text-secondary">
               Πίνακας διαχείρισης τιμών, προγραμμάτων και μελών γυμναστηρίου.
             </p>
@@ -205,7 +205,7 @@ export default function AdminPortalPage() {
                   )}
                 </button>
               </div>
-              <p className="text-[10px] text-tertiary mt-1">Ο κωδικός διαχειριστή ρυθμίζεται μέσω της μεταβλητής ADMIN_PASSWORD στο .env</p>
+              <p className="text-[10px] text-tertiary mt-1">Ο κωδικός διαχειριστή ορίζεται στη μεταβλητή ADMIN_PASSWORD του διακομιστή</p>
             </div>
 
             <button
@@ -234,7 +234,7 @@ export default function AdminPortalPage() {
       icon: Mail,
       label: `Αιτήματα & Leads (${leads.filter((l) => l.status === "pending").length})`,
     },
-    { key: "members" as const, icon: Users, label: `Μέλη & AI Συνδρομές (${members.length})` },
+    { key: "members" as const, icon: Users, label: `Μέλη & Ψηφιακές Συνδρομές (${members.length})` },
     { key: "pricing" as const, icon: Tag, label: "Συνδρομές & Τιμοκατάλογος" },
     { key: "schedule" as const, icon: Calendar, label: "Ωρολόγιο Πρόγραμμα" },
     { key: "info" as const, icon: Building2, label: "Στοιχεία & Εγκαταστάσεις" },
@@ -253,10 +253,10 @@ export default function AdminPortalPage() {
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-white">{config.gymName}</span>
                 <span className="text-[10px] font-mono bg-accent/20 text-accent px-2 py-0.5 rounded font-bold">
-                  Admin Panel
+                  Διαχείριση
                 </span>
               </div>
-              <div className="text-[10px] text-tertiary">Structured Content & Member Management</div>
+              <div className="text-[10px] text-tertiary">Διαχείριση περιεχομένου & μελών</div>
             </div>
           </div>
 

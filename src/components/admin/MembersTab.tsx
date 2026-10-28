@@ -27,7 +27,7 @@ const emptyMemberForm = () => ({
   fullName: "",
   email: "",
   pinCode: "1234",
-  tierName: "All-Access Member",
+  tierName: "Πλήρες Μέλος",
   hasAIAccess: true,
   subscriptionStatus: "active",
   expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -63,8 +63,8 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-bold text-white">Διαχείριση Καρτών Μελών & AI Copilot</h2>
-        <p className="text-xs text-secondary">Καταχώρηση νέων μελών και ενεργοποίηση της πρόσβασης στον AI Coach (+14€).</p>
+        <h2 className="text-base font-bold text-white">Διαχείριση Καρτών Μελών & Ψηφιακού Βοηθού</h2>
+        <p className="text-xs text-secondary">Καταχώρηση νέων μελών και ενεργοποίηση της πρόσβασης στον ψηφιακό προπονητή (+14€).</p>
       </div>
 
       {/* Quick Add Member Form */}
@@ -76,7 +76,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div>
-            <label className="block text-[11px] text-secondary mb-1">Κωδικός Κάρτας (Barcode)</label>
+            <label className="block text-[11px] text-secondary mb-1">Κωδικός Κάρτας</label>
             <input
               type="text"
               required
@@ -100,7 +100,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
           </div>
 
           <div>
-            <label className="block text-[11px] text-secondary mb-1">Email</label>
+            <label className="block text-[11px] text-secondary mb-1">Ηλεκτρονικό Ταχυδρομείο</label>
             <input
               type="email"
               required
@@ -138,7 +138,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
               onChange={(e) => setNewMember({ ...newMember, hasAIAccess: e.target.checked })}
               className="rounded border-border text-accent focus:ring-0"
             />
-            <span className="font-semibold text-white">Ενεργοποίηση AI Copilot Pass (+14€/μήνα)</span>
+            <span className="font-semibold text-white">Ενεργοποίηση Ψηφιακού Βοηθού (+14€/μήνα)</span>
           </label>
 
           <button
@@ -173,7 +173,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
                   : "bg-surface-elevated text-secondary border border-border"
               }`}>
                 {m.has_ai_access === 1 ? <Bot className="w-3.5 h-3.5 text-accent" /> : <Lock className="w-3 h-3" />}
-                <span>{m.has_ai_access === 1 ? "AI Copilot Pass" : "Standard Pass"}</span>
+                <span>{m.has_ai_access === 1 ? "Ψηφιακός Βοηθός" : "Βασικό Πακέτο"}</span>
               </div>
 
               <button

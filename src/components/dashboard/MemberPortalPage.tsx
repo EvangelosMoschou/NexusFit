@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MemberUser, logoutMember, clearMemberSession } from "@/lib/auth";
+import { MemberMenu, PortalTab } from "@/components/MemberMenu";
 import { GeneratedWorkoutPlan } from "@/types";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { 
@@ -9,7 +10,6 @@ import {
   Bot, 
   CheckCircle2, 
   ExternalLink, 
-  LogOut, 
   Plus, 
   MessageSquareText, 
   Lock,
@@ -22,6 +22,8 @@ import { getExerciseLogs } from "@/lib/storage";
 
 interface MemberPortalPageProps {
   member: MemberUser;
+  initialTab?: PortalTab;
+  onGoHome: () => void;
   onLogout: () => void;
   onLaunchAIWizard: () => void;
   onLaunchAIChat: () => void;
@@ -32,6 +34,8 @@ interface MemberPortalPageProps {
 
 export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
   member,
+  initialTab = "overview",
+  onGoHome,
   onLogout,
   onLaunchAIWizard,
   onLaunchAIChat,
@@ -40,9 +44,18 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
   onToggleLiteMode,
 }) => {
   const { config } = useGymConfig();
-  const [activeTab, setActiveTab] = useState<"overview" | "plans" | "logs" | "schedule">("overview");
+  const [activeTab, setActiveTab] = useState<PortalTab>(initialTab);
   const [isErasing, setIsErasing] = useState(false);
   const exerciseLogs = getExerciseLogs();
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  const handleLogout = () => {
+    void logoutMember();
+    onLogout();
+  };
 
   // GDPR: fetch the export so it downloads as a file without leaving the page.
   const handleExportData = async () => {
@@ -98,45 +111,39 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
       {/* Member Portal Top Nav */}
       <header className="bg-surface border-b border-border py-4 sticky top-0 z-40 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-accent text-black font-extrabold flex items-center justify-center text-sm shadow-sm">
+          <button
+            type="button"
+            onClick={onGoHome}
+            aria-label={`${config.gymName} - Επιστροφή στην αρχική σελίδα`}
+            className="flex items-center gap-3 group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-accent text-black font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
               <Dumbbell className="w-4 h-4 stroke-[2.5]" />
             </div>
-            <div>
+            <div className="text-left">
               <span className="font-bold text-sm tracking-tight text-white uppercase block">
                 {config.gymName}
               </span>
-              <span className="text-[10px] text-tertiary font-mono">Member Portal</span>
+              <span className="text-[10px] text-tertiary font-mono">Χώρος Μελών</span>
             </div>
-          </div>
+          </button>
 
           <div className="flex items-center gap-2.5">
-            {/* Gym Floor Lite Mode Manual Trigger */}
+            {/* Manual Lite Mode Trigger */}
             <button
               onClick={onToggleLiteMode}
               className="px-2.5 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-amber-300 text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
               title="Ενεργοποίηση λειτουργίας εξοικονόμησης δικτύου για το γυμναστήριο"
             >
               <Wifi className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Gym Floor Lite</span>
+              <span className="hidden sm:inline">Ελαφριά Λειτουργία</span>
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-elevated border border-border text-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="text-white font-medium">{member.fullName}</span>
-              <span className="font-mono text-tertiary">({member.memberCode})</span>
-            </div>
-
-            <button
-              onClick={() => {
-                void logoutMember();
-                onLogout();
-              }}
-              className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-secondary hover:text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Αποσύνδεση</span>
-            </button>
+            <MemberMenu
+              member={member}
+              onSelectTab={setActiveTab}
+              onLogout={handleLogout}
+            />
           </div>
         </div>
       </header>
@@ -148,7 +155,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
           <div>
             <span className="text-[11px] font-mono text-accent uppercase font-bold">
-              Personal Training Dashboard
+              Προσωπικός Πίνακας Προπόνησης
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
               Καλωσήρθατε, {member.fullName.split(" ")[0]}!
@@ -176,7 +183,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   className="px-3.5 py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-accent font-semibold text-xs flex items-center gap-2 transition-colors border border-border"
                 >
                   <MessageSquareText className="w-4 h-4" />
-                  <span>AI Coach Q&A</span>
+                  <span>Συνομιλία με τον Προπονητή</span>
                 </button>
 
                 <button
@@ -184,13 +191,13 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   className="px-4 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-black font-bold text-xs flex items-center gap-2 transition-colors shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Νέο AI Split</span>
+                  <span>Νέο Πρόγραμμα</span>
                 </button>
               </>
             ) : (
               <div className="px-3 py-2 rounded-lg bg-surface-elevated border border-border text-xs text-secondary flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-tertiary" />
-                <span className="text-[11px]">AI Copilot: <strong className="text-tertiary">Standard Pass</strong></span>
+                <span className="text-[11px]">Ψηφιακός Βοηθός: <strong className="text-tertiary">Βασικό Πακέτο</strong></span>
               </div>
             )}
           </div>
@@ -200,7 +207,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Stat 1: Subscription Status */}
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
-            <div className="text-[10px] font-mono uppercase text-tertiary">Συνδρομη Γυμναστηριου</div>
+            <div className="text-[10px] font-mono uppercase text-tertiary">Συνδρομή Γυμναστηρίου</div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-white truncate">{member.subscription.tierName.split("(")[0]}</span>
               {member.subscription.status === "active" ? (
@@ -220,7 +227,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
           {/* Stat 2: AI Access Status */}
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
-            <div className="text-[10px] font-mono uppercase text-tertiary">Προσβαση AI Coach</div>
+            <div className="text-[10px] font-mono uppercase text-tertiary">Πρόσβαση Ψηφιακού Προπονητή</div>
             <div className="flex items-center gap-2">
               {isAIActive ? (
                 <span className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
@@ -235,13 +242,15 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               )}
             </div>
             <div className="text-[11px] text-secondary">
-              {isAIActive ? "AI Split & Live Chat ενεργά" : "Απαιτείται AI Add-on (+14€)"}
+              {isAIActive
+                ? "Πρόγραμμα & συνομιλία ενεργά"
+                : "Απαιτείται πρόσθετο πακέτο (+14€)"}
             </div>
           </div>
 
           {/* Stat 3: Total Saved Plans */}
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
-            <div className="text-[10px] font-mono uppercase text-tertiary">Αποθηκευμενα Splits</div>
+            <div className="text-[10px] font-mono uppercase text-tertiary">Αποθηκευμένα Προγράμματα</div>
             <div className="text-2xl font-extrabold text-white font-mono">
               {member.savedPlans.length}
             </div>
@@ -250,11 +259,11 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
           {/* Stat 4: Overload Logs */}
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
-            <div className="text-[10px] font-mono uppercase text-tertiary">Καταγραφες Κιλων</div>
+            <div className="text-[10px] font-mono uppercase text-tertiary">Καταγραφές Κιλών</div>
             <div className="text-2xl font-extrabold text-accent font-mono">
               {exerciseLogs.length}
             </div>
-            <div className="text-[11px] text-secondary">Progressive overload entries</div>
+            <div className="text-[11px] text-secondary">Καταγραφές προοδευτικής επιβάρυνσης</div>
           </div>
         </div>
 
@@ -268,7 +277,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 : "text-secondary hover:text-white"
             }`}
           >
-            Επισκόπηση & Ενεργό Split
+            Επισκόπηση & Ενεργό Πρόγραμμα
           </button>
           <button
             onClick={() => setActiveTab("plans")}
@@ -373,7 +382,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                           onClick={onLaunchAIWizard}
                           className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black font-bold text-xs transition-colors shadow-sm"
                         >
-                          Δημιουργία AI Split
+                          Δημιουργία Προγράμματος
                         </button>
                       )}
                     </div>
@@ -388,7 +397,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 <div className="p-5 rounded-xl bg-surface-card border border-border-light space-y-4 shadow-sm">
                   <div className="flex items-center gap-2 text-accent">
                     <Bot className="w-5 h-5" />
-                    <h3 className="text-sm font-bold text-white">AI Coach Assistance</h3>
+                    <h3 className="text-sm font-bold text-white">Βοήθεια Ψηφιακού Προπονητή</h3>
                   </div>
                   <p className="text-xs text-secondary leading-relaxed">
                     Έχετε κάποια ενόχληση σε άρθρωση ή θέλετε να αντικαταστήσετε μία άσκηση στο γυμναστήριο;
@@ -398,20 +407,20 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                     className="w-full py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border transition-colors flex items-center justify-center gap-2"
                   >
                     <MessageSquareText className="w-3.5 h-3.5 text-accent" />
-                    <span>Ρωτήστε τον AI Coach</span>
+                    <span>Ρωτήστε τον Ψηφιακό Προπονητή</span>
                   </button>
                 </div>
               ) : (
                 <div className="p-5 rounded-xl bg-surface border border-border space-y-3">
                   <div className="flex items-center gap-2 text-tertiary">
                     <Lock className="w-4 h-4" />
-                    <h3 className="text-xs font-bold text-white">NexusFit AI Copilot (Κλειδωμένο)</h3>
+                    <h3 className="text-xs font-bold text-white">NexusFit Ψηφιακός Βοηθός (Κλειδωμένο)</h3>
                   </div>
                   <p className="text-[11px] text-secondary leading-relaxed">
-                    Ο λογαριασμός σας διαθέτει Standard συνδρομή. Μπορείτε να φτιάξετε χειροκίνητα τα προγράμματά σας, ή να αναβαθμίσετε για τον AI Coach:
+                    Ο λογαριασμός σας διαθέτει βασική συνδρομή. Μπορείτε να φτιάξετε χειροκίνητα τα προγράμματά σας ή να αναβαθμίσετε για τον ψηφιακό προπονητή:
                   </p>
                   <div className="p-3 rounded-lg bg-background border border-border text-[11px] text-tertiary">
-                    Απευθυνθείτε στη ρεσεψιόν του γυμναστηρίου για ενεργοποίηση AI (+14€/μήνα).
+                    Απευθυνθείτε στη ρεσεψιόν του γυμναστηρίου για ενεργοποίηση του ψηφιακού βοηθού (+14€/μήνα).
                   </div>
                 </div>
               )}
@@ -420,7 +429,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               <div className="p-5 rounded-xl bg-surface border border-border space-y-3">
                 <div className="text-xs font-bold text-white">Στοιχεία Κάρτας Μέλους</div>
                 <div className="p-3 rounded-lg bg-background border border-border font-mono text-xs flex items-center justify-between">
-                  <span className="text-tertiary">Barcode:</span>
+                  <span className="text-tertiary">Κωδικός κάρτας:</span>
                   <span className="text-accent font-bold">{member.memberCode}</span>
                 </div>
                 <div className="text-[11px] text-tertiary leading-relaxed">
@@ -462,7 +471,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="text-xs text-secondary">
-                Όλα τα προγράμματα προπόνησης (AI & Χειροκίνητα):
+                Όλα τα προγράμματα προπόνησης (ψηφιακά & χειροκίνητα):
               </div>
               <button
                 onClick={onLaunchManualBuilder}

@@ -16,10 +16,10 @@ export const Facilities: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="mb-10">
           <span className="text-[11px] font-mono text-accent uppercase font-bold">
-            Equipment & Spaces
+Χώροι & Εξοπλισμός
           </span>
           <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
-            Εγκαταστάσεις & Ζώνες Προπόνησης
+            Εγκαταστάσεις & Χώροι
           </h2>
           <p className="text-secondary text-xs sm:text-sm mt-1">
             Προσεκτικά σχεδιασμένοι χώροι για μέγιστη άνεση, ασφάλεια και απόδοση.

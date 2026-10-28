@@ -46,8 +46,8 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
     },
     {
       id: "strength",
-      title: "Απόλυτη Δύναμη (Strength)",
-      desc: "Εστίαση σε βασικές μπάρες (Squat, Bench, Row) και εύρος 4-6 επαναλήψεων.",
+      title: "Απόλυτη Δύναμη",
+      desc: "Εστίαση σε βασικές ασκήσεις (κάθισμα, πιέσεις πάγκου, κωπηλατική) και εύρος 4-6 επαναλήψεων.",
     },
     {
       id: "general_fit",
@@ -58,13 +58,13 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
 
   const experienceLevels: { id: ExperienceLevel; title: string; subtitle: string }[] = [
     { id: "beginner", title: "Αρχάριος (< 1 έτος)", subtitle: "Εκμάθηση βασικών μοτίβων κίνησης" },
-    { id: "intermediate", title: "Μέσος (1 - 3 έτη)", subtitle: "Σταθερή εμπειρία και progressive overload" },
-    { id: "advanced", title: "Προχωρημένος (3+ έτη)", subtitle: "Υψηλή ένταση και σύνθετα splits" },
+    { id: "intermediate", title: "Μέσος (1 - 3 έτη)", subtitle: "Σταθερή εμπειρία και σταδιακή αύξηση επιβάρυνσης" },
+    { id: "advanced", title: "Προχωρημένος (3+ έτη)", subtitle: "Υψηλή ένταση και σύνθετα προγράμματα" },
   ];
 
   const injuryOptions = [
     { id: "none", label: "Κανένας περιορισμός (Πλήρες ασκησιολόγιο)" },
-    { id: "lower_back", label: "Ευαισθησία στη μέση (Αποκλεισμός Heavy Deadlifts/Squats)" },
+    { id: "lower_back", label: "Ευαισθησία στη μέση (Αποκλεισμός βαρέων άρσεων και καθισμάτων)" },
     { id: "shoulders", label: "Ενόχληση σε ώμους / στροφικό πέταλο" },
     { id: "knees", label: "Ενόχληση στα γόνατα" },
     { id: "wrist", label: "Ευαισθησία στους καρπούς" },
@@ -98,7 +98,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Οδηγός δημιουργίας προγράμματος AI"
+      aria-label="Οδηγός δημιουργίας προγράμματος με ψηφιακό προπονητή"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
     >
       <div className="relative w-full max-w-2xl bg-surface border border-border p-6 sm:p-8 rounded-xl shadow-2xl space-y-6">
@@ -107,7 +107,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="font-mono text-xs font-bold text-accent uppercase tracking-wider">
-              NEXUSFIT AI WORKOUT ENGINE
+              ΜΗΧΑΝΗ ΠΡΟΓΡΑΜΜΑΤΩΝ NEXUSFIT
             </span>
             <div className="flex items-center gap-4">
               <span className="text-xs font-mono text-secondary bg-surface-elevated px-2.5 py-1 rounded border border-border">
@@ -117,7 +117,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                 type="button"
                 onClick={onClose}
                 className="p-1.5 rounded-lg text-secondary hover:text-white hover:bg-surface-elevated transition-colors border border-border"
-                aria-label="Close"
+                aria-label="Κλείσιμο"
               >
                 <X className="w-4 h-4" />
               </button>

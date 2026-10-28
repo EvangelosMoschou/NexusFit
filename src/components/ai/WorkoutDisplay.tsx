@@ -15,6 +15,14 @@ const EXPERIENCE_LABELS: Record<string, string> = {
   advanced: "Προχωρημένος",
 };
 
+const GOAL_LABELS: Record<string, string> = {
+  hypertrophy: "Μυϊκή Μάζα",
+  strength: "Δύναμη",
+  fat_loss: "Απώλεια Λίπους",
+  endurance: "Αντοχή",
+  general_fit: "Γενική Φυσική Κατάσταση",
+};
+
 interface WorkoutDisplayProps {
   plan: GeneratedWorkoutPlan;
   onReset: () => void;
@@ -44,18 +52,18 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
   const activeDay = plan.days[activeDayIdx] || plan.days[0];
 
   const handleCopy = () => {
-    let text = `NEXUSFIT WORKOUT PLAN: ${plan.splitName}\n`;
-    text += `Στόχος: ${plan.userGoal.toUpperCase()} | Επίπεδο: ${EXPERIENCE_LABELS[plan.experienceLevel] ?? plan.experienceLevel} | ${plan.daysPerWeek} Ημέρες/Εβδ | ${plan.sessionDuration} min\n\n`;
+    let text = `ΠΡΟΓΡΑΜΜΑ ΠΡΟΠΟΝΗΣΗΣ NEXUSFIT: ${plan.splitName}\n`;
+    text += `Στόχος: ${GOAL_LABELS[plan.userGoal] ?? plan.userGoal} | Επίπεδο: ${EXPERIENCE_LABELS[plan.experienceLevel] ?? plan.experienceLevel} | ${plan.daysPerWeek} Ημέρες/Εβδομάδα | ${plan.sessionDuration} λεπτά\n\n`;
 
     plan.days.forEach((d) => {
       text += `[${d.dayName}] - Εστίαση: ${d.focus}\n`;
       d.exercises.forEach((ex, idx) => {
-        text += `  ${idx + 1}. ${ex.greekName} (${ex.name}) - ${ex.sets} σετ x ${ex.reps} | Rest: ${ex.restSeconds}s\n`;
+        text += `  ${idx + 1}. ${ex.greekName} - ${ex.sets} σετ x ${ex.reps} | Διάλειμμα: ${ex.restSeconds} δευτ.\n`;
       });
       text += `\n`;
     });
 
-    text += `Οδηγία Coach: ${plan.coachAdvice}\n`;
+    text += `Οδηγία προπονητή: ${plan.coachAdvice}\n`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -114,7 +122,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
               className="px-3 py-1.5 rounded bg-surface-elevated hover:bg-border text-xs font-semibold text-white border border-border flex items-center gap-1.5 transition-colors"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Εκτύπωση (PDF)</span>
+              <span>Εκτύπωση</span>
             </button>
 
             <button
@@ -168,7 +176,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
                       {i + 1}. {ex.greekName}
                     </div>
                     <div className="text-[11px] text-tertiary">
-                      {ex.name} • {ex.muscleGroup}
+                      {ex.muscleGroup}
                     </div>
                     {ex.notes && (
                       <div className="text-[10px] text-accent mt-0.5 font-mono">
@@ -189,7 +197,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
                     </div>
 
                     <div className="bg-surface-card px-2 py-1 rounded border border-border">
-                      <span className="text-tertiary">Rest: </span>
+                      <span className="text-tertiary">Διάλειμμα: </span>
                       <span className="text-accent font-bold">{ex.restSeconds}s</span>
                     </div>
 
@@ -202,7 +210,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
                         onLogged={() => setLogRefreshTick((t) => t + 1)}
                         inputClassName="px-1.5 py-1 text-[11px]"
                         buttonClassName="p-1"
-                        title="Καταγραφή κιλών στα cookies"
+                        title="Καταγραφή κιλών"
                       />
                     </div>
                   </div>
@@ -215,7 +223,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
         {/* Warmup & Cardio */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 text-xs">
           <div className="p-3 rounded bg-surface border border-border space-y-1">
-            <div className="font-semibold text-white">Προθέρμανση (Warm-up)</div>
+            <div className="font-semibold text-white">Προθέρμανση</div>
             <ul className="text-tertiary text-[11px] space-y-1">
               {plan.warmupProtocol.map((item, idx) => (
                 <li key={idx}>— {item}</li>
@@ -224,7 +232,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
           </div>
 
           <div className="p-3 rounded bg-surface border border-border space-y-1">
-            <div className="font-semibold text-white">Αερόβια Άσκηση (Cardio)</div>
+            <div className="font-semibold text-white">Αερόβια Άσκηση</div>
             <p className="text-tertiary text-[11px] leading-relaxed">
               {plan.weeklyCardioRecommendation}
             </p>

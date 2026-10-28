@@ -58,7 +58,7 @@ export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateSt
                   </span>
                 </div>
                 <div className="text-secondary flex items-center gap-3">
-                  <span>Email: <strong className="text-white">{lead.email}</strong></span>
+                  <span>Ηλεκτρονικό Ταχυδρομείο: <strong className="text-white">{lead.email}</strong></span>
                   {lead.phone && <span>Τηλ: <strong className="text-white">{lead.phone}</strong></span>}
                 </div>
                 {lead.preferred_plan && (

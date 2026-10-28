@@ -84,7 +84,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
               <div className="flex items-start gap-3 p-3 rounded bg-background border border-border">
                 <Mail className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-white">Email Επικοινωνίας</div>
+                  <div className="font-semibold text-white">Ηλεκτρονικό Ταχυδρομείο</div>
                   <div className="text-secondary text-[11px]">{config.email}</div>
                 </div>
               </div>
@@ -103,7 +103,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                     Το μήνυμά σας παραλήφθηκε
                   </h3>
                   <p className="text-xs text-secondary max-w-sm mx-auto">
-                    Ευχαριστούμε <span className="text-white font-semibold">{fullName}</span>. Θα λάβετε απάντηση στο email <span className="text-white font-mono">{email}</span> εντός 24 ωρών.
+                    Ευχαριστούμε <span className="text-white font-semibold">{fullName}</span>. Θα λάβετε απάντηση στο ηλεκτρονικό ταχυδρομείο <span className="text-white font-mono">{email}</span> εντός 24 ωρών.
                   </p>
                   <button
                     onClick={() => setSubmitted(false)}
@@ -147,7 +147,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                         htmlFor="lead-email"
                         className="block text-[11px] font-semibold text-secondary mb-1"
                       >
-                        Email Επικοινωνίας *
+                        Ηλεκτρονικό Ταχυδρομείο *
                       </label>
                       <input
                         id="lead-email"
@@ -187,7 +187,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                     <textarea
                       id="lead-message"
                       rows={3}
-                      placeholder="Γράψτε τυχόν απορίες για τα μαθήματα, τον εξοπλισμό ή το AI σύστημα..."
+                      placeholder="Γράψτε τυχόν απορίες για τα μαθήματα, τον εξοπλισμό ή το ψηφιακό σύστημα..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       className="w-full px-3 py-2 rounded bg-surface border border-border text-white text-xs outline-none focus:border-border-light resize-none"

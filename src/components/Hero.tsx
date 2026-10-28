@@ -44,7 +44,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 onClick={onOpenLogin}
                 className="px-5 py-3 rounded-lg bg-surface-elevated hover:bg-border text-white font-semibold text-xs border border-border transition-colors"
               >
-                Σύνδεση Μέλους (Member Portal)
+                Είσοδος Μελών
               </button>
             </div>
 
@@ -58,10 +58,10 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
             <div className="bg-surface border border-border rounded-xl p-6 shadow-lg space-y-5">
               <div className="pb-3 border-b border-border">
                 <span className="text-[10px] font-mono text-accent uppercase font-bold">
-                  Center Specifications
+                  Προδιαγραφές Κέντρου
                 </span>
                 <h3 className="text-base font-bold text-white mt-0.5">
-                  Nexus Athletics Overview
+                  Στοιχεία του Κέντρου
                 </h3>
               </div>
 
@@ -69,15 +69,15 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">
                   <div className="flex items-center gap-2 text-accent">
                     <Dumbbell className="w-4 h-4" />
-                    <span className="font-mono text-base font-black text-white">1200 τ.μ.</span>
+                    <span className="font-mono text-base font-black text-white">{config.stats.squareMeters} τ.μ.</span>
                   </div>
-                  <div className="text-[11px] text-secondary">Εξοπλισμός Eleiko & Hammer</div>
+                  <div className="text-[11px] text-secondary">Αίθουσες Γιόγκα & Πιλάτες</div>
                 </div>
 
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">
                   <div className="flex items-center gap-2 text-accent">
                     <Users className="w-4 h-4" />
-                    <span className="font-mono text-base font-black text-white">65+ Ώρες</span>
+                    <span className="font-mono text-base font-black text-white">{config.stats.weeklyClasses}+ Ώρες</span>
                   </div>
                   <div className="text-[11px] text-secondary">Ομαδικά μαθήματα εβδομαδιαίως</div>
                 </div>
@@ -85,7 +85,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">
                   <div className="flex items-center gap-2 text-accent">
                     <Clock className="w-4 h-4" />
-                    <span className="font-mono text-base font-black text-white">06:00-23:00</span>
+                    <span className="font-mono text-base font-black text-white">{config.workingHours.weekdays}</span>
                   </div>
                   <div className="text-[11px] text-secondary">Δευτέρα έως Παρασκευή</div>
                 </div>
@@ -93,7 +93,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">
                   <div className="flex items-center gap-2 text-accent">
                     <Award className="w-4 h-4" />
-                    <span className="font-mono text-base font-black text-white">Certified</span>
+                    <span className="font-mono text-base font-black text-white">Πιστοποιημένοι</span>
                   </div>
                   <div className="text-[11px] text-secondary">Πιστοποιημένοι Προπονητές</div>
                 </div>
@@ -101,7 +101,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
 
               <div className="p-3 rounded-lg bg-surface-elevated/60 border border-border text-xs text-secondary leading-relaxed">
                 <strong className="text-white">Παροχές Μελών: </strong>
-                Πλήρης πρόσβαση στα όργανα, χρήση αποδυτηρίων/lockers, σάουνα και αποκλειστική πρόσβαση στο Member Portal.
+                Πλήρης πρόσβαση στις αίθουσες, χρήση αποδυτηρίων και ερμαρίων, σάουνα και αποκλειστική πρόσβαση στον χώρο μελών.
               </div>
             </div>
           </div>

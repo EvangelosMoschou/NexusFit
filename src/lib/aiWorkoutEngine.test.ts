@@ -32,7 +32,7 @@ describe("generateSmartWorkoutPlan", () => {
     expect(planFor({ daysPerWeek: 3 }).splitType).toBe("full_body");
     expect(planFor({ daysPerWeek: 4 }).splitType).toBe("upper_lower");
     expect(planFor({ daysPerWeek: 5 }).splitType).toBe("push_pull_legs");
-    expect(planFor({ daysPerWeek: 5 }).splitName).toContain("5-Day");
+    expect(planFor({ daysPerWeek: 5 }).splitName).toContain("5 Ημερών");
   });
 
   it("renumbers cycled days for 5-6 day splits", () => {

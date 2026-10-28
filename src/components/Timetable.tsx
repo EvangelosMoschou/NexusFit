@@ -21,6 +21,23 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
     { key: "Saturday", greek: "Σάββατο" },
   ];
 
+  const CATEGORY_LABELS: Record<string, string> = {
+    Strength: "Δύναμη",
+    HIIT: "Υψηλή Ένταση",
+    Pilates: "Πιλάτες",
+    Yoga: "Γιόγκα",
+    Boxing: "Πυγμαχία",
+    Cycling: "Ποδηλασία",
+  };
+
+  const INTENSITY_LABELS: Record<string, string> = {
+    Low: "Χαμηλή",
+    Medium: "Μέτρια",
+    High: "Υψηλή",
+  };
+
+  const categoryLabel = (value: string) => CATEGORY_LABELS[value] ?? value;
+
   const categories = ["ALL", ...Array.from(new Set(config.schedule.map((item) => item.category)))];
 
   const filteredSchedule = config.schedule.filter((item) => {
@@ -35,7 +52,7 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
           <div>
             <span className="text-[11px] font-mono text-accent uppercase font-bold">
-              Class Schedule
+              Πρόγραμμα Μαθημάτων
             </span>
             <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
               Εβδομαδιαίο Πρόγραμμα Ομαδικών
@@ -57,7 +74,7 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
                     : "bg-surface text-secondary hover:text-white border border-border"
                 }`}
               >
-                {cat === "ALL" ? "Όλα" : cat}
+                {cat === "ALL" ? "Όλα" : categoryLabel(cat)}
               </button>
             ))}
           </div>
@@ -97,14 +114,14 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
                       {item.className}
                     </div>
                     <div className="text-xs text-tertiary">
-                      {item.category} • Προπονητής: {item.trainer} • Διάρκεια: {item.duration}
+                      {categoryLabel(item.category)} • Προπονητής: {item.trainer} • Διάρκεια: {item.duration}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-surface-elevated text-secondary border border-border">
-                    Ένταση: {item.intensity}
+                    Ένταση: {INTENSITY_LABELS[item.intensity] ?? item.intensity}
                   </span>
                   <button
                     onClick={onOpenBooking}

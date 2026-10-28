@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
+import type { PortalTab } from "@/components/MemberMenu";
 import { Hero } from "@/components/Hero";
 import { Facilities } from "@/components/Facilities";
 import { Timetable } from "@/components/Timetable";
@@ -41,20 +42,20 @@ function DemoBanner() {
     <div className="fixed bottom-3 left-3 z-[80] max-w-[calc(100vw-1.5rem)] rounded-lg border border-border bg-surface/95 px-3 py-2 text-[11px] text-secondary shadow-xl backdrop-blur flex flex-wrap items-center gap-x-2 gap-y-1">
       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
       <span>
-        <strong className="text-white">Interactive demo</strong> — data stays in this browser.
+        <strong className="text-white">Διαδραστική επίδειξη</strong> — τα δεδομένα μένουν σε αυτόν τον περιηγητή.
       </span>
-      <span className="font-mono text-tertiary">Login: NX-8492 / 1234</span>
+      <span className="font-mono text-tertiary">Σύνδεση: NX-8492 / 1234</span>
       <button
         onClick={resetDemo}
         className="px-2 py-0.5 rounded bg-surface-elevated hover:bg-border text-white font-semibold"
       >
-        Reset
+        Επαναφορά
       </button>
       <a
         href="https://github.com/EvangelosMoschou/NexusFit"
         className="text-accent hover:underline"
       >
-        Source
+        Πηγαίος κώδικας
       </a>
     </div>
   );
@@ -62,6 +63,8 @@ function DemoBanner() {
 
 export function DemoApp() {
   const [member, setMember] = useState<MemberUser | null>(null);
+  const [view, setView] = useState<"home" | "portal">("home");
+  const [portalTab, setPortalTab] = useState<PortalTab>("overview");
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isAIWizardOpen, setIsAIWizardOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
@@ -80,6 +83,25 @@ export function DemoApp() {
   }, []);
 
   const isMemberAIActive = member?.subscription.hasAIAccess && member?.subscription.status === "active";
+
+  const goHome = () => {
+    setView("home");
+    if (window.location.hash) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openMemberTab = (tab: PortalTab) => {
+    setPortalTab(tab);
+    setView("portal");
+    window.scrollTo({ top: 0 });
+  };
+
+  const handleLogout = () => {
+    setMember(null);
+    setView("home");
+  };
 
   const handleOpenContact = (planName?: string) => {
     if (planName) setSelectedPlanName(planName);
@@ -101,7 +123,7 @@ export function DemoApp() {
     }
   };
 
-  if (member && network.isLiteMode) {
+  if (member && view === "portal" && network.isLiteMode) {
     return (
       <>
         <main className="min-h-screen bg-[#111317] text-white">
@@ -123,14 +145,16 @@ export function DemoApp() {
     );
   }
 
-  if (member) {
+  if (member && view === "portal") {
     return (
       <>
         <main className="min-h-screen bg-background text-foreground relative">
           <ScrollProgressBar />
           <MemberPortalPage
             member={member}
-            onLogout={() => setMember(null)}
+            initialTab={portalTab}
+            onGoHome={goHome}
+            onLogout={handleLogout}
             onLaunchAIWizard={() => {
               if (isMemberAIActive) setIsAIWizardOpen(true);
             }}
@@ -190,12 +214,16 @@ export function DemoApp() {
           onOpenContact={() => handleOpenContact()}
           onOpenSearch={() => setIsSearchOpen(true)}
           onOpenLogin={() => setIsLoginOpen(true)}
+          onGoHome={goHome}
+          member={member}
+          onLogout={handleLogout}
+          onSelectMemberTab={openMemberTab}
         />
 
         <div id="main-content">
           <Hero
             onOpenContact={() => handleOpenContact()}
-            onOpenLogin={() => setIsLoginOpen(true)}
+            onOpenLogin={() => (member ? openMemberTab("overview") : setIsLoginOpen(true))}
           />
           <Facilities />
           <Timetable onOpenBooking={() => handleOpenContact()} />

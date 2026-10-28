@@ -34,8 +34,8 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
             <ul className="space-y-1.5 text-secondary">
               <li><a href="#facilities" className="hover:text-white transition-colors">Εγκαταστάσεις</a></li>
               <li><a href="#schedule" className="hover:text-white transition-colors">Πρόγραμμα Ομαδικών</a></li>
-              <li><a href="#pricing" className="hover:text-white transition-colors">Συνδρομές & AI Add-on</a></li>
-              <li><a href="#contact" className="hover:text-white transition-colors">Online Εγγραφή</a></li>
+              <li><a href="#pricing" className="hover:text-white transition-colors">Συνδρομές & Ψηφιακό Πρόσθετο</a></li>
+              <li><a href="#contact" className="hover:text-white transition-colors">Ηλεκτρονική Εγγραφή</a></li>
             </ul>
           </div>
 

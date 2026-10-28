@@ -11,7 +11,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: `${defaultGymConfig.gymName} | Σύγχρονο Γυμναστήριο & AI Workout Copilot`,
+  title: `${defaultGymConfig.gymName} | Σύγχρονο Γυμναστήριο & Ψηφιακός Βοηθός Προπόνησης`,
   description: `${defaultGymConfig.description} Εξατομικευμένη προπονητική καθοδήγηση και ομαδικά προγράμματα.`,
   manifest: "/manifest.webmanifest",
   icons: {
@@ -20,17 +20,17 @@ export const metadata: Metadata = {
   },
   keywords: [
     "γυμναστήριο",
-    "gym",
-    "fitness",
-    "AI workout",
+    "γυμναστήριο Αθήνα",
+    "προπόνηση",
+    "ψηφιακός προπονητής",
     "προπονητής",
-    "pilates",
-    "yoga",
+    "πιλάτες",
+    "γιόγκα",
     defaultGymConfig.gymName,
     defaultGymConfig.city,
   ],
   openGraph: {
-    title: `${defaultGymConfig.gymName} - Fitness & AI Workout Copilot`,
+    title: `${defaultGymConfig.gymName} - Γυμναστήριο & Ψηφιακός Βοηθός`,
     description: defaultGymConfig.tagline,
     type: "website",
     locale: "el_GR",

@@ -44,7 +44,7 @@ export default function NotFound() {
             </div>
             <div>
               <div className="font-bold text-xs text-white">Αρχική Σελίδα</div>
-              <div className="text-[11px] text-secondary">Επιστροφή στο κεντρικό portal</div>
+              <div className="text-[11px] text-secondary">Επιστροφή στην αρχική σελίδα</div>
             </div>
           </Link>
 

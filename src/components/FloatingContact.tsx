@@ -27,7 +27,7 @@ export const FloatingContact: React.FC = () => {
       <button
         onClick={() => setOpen(!open)}
         className="fixed bottom-6 left-6 z-40 p-3 rounded-full bg-surface border border-border text-white hover:bg-surface-elevated transition-colors shadow-xl flex items-center gap-2 text-xs font-semibold"
-        aria-label="Quick inquiry"
+        aria-label="Γρήγορη επικοινωνία"
       >
         <MessageSquare className="w-4 h-4 text-accent" />
         <span className="hidden sm:inline">Ερώτηση</span>
@@ -62,7 +62,7 @@ export const FloatingContact: React.FC = () => {
             <form onSubmit={handleSend} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-semibold text-secondary mb-1">
-                  Email επικοινωνίας
+                  Ηλεκτρονικό Ταχυδρομείο
                 </label>
                 <input
                   type="email"

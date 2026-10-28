@@ -38,13 +38,13 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-10">
           <span className="text-[11px] font-mono text-accent uppercase font-bold">
-            Membership & Pricing
+            Συνδρομές & Τιμές
           </span>
           <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
-            Κόστος Συνδρομής & AI Add-on
+            Κόστος Συνδρομής & Ψηφιακό Πρόσθετο
           </h2>
           <p className="text-secondary text-xs sm:text-sm mt-1">
-            Ενιαία πρόσβαση στο γυμναστήριο με επιλογή προσθήκης του AI Copilot.
+            Ενιαία πρόσβαση στο γυμναστήριο με δυνατότητα προσθήκης του ψηφιακού βοηθού.
           </p>
           <div className="mt-2 text-[11px] font-mono text-tertiary">
             * Οι εγγραφές και οι πληρωμές συνδρομών γίνονται αυτοπροσώπως στη ρεσεψιόν.
@@ -93,13 +93,13 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
           <div className="p-6 rounded-xl bg-surface border border-border flex flex-col justify-between space-y-6">
             <div>
               <div className="text-[11px] font-mono uppercase text-tertiary mb-1">
-                Standard Pass
+                Βασική Συνδρομή
               </div>
               <h3 className="text-lg font-bold text-white mb-2">
                 {basePlan.name}
               </h3>
               <p className="text-secondary text-xs mb-6 leading-relaxed">
-                Πλήρης πρόσβαση σε όλες τις ζώνες βαρών, cardio και ομαδικών μαθημάτων.
+                Πλήρης πρόσβαση σε όλους τους χώρους και τα ομαδικά μαθήματα.
               </p>
 
               <div className="flex items-baseline gap-1.5 pb-6 mb-6 border-b border-border">
@@ -133,11 +133,11 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
             <div>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] font-mono uppercase text-accent font-bold">
-                  Recommended Combo
+                  Προτεινόμενο Πακέτο
                 </span>
                 {aiAddonDiff > 0 && (
                   <span className="text-[10px] bg-accent text-black font-bold px-2 py-0.5 rounded-md">
-                    +{formatEuro(aiAddonDiff)} AI Add-on
+                    +{formatEuro(aiAddonDiff)} Ψηφιακό Πρόσθετο
                   </span>
                 )}
               </div>
@@ -179,7 +179,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
                 onClick={onOpenAIWizard}
                 className="w-full py-1.5 text-secondary hover:text-white text-[11px] font-medium transition-colors text-center"
               >
-                Δοκιμή AI Generator χωρίς εγγραφή
+                Δοκιμή προγράμματος χωρίς εγγραφή
               </button>
             </div>
           </div>

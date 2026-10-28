@@ -83,20 +83,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
 
         <div>
           <div className="text-[10px] font-mono uppercase text-accent font-bold">
-            Member Portal Access
+            Πρόσβαση Μελών
           </div>
           <h2 className="text-xl font-bold text-white tracking-tight mt-0.5">
             Σύνδεση Μέλους Γυμναστηρίου
           </h2>
           <p className="text-xs text-secondary mt-1">
-            Εισάγετε τον κωδικό μέλους της κάρτας σας για πρόσβαση στον AI Copilot.
+            Εισάγετε τον κωδικό μέλους της κάρτας σας για πρόσβαση στον ψηφιακό βοηθό.
           </p>
         </div>
 
         {/* Quick Demo Test Buttons */}
         <div className="p-3 rounded bg-background border border-border space-y-2">
           <div className="text-[10px] font-mono text-tertiary uppercase">
-            Γρήγορη Δοκιμή (Demo Credentials):
+            Γρήγορη Δοκιμή (Δοκιμαστικά Στοιχεία):
           </div>
           <div className="flex flex-col gap-1.5">
             <button
@@ -105,7 +105,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
               className="py-1.5 px-2.5 rounded bg-surface-elevated hover:bg-border text-left text-xs text-white border border-border flex items-center justify-between transition-colors"
             >
               <span>Γ. Παπαδόπουλος (NX-8492)</span>
-              <span className="text-[10px] font-mono text-accent">Active AI Pass</span>
+              <span className="text-[10px] font-mono text-accent">Ενεργή Πρόσβαση</span>
             </button>
             <button
               type="button"
@@ -113,7 +113,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
               className="py-1.5 px-2.5 rounded bg-surface-elevated hover:bg-border text-left text-xs text-secondary border border-border flex items-center justify-between transition-colors"
             >
               <span>Μ. Κωνσταντίνου (NX-3109)</span>
-              <span className="text-[10px] font-mono text-tertiary">Standard Pass</span>
+              <span className="text-[10px] font-mono text-tertiary">Βασική Πρόσβαση</span>
             </button>
           </div>
         </div>
@@ -131,14 +131,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
               htmlFor="login-identifier"
               className="block text-[11px] font-semibold text-secondary mb-1"
             >
-              Κωδικός Μέλους ή Email
+              Κωδικός Μέλους ή Ηλεκτρονικό Ταχυδρομείο
             </label>
             <div className="relative">
               <input
                 id="login-identifier"
                 type="text"
                 required
-                placeholder="π.χ. NX-8492 ή email"
+                placeholder="π.χ. NX-8492 ή ηλεκτρονικό ταχυδρομείο"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 rounded bg-background border border-border text-white text-xs outline-none focus:border-border-light font-mono"

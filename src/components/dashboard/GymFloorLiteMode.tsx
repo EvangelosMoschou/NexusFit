@@ -37,7 +37,7 @@ export const GymFloorLiteMode: React.FC<GymFloorLiteModeProps> = ({
   
   // Local Chat state (Runs 100% offline with ZERO network requests)
   const { input: chatInput, setInput: setChatInput, messages, send: sendChat } = useLocalAgentChat(
-    "📶 Λειτουργία Χαμηλού Σήματος (Offline Mode): Ο AI Coach εκτελείται τοπικά στη συσκευή σας με μηδενική κατανάλωση δεδομένων. Ρωτήστε για εναλλακτικές ασκήσεων ή οδηγίες.",
+    "📶 Λειτουργία Χαμηλού Σήματος (χωρίς δίκτυο): Ο ψηφιακός προπονητής εκτελείται τοπικά στη συσκευή σας με μηδενική κατανάλωση δεδομένων. Ρωτήστε για εναλλακτικές ασκήσεων ή οδηγίες.",
     50
   );
 
@@ -64,7 +64,7 @@ export const GymFloorLiteMode: React.FC<GymFloorLiteModeProps> = ({
       <div className="p-3 rounded-lg bg-surface border border-border flex items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-          <span className="font-bold text-amber-400">Gym Floor Lite Mode</span>
+          <span className="font-bold text-amber-400">Λειτουργία Χαμηλού Δικτύου</span>
           <span className="text-secondary hidden sm:inline">• Μηδενική κατανάλωση δικτύου (0 KB)</span>
         </div>
 
@@ -85,7 +85,7 @@ export const GymFloorLiteMode: React.FC<GymFloorLiteModeProps> = ({
           <span className="text-xs font-mono text-tertiary">({member.memberCode})</span>
         </div>
         <span className="text-[10px] font-mono text-emerald-400 border border-emerald-800/80 px-2 py-0.5 rounded bg-emerald-950/40">
-          {member.subscription.status === "active" ? "Active Member" : "Expired"}
+          {member.subscription.status === "active" ? "Ενεργό Μέλος" : "Έληξε"}
         </span>
       </div>
 
@@ -196,10 +196,10 @@ export const GymFloorLiteMode: React.FC<GymFloorLiteModeProps> = ({
           <div className="flex items-center justify-between border-b border-border pb-2">
             <div className="flex items-center gap-2">
               <Bot className="w-4 h-4 text-accent" />
-              <h3 className="text-xs font-bold text-white">Offline AI Coach (Zero Latency)</h3>
+              <h3 className="text-xs font-bold text-white">Ψηφιακός Προπονητής Χωρίς Δίκτυο</h3>
             </div>
             <span className="text-[10px] font-mono text-emerald-400 bg-surface-elevated px-2 py-0.5 rounded border border-border">
-              Local Engine
+              Τοπική Λειτουργία
             </span>
           </div>
 
@@ -244,7 +244,7 @@ export const GymFloorLiteMode: React.FC<GymFloorLiteModeProps> = ({
         </div>
       ) : (
         <div className="p-3 rounded-lg bg-surface border border-border text-xs text-secondary text-center">
-          Standard Pass: Για πρόσβαση στον AI Coach, απευθυνθείτε στη γραμματεία.
+          Βασική συνδρομή: Για πρόσβαση στον ψηφιακό προπονητή, απευθυνθείτε στη γραμματεία.
         </div>
       )}
 
