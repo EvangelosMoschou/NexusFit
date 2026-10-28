@@ -24,7 +24,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
               <span>{config.address}, {config.city}</span>
             </div>
 
-            <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-[1.2]">
+            <h1 className="text-3xl sm:text-5xl font-extrabold text-primary tracking-tight leading-[1.2]">
               {config.gymName}
             </h1>
 
@@ -35,14 +35,14 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 onClick={onOpenContact}
-                className="px-5 py-3 rounded-lg bg-white hover:bg-white/90 text-black font-bold text-xs tracking-tight transition-colors shadow-sm"
+                className="px-5 py-3 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs tracking-tight transition-colors shadow-sm"
               >
                 Επίσκεψη & Πληροφορίες
               </button>
 
               <button
                 onClick={onOpenLogin}
-                className="px-5 py-3 rounded-lg bg-surface-elevated hover:bg-border text-white font-semibold text-xs border border-border transition-colors"
+                className="px-5 py-3 rounded-lg bg-surface-elevated hover:bg-border text-primary font-semibold text-xs border border-border transition-colors"
               >
                 Είσοδος Μελών
               </button>
@@ -60,7 +60,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 <span className="text-[10px] font-mono text-accent uppercase font-bold">
                   Προδιαγραφές Κέντρου
                 </span>
-                <h3 className="text-base font-bold text-white mt-0.5">
+                <h3 className="text-base font-bold text-primary mt-0.5">
                   Στοιχεία του Κέντρου
                 </h3>
               </div>
@@ -69,7 +69,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">
                   <div className="flex items-center gap-2 text-accent">
                     <Dumbbell className="w-4 h-4" />
-                    <span className="font-mono text-base font-black text-white">{config.stats.squareMeters} τ.μ.</span>
+                    <span className="font-mono text-base font-black text-primary">{config.stats.squareMeters} τ.μ.</span>
                   </div>
                   <div className="text-[11px] text-secondary">Αίθουσες, βάρη & υπαίθριοι χώροι</div>
                 </div>
@@ -77,7 +77,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">
                   <div className="flex items-center gap-2 text-accent">
                     <Users className="w-4 h-4" />
-                    <span className="font-mono text-base font-black text-white">{config.stats.weeklyClasses}+ Ώρες</span>
+                    <span className="font-mono text-base font-black text-primary">{config.stats.weeklyClasses}+ Ώρες</span>
                   </div>
                   <div className="text-[11px] text-secondary">Ομαδικά μαθήματα εβδομαδιαίως</div>
                 </div>
@@ -85,7 +85,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">
                   <div className="flex items-center gap-2 text-accent">
                     <Clock className="w-4 h-4" />
-                    <span className="font-mono text-base font-black text-white">{config.workingHours.weekdays}</span>
+                    <span className="font-mono text-base font-black text-primary">{config.workingHours.weekdays}</span>
                   </div>
                   <div className="text-[11px] text-secondary">Δευτέρα έως Παρασκευή</div>
                 </div>
@@ -93,14 +93,14 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">
                   <div className="flex items-center gap-2 text-accent">
                     <Award className="w-4 h-4" />
-                    <span className="font-mono text-base font-black text-white">Πιστοποιημένοι</span>
+                    <span className="font-mono text-base font-black text-primary">Πιστοποιημένοι</span>
                   </div>
                   <div className="text-[11px] text-secondary">Πιστοποιημένοι Προπονητές</div>
                 </div>
               </div>
 
               <div className="p-3 rounded-lg bg-surface-elevated/60 border border-border text-xs text-secondary leading-relaxed">
-                <strong className="text-white">Παροχές Μελών: </strong>
+                <strong className="text-primary">Παροχές Μελών: </strong>
                 Πλήρης πρόσβαση στις αίθουσες, χρήση αποδυτηρίων και ερμαρίων, σάουνα και αποκλειστική πρόσβαση στον χώρο μελών.
               </div>
             </div>

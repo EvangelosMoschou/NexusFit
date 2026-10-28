@@ -6,6 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import type { PortalTab } from "@/components/MemberMenu";
 import { Hero } from "@/components/Hero";
 import { Announcements } from "@/components/Announcements";
+import { ThemePreviewSwitcher } from "@/components/ThemePreviewSwitcher";
 import { Facilities } from "@/components/Facilities";
 import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
@@ -141,7 +142,7 @@ export default function Home() {
     // If on slow network / offline / lite mode -> Show Barebones Zero-Bandwidth Gym Floor View
     if (network.isLiteMode) {
       return (
-        <main className="min-h-screen bg-[#111317] text-white">
+        <main className="min-h-screen bg-background text-primary">
           <GymFloorLiteMode
             member={member}
             onExitLiteMode={network.toggleLiteMode}
@@ -221,6 +222,7 @@ export default function Home() {
 
         <ScrollTopButton />
         <PWAInstallPrompt />
+        <ThemePreviewSwitcher />
       </main>
     );
   }
@@ -285,6 +287,9 @@ export default function Home() {
 
       {/* Floating Contact Action */}
       <FloatingContact />
+
+      {/* Temporary theme comparison control */}
+      <ThemePreviewSwitcher />
 
       {/* Search Modal */}
       {isSearchOpen && (

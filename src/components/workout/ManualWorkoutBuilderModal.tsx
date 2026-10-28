@@ -156,7 +156,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
             <div className="text-[10px] font-mono uppercase text-accent font-bold">
               Manual Routine Builder
             </div>
-            <h2 className="text-xl font-bold text-white tracking-tight mt-0.5">
+            <h2 className="text-xl font-bold text-primary tracking-tight mt-0.5">
               Χειροκίνητη Σύνταξη Προγράμματος
             </h2>
             <p className="text-xs text-secondary mt-0.5">
@@ -167,7 +167,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
           <button
             onClick={onClose}
             aria-label="Κλείσιμο"
-            className="p-1.5 rounded-lg text-secondary hover:text-white hover:bg-surface-elevated transition-colors border border-border"
+            className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-surface-elevated transition-colors border border-border"
           >
             <X className="w-4 h-4" />
           </button>
@@ -185,7 +185,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                 required
                 value={splitName}
                 onChange={(e) => setSplitName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-white text-xs outline-none focus:border-border-light font-medium"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-medium"
               />
             </div>
 
@@ -199,7 +199,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                 max={120}
                 value={sessionDuration}
                 onChange={(e) => setSessionDuration(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-white text-xs outline-none focus:border-border-light font-mono"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono"
               />
             </div>
           </div>
@@ -207,13 +207,13 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
           {/* Days and Exercises */}
           <div className="space-y-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">
+              <h3 className="text-sm font-bold text-primary">
                 Ημέρες Προπόνησης ({days.length})
               </h3>
               <button
                 type="button"
                 onClick={handleAddDay}
-                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5 text-accent" />
                 <span>Προσθήκη Ημέρας</span>
@@ -234,7 +234,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                       updated[dayIdx].dayName = e.target.value;
                       setDays(updated);
                     }}
-                    className="bg-transparent text-sm font-bold text-white outline-none border-b border-transparent focus:border-border-light px-1 flex-1"
+                    className="bg-transparent text-sm font-bold text-primary outline-none border-b border-transparent focus:border-border-light px-1 flex-1"
                   />
                   {days.length > 1 && (
                     <button
@@ -263,7 +263,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                         <select
                           value={ex.exerciseId}
                           onChange={(e) => handleExerciseChange(dayIdx, exIdx, e.target.value)}
-                          className="w-full px-2.5 py-1.5 rounded bg-background border border-border text-white text-xs outline-none"
+                          className="w-full px-2.5 py-1.5 rounded bg-background border border-border text-primary text-xs outline-none"
                         >
                           {PLACEHOLDER_EXERCISES.map((dbEx) => (
                             <option key={dbEx.id} value={dbEx.id}>
@@ -286,7 +286,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                               updated[dayIdx].exercises[exIdx].sets = Number(e.target.value);
                               setDays(updated);
                             }}
-                            className="w-14 px-2 py-1 rounded bg-background border border-border text-white text-center font-mono text-xs"
+                            className="w-14 px-2 py-1 rounded bg-background border border-border text-primary text-center font-mono text-xs"
                           />
                         </div>
 
@@ -300,7 +300,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                               updated[dayIdx].exercises[exIdx].reps = e.target.value;
                               setDays(updated);
                             }}
-                            className="w-16 px-2 py-1 rounded bg-background border border-border text-white text-center font-mono text-xs"
+                            className="w-16 px-2 py-1 rounded bg-background border border-border text-primary text-center font-mono text-xs"
                           />
                         </div>
 
@@ -320,7 +320,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                   <button
                     type="button"
                     onClick={() => handleAddExerciseToDay(dayIdx)}
-                    className="w-full py-2 rounded-lg bg-surface hover:bg-surface-elevated text-secondary hover:text-white text-xs font-semibold border border-dashed border-border transition-colors flex items-center justify-center gap-1.5"
+                    className="w-full py-2 rounded-lg bg-surface hover:bg-surface-elevated text-secondary hover:text-primary text-xs font-semibold border border-dashed border-border transition-colors flex items-center justify-center gap-1.5"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Προσθήκη Άσκησης στην {day.dayName.split(":")[0]}</span>
@@ -335,14 +335,14 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
             <button
               type="button"
               onClick={onClose}
-              className="text-xs text-secondary hover:text-white transition-colors"
+              className="text-xs text-secondary hover:text-primary transition-colors"
             >
               Ακύρωση
             </button>
 
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-lg bg-white hover:bg-white/90 text-black font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              className="px-5 py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
             >
               <Save className="w-4 h-4" />
               <span>Αποθήκευση στο Ιστορικό μου</span>

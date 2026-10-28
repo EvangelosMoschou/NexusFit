@@ -55,7 +55,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
               <span className="text-[11px] font-mono uppercase text-accent font-bold">
                 Front Desk & Location
               </span>
-              <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
+              <h2 className="text-xl sm:text-2xl font-bold text-primary tracking-tight mt-1">
                 Επίσκεψη & Γραμματεία
               </h2>
               <p className="text-secondary text-xs sm:text-sm mt-2 leading-relaxed">
@@ -67,7 +67,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
               <div className="flex items-start gap-3 p-3 rounded bg-background border border-border">
                 <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-white">Διεύθυνση</div>
+                  <div className="font-semibold text-primary">Διεύθυνση</div>
                   <div className="text-secondary text-[11px]">{config.address}</div>
                 </div>
               </div>
@@ -75,7 +75,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
               <div className="flex items-start gap-3 p-3 rounded bg-background border border-border">
                 <Clock className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-white">Ωράριο Γραμματείας</div>
+                  <div className="font-semibold text-primary">Ωράριο Γραμματείας</div>
                   <div className="text-secondary text-[11px]">Δευτ - Παρ: {config.workingHours.weekdays}</div>
                   <div className="text-secondary text-[11px]">Σαβ: {config.workingHours.saturday} | Κυρ: {config.workingHours.sunday}</div>
                 </div>
@@ -84,7 +84,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
               <div className="flex items-start gap-3 p-3 rounded bg-background border border-border">
                 <Mail className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-semibold text-white">Ηλεκτρονικό Ταχυδρομείο</div>
+                  <div className="font-semibold text-primary">Ηλεκτρονικό Ταχυδρομείο</div>
                   <div className="text-secondary text-[11px]">{config.email}</div>
                 </div>
               </div>
@@ -99,15 +99,15 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                   <div className="text-xs font-mono text-accent uppercase">
                     Επιτυχής Αποστολή
                   </div>
-                  <h3 className="text-lg font-bold text-white">
+                  <h3 className="text-lg font-bold text-primary">
                     Το μήνυμά σας παραλήφθηκε
                   </h3>
                   <p className="text-xs text-secondary max-w-sm mx-auto">
-                    Ευχαριστούμε <span className="text-white font-semibold">{fullName}</span>. Θα λάβετε απάντηση στο ηλεκτρονικό ταχυδρομείο <span className="text-white font-mono">{email}</span> εντός 24 ωρών.
+                    Ευχαριστούμε <span className="text-primary font-semibold">{fullName}</span>. Θα λάβετε απάντηση στο ηλεκτρονικό ταχυδρομείο <span className="text-primary font-mono">{email}</span> εντός 24 ωρών.
                   </p>
                   <button
                     onClick={() => setSubmitted(false)}
-                    className="mt-4 px-4 py-1.5 rounded bg-surface-elevated text-xs font-medium text-white hover:bg-border transition-colors"
+                    className="mt-4 px-4 py-1.5 rounded bg-surface-elevated text-xs font-medium text-primary hover:bg-border transition-colors"
                   >
                     Νέο Μήνυμα
                   </button>
@@ -115,7 +115,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="pb-3 border-b border-border">
-                    <h3 className="text-sm font-bold text-white">
+                    <h3 className="text-sm font-bold text-primary">
                       Φόρμα Επικοινωνίας & Ερωτήσεων
                     </h3>
                     <p className="text-xs text-secondary">
@@ -138,7 +138,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                         placeholder="π.χ. Γιώργος Παπαδόπουλος"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
-                        className="w-full px-3 py-2 rounded bg-surface border border-border text-white text-xs outline-none focus:border-border-light"
+                        className="w-full px-3 py-2 rounded bg-surface border border-border text-primary text-xs outline-none focus:border-border-light"
                       />
                     </div>
 
@@ -156,7 +156,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                         placeholder="name@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="w-full px-3 py-2 rounded bg-surface border border-border text-white text-xs outline-none focus:border-border-light"
+                        className="w-full px-3 py-2 rounded bg-surface border border-border text-primary text-xs outline-none focus:border-border-light"
                       />
                     </div>
                   </div>
@@ -173,7 +173,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                       type="text"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      className="w-full px-3 py-2 rounded bg-surface border border-border text-white text-xs outline-none focus:border-border-light"
+                      className="w-full px-3 py-2 rounded bg-surface border border-border text-primary text-xs outline-none focus:border-border-light"
                     />
                   </div>
 
@@ -190,7 +190,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                       placeholder="Γράψτε τυχόν απορίες για τα μαθήματα, τον εξοπλισμό ή το ψηφιακό σύστημα..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      className="w-full px-3 py-2 rounded bg-surface border border-border text-white text-xs outline-none focus:border-border-light resize-none"
+                      className="w-full px-3 py-2 rounded bg-surface border border-border text-primary text-xs outline-none focus:border-border-light resize-none"
                     />
                   </div>
 
@@ -209,7 +209,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                       <button
                         type="button"
                         onClick={() => onOpenLegal("privacy")}
-                        className="text-white underline hover:text-accent"
+                        className="text-primary underline hover:text-accent"
                       >
                         Πολιτικής Απορρήτου
                       </button>{" "}
@@ -226,7 +226,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                   <button
                     type="submit"
                     disabled={loading || !acceptedTerms}
-                    className="w-full py-2.5 rounded bg-white hover:bg-white/90 disabled:opacity-50 text-black font-bold text-xs tracking-tight transition-colors text-center"
+                    className="w-full py-2.5 rounded bg-btn hover:bg-btn-hover disabled:opacity-50 text-btn-ink font-bold text-xs tracking-tight transition-colors text-center"
                   >
                     {loading ? "Αποστολή..." : "Αποστολή Μηνύματος"}
                   </button>

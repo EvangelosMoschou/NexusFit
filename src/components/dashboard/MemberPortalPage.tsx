@@ -117,11 +117,11 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             aria-label={`${config.gymName} - Επιστροφή στην αρχική σελίδα`}
             className="flex items-center gap-3 group"
           >
-            <div className="w-8 h-8 rounded-lg bg-accent text-black font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
               <Dumbbell className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div className="text-left">
-              <span className="font-bold text-sm tracking-tight text-white uppercase block">
+              <span className="font-bold text-sm tracking-tight text-primary uppercase block">
                 {config.gymName}
               </span>
               <span className="text-[10px] text-tertiary font-mono">Χώρος Μελών</span>
@@ -157,7 +157,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             <span className="text-[11px] font-mono text-accent uppercase font-bold">
               Προσωπικός Πίνακας Προπόνησης
             </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight mt-1">
               Καλωσήρθατε, {member.fullName.split(" ")[0]}!
             </h1>
             <p className="text-secondary text-xs sm:text-sm mt-1">
@@ -169,7 +169,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             {/* Manual Workout Builder (Available to ALL members) */}
             <button
               onClick={onLaunchManualBuilder}
-              className="px-3.5 py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold flex items-center gap-1.5 transition-colors border border-border"
+              className="px-3.5 py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold flex items-center gap-1.5 transition-colors border border-border"
             >
               <Edit3 className="w-3.5 h-3.5 text-accent" />
               <span>Χειροκίνητο Πρόγραμμα</span>
@@ -188,7 +188,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
                 <button
                   onClick={onLaunchAIWizard}
-                  className="px-4 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-black font-bold text-xs flex items-center gap-2 transition-colors shadow-sm"
+                  className="px-4 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs flex items-center gap-2 transition-colors shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Νέο Πρόγραμμα</span>
@@ -209,7 +209,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
             <div className="text-[10px] font-mono uppercase text-tertiary">Συνδρομή Γυμναστηρίου</div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-white truncate">{member.subscription.tierName.split("(")[0]}</span>
+              <span className="text-sm font-bold text-primary truncate">{member.subscription.tierName.split("(")[0]}</span>
               {member.subscription.status === "active" ? (
                 <span className="text-[10px] bg-emerald-950/60 text-emerald-400 border border-emerald-800/80 px-2 py-0.5 rounded-md font-mono font-bold">
                   Ενεργή
@@ -221,7 +221,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               )}
             </div>
             <div className="text-[11px] text-secondary">
-              Λήξη: <span className="text-white font-mono">{member.subscription.expiresAt}</span>
+              Λήξη: <span className="text-primary font-mono">{member.subscription.expiresAt}</span>
             </div>
           </div>
 
@@ -251,7 +251,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
           {/* Stat 3: Total Saved Plans */}
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
             <div className="text-[10px] font-mono uppercase text-tertiary">Αποθηκευμένα Προγράμματα</div>
-            <div className="text-2xl font-extrabold text-white font-mono">
+            <div className="text-2xl font-extrabold text-primary font-mono">
               {member.savedPlans.length}
             </div>
             <div className="text-[11px] text-secondary">Ιστορικό προπονήσεων</div>
@@ -273,8 +273,8 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             onClick={() => setActiveTab("overview")}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               activeTab === "overview"
-                ? "bg-white text-black font-bold shadow-sm"
-                : "text-secondary hover:text-white"
+                ? "bg-btn text-btn-ink font-bold shadow-sm"
+                : "text-secondary hover:text-primary"
             }`}
           >
             Επισκόπηση & Ενεργό Πρόγραμμα
@@ -283,8 +283,8 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             onClick={() => setActiveTab("plans")}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               activeTab === "plans"
-                ? "bg-white text-black font-bold shadow-sm"
-                : "text-secondary hover:text-white"
+                ? "bg-btn text-btn-ink font-bold shadow-sm"
+                : "text-secondary hover:text-primary"
             }`}
           >
             Ιστορικό Προγραμμάτων ({member.savedPlans.length})
@@ -293,8 +293,8 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             onClick={() => setActiveTab("logs")}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               activeTab === "logs"
-                ? "bg-white text-black font-bold shadow-sm"
-                : "text-secondary hover:text-white"
+                ? "bg-btn text-btn-ink font-bold shadow-sm"
+                : "text-secondary hover:text-primary"
             }`}
           >
             Καταγραφή Κιλών ({exerciseLogs.length})
@@ -303,8 +303,8 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             onClick={() => setActiveTab("schedule")}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               activeTab === "schedule"
-                ? "bg-white text-black font-bold shadow-sm"
-                : "text-secondary hover:text-white"
+                ? "bg-btn text-btn-ink font-bold shadow-sm"
+                : "text-secondary hover:text-primary"
             }`}
           >
             Σημερινά Μαθήματα Γυμναστηρίου
@@ -323,7 +323,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                     <span className="text-[10px] font-mono uppercase text-accent font-bold">
                       Current Active Routine
                     </span>
-                    <h3 className="text-base font-bold text-white mt-0.5">
+                    <h3 className="text-base font-bold text-primary mt-0.5">
                       {latestPlan ? latestPlan.splitName : "Δεν υπάρχει ενεργό πρόγραμμα"}
                     </h3>
                   </div>
@@ -331,7 +331,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   {latestPlan && (
                     <button
                       onClick={() => onViewPlan(latestPlan)}
-                      className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
+                      className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       <span>Άνοιγμα & Εκτύπωση</span>
@@ -342,14 +342,14 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 {latestPlan ? (
                   <div className="space-y-3">
                     <p className="text-xs text-secondary leading-relaxed bg-background p-3 rounded-lg border border-border">
-                      <strong className="text-white">Οδηγία: </strong>
+                      <strong className="text-primary">Οδηγία: </strong>
                       {latestPlan.coachAdvice}
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {latestPlan.days.slice(0, 2).map((day, idx) => (
                         <div key={idx} className="p-3.5 rounded-lg bg-background border border-border space-y-2">
-                          <div className="text-xs font-bold text-white flex items-center justify-between">
+                          <div className="text-xs font-bold text-primary flex items-center justify-between">
                             <span>{day.dayName}</span>
                             <span className="text-[10px] text-tertiary font-mono">{day.estimatedMinutes} min</span>
                           </div>
@@ -371,7 +371,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                     <div className="flex justify-center items-center gap-2">
                       <button
                         onClick={onLaunchManualBuilder}
-                        className="px-4 py-2 rounded-lg bg-surface-elevated hover:bg-border text-white font-semibold text-xs border border-border transition-colors flex items-center gap-1.5"
+                        className="px-4 py-2 rounded-lg bg-surface-elevated hover:bg-border text-primary font-semibold text-xs border border-border transition-colors flex items-center gap-1.5"
                       >
                         <Edit3 className="w-3.5 h-3.5 text-accent" />
                         <span>Χειροκίνητη Σύνταξη</span>
@@ -380,7 +380,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                       {isAIActive && (
                         <button
                           onClick={onLaunchAIWizard}
-                          className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-black font-bold text-xs transition-colors shadow-sm"
+                          className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs transition-colors shadow-sm"
                         >
                           Δημιουργία Προγράμματος
                         </button>
@@ -397,14 +397,14 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 <div className="p-5 rounded-xl bg-surface-card border border-border-light space-y-4 shadow-sm">
                   <div className="flex items-center gap-2 text-accent">
                     <Bot className="w-5 h-5" />
-                    <h3 className="text-sm font-bold text-white">Βοήθεια Ψηφιακού Προπονητή</h3>
+                    <h3 className="text-sm font-bold text-primary">Βοήθεια Ψηφιακού Προπονητή</h3>
                   </div>
                   <p className="text-xs text-secondary leading-relaxed">
                     Έχετε κάποια ενόχληση σε άρθρωση ή θέλετε να αντικαταστήσετε μία άσκηση στο γυμναστήριο;
                   </p>
                   <button
                     onClick={onLaunchAIChat}
-                    className="w-full py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold border border-border transition-colors flex items-center justify-center gap-2"
                   >
                     <MessageSquareText className="w-3.5 h-3.5 text-accent" />
                     <span>Ρωτήστε τον Ψηφιακό Προπονητή</span>
@@ -414,7 +414,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 <div className="p-5 rounded-xl bg-surface border border-border space-y-3">
                   <div className="flex items-center gap-2 text-tertiary">
                     <Lock className="w-4 h-4" />
-                    <h3 className="text-xs font-bold text-white">NexusFit Ψηφιακός Βοηθός (Κλειδωμένο)</h3>
+                    <h3 className="text-xs font-bold text-primary">NexusFit Ψηφιακός Βοηθός (Κλειδωμένο)</h3>
                   </div>
                   <p className="text-[11px] text-secondary leading-relaxed">
                     Ο λογαριασμός σας διαθέτει βασική συνδρομή. Μπορείτε να φτιάξετε χειροκίνητα τα προγράμματά σας ή να αναβαθμίσετε για τον ψηφιακό προπονητή:
@@ -427,7 +427,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
               {/* Gym Access Card */}
               <div className="p-5 rounded-xl bg-surface border border-border space-y-3">
-                <div className="text-xs font-bold text-white">Στοιχεία Κάρτας Μέλους</div>
+                <div className="text-xs font-bold text-primary">Στοιχεία Κάρτας Μέλους</div>
                 <div className="p-3 rounded-lg bg-background border border-border font-mono text-xs flex items-center justify-between">
                   <span className="text-tertiary">Κωδικός κάρτας:</span>
                   <span className="text-accent font-bold">{member.memberCode}</span>
@@ -439,14 +439,14 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
               {/* GDPR: Data & Privacy Self-Service */}
               <div className="p-5 rounded-xl bg-surface border border-border space-y-3">
-                <div className="text-xs font-bold text-white">Τα Δεδομένα μου</div>
+                <div className="text-xs font-bold text-primary">Τα Δεδομένα μου</div>
                 <p className="text-[11px] text-tertiary leading-relaxed">
                   Σύμφωνα με τον GDPR μπορείτε να εξάγετε αντίγραφο ή να διαγράψετε οριστικά τα προσωπικά σας δεδομένα.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={handleExportData}
-                    className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
                   >
                     <Download className="w-3.5 h-3.5 text-accent" />
                     <span>Εξαγωγή Δεδομένων</span>
@@ -475,7 +475,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               </div>
               <button
                 onClick={onLaunchManualBuilder}
-                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5 text-accent" />
                 <span>Νέο Χειροκίνητο Πρόγραμμα</span>
@@ -489,7 +489,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   className="p-4 rounded-xl bg-surface border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-border-light transition-colors"
                 >
                   <div className="space-y-1">
-                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <div className="text-sm font-bold text-primary flex items-center gap-2">
                       <span>{plan.splitName}</span>
                       {plan.splitType === "custom" && (
                         <span className="text-[10px] bg-surface-elevated text-secondary px-1.5 py-0.5 rounded border border-border font-mono">
@@ -508,7 +508,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => onViewPlan(plan)}
-                      className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
+                      className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-semibold border border-border flex items-center gap-1.5 transition-colors"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       <span>Προβολή & Εκτύπωση</span>
@@ -521,7 +521,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 <div className="text-xs text-secondary">Δεν έχετε αποθηκευμένα προγράμματα ακόμα.</div>
                 <button
                   onClick={onLaunchManualBuilder}
-                  className="px-4 py-2 rounded-lg bg-white text-black font-bold text-xs"
+                  className="px-4 py-2 rounded-lg bg-btn text-btn-ink font-bold text-xs"
                 >
                   Δημιουργία Προγράμματος
                 </button>
@@ -541,7 +541,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 {exerciseLogs.map((log, idx) => (
                   <div key={idx} className="p-3.5 flex items-center justify-between text-xs">
                     <div>
-                      <div className="font-semibold text-white font-mono">{log.exerciseId}</div>
+                      <div className="font-semibold text-primary font-mono">{log.exerciseId}</div>
                       <div className="text-[10px] text-tertiary">Ημερομηνία: {log.date}</div>
                     </div>
                     <div className="font-mono font-bold text-accent text-sm">
@@ -571,7 +571,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                     <div className="flex items-center gap-4">
                       <span className="font-mono font-bold text-accent">{item.time}</span>
                       <div>
-                        <div className="font-bold text-white">{item.className}</div>
+                        <div className="font-bold text-primary">{item.className}</div>
                         <div className="text-[11px] text-tertiary">
                           {item.category} • Προπονητής: {item.trainer}
                         </div>

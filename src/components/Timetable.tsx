@@ -54,7 +54,7 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
             <span className="text-[11px] font-mono text-accent uppercase font-bold">
               Πρόγραμμα Μαθημάτων
             </span>
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
+            <h2 className="text-xl sm:text-2xl font-bold text-primary tracking-tight mt-1">
               Εβδομαδιαίο Πρόγραμμα Ομαδικών
             </h2>
             <p className="text-secondary text-xs sm:text-sm mt-1">
@@ -70,8 +70,8 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                   selectedCategory === cat
-                    ? "bg-white text-black font-bold"
-                    : "bg-surface text-secondary hover:text-white border border-border"
+                    ? "bg-btn text-btn-ink font-bold"
+                    : "bg-surface text-secondary hover:text-primary border border-border"
                 }`}
               >
                 {cat === "ALL" ? "Όλα" : categoryLabel(cat)}
@@ -88,8 +88,8 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
               onClick={() => setSelectedDay(d.key)}
               className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                 selectedDay === d.key
-                  ? "bg-white text-black font-bold shadow-sm"
-                  : "bg-surface text-secondary hover:text-white border border-border"
+                  ? "bg-btn text-btn-ink font-bold shadow-sm"
+                  : "bg-surface text-secondary hover:text-primary border border-border"
               }`}
             >
               {d.greek}
@@ -110,7 +110,7 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
                     {item.time}
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-white">
+                    <div className="text-sm font-bold text-primary">
                       {item.className}
                     </div>
                     <div className="text-xs text-tertiary">
@@ -125,7 +125,7 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
                   </span>
                   <button
                     onClick={onOpenBooking}
-                    className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-white text-xs font-medium border border-border transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-border text-primary text-xs font-medium border border-border transition-colors"
                   >
                     Πληροφορίες
                   </button>

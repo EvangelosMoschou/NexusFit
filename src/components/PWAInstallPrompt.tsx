@@ -50,18 +50,18 @@ export const PWAInstallPrompt: React.FC = () => {
     <div className="fixed bottom-4 right-4 z-40 max-w-sm w-full p-4 rounded-xl bg-surface border border-border shadow-2xl space-y-3">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-accent text-black flex items-center justify-center font-bold text-xs">
+          <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink flex items-center justify-center font-bold text-xs">
             PWA
           </div>
           <div>
-            <h4 className="text-xs font-bold text-white">Εγκατάσταση Εφαρμογής</h4>
+            <h4 className="text-xs font-bold text-primary">Εγκατάσταση Εφαρμογής</h4>
             <p className="text-[11px] text-secondary">NexusFit στο κινητό σας</p>
           </div>
         </div>
         <button
           onClick={() => setShowPrompt(false)}
           aria-label="Κλείσιμο"
-          className="text-secondary hover:text-white p-1"
+          className="text-secondary hover:text-primary p-1"
         >
           <X className="w-4 h-4" />
         </button>
@@ -76,7 +76,7 @@ export const PWAInstallPrompt: React.FC = () => {
       {!isIOS && deferredPrompt && (
         <button
           onClick={handleInstallClick}
-          className="w-full py-2 rounded-lg bg-accent hover:bg-accent-hover text-black font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+          className="w-full py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
         >
           <Download className="w-3.5 h-3.5" />
           <span>Εγκατάσταση Τώρα</span>

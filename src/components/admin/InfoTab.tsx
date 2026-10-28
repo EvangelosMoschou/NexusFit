@@ -17,7 +17,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
   return (
     <div className="bg-surface border border-border rounded-xl p-6 space-y-6">
       <div>
-        <h2 className="text-base font-bold text-white">Στοιχεία & Ταυτότητα Γυμναστηρίου</h2>
+        <h2 className="text-base font-bold text-primary">Στοιχεία & Ταυτότητα Γυμναστηρίου</h2>
         <p className="text-xs text-secondary">Βασικές πληροφορίες επικοινωνίας και ωραρίου.</p>
       </div>
 
@@ -28,7 +28,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="text"
             value={config.gymName}
             onChange={(e) => setField("gymName", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs font-bold"
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-bold"
           />
         </div>
 
@@ -38,7 +38,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="email"
             value={config.email}
             onChange={(e) => setField("email", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs"
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -48,7 +48,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="text"
             value={config.address}
             onChange={(e) => setField("address", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs"
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -58,7 +58,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="text"
             value={config.city}
             onChange={(e) => setField("city", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs"
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -73,7 +73,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
                 workingHours: { ...prev.workingHours, weekdays: e.target.value },
               }))
             }
-            className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs"
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -88,7 +88,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
                 workingHours: { ...prev.workingHours, saturday: e.target.value },
               }))
             }
-            className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs"
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
           />
         </div>
       </div>
@@ -99,7 +99,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
           rows={3}
           value={config.description}
           onChange={(e) => setField("description", e.target.value)}
-          className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs"
+          className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
         />
       </div>
     </div>

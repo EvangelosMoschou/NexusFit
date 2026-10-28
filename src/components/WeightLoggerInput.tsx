@@ -46,12 +46,12 @@ export const WeightLoggerInput: React.FC<WeightLoggerInputProps> = ({
         placeholder="kg"
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
-        className={`w-14 rounded bg-surface border border-border text-white outline-none ${inputClassName}`}
+        className={`w-14 rounded bg-surface border border-border text-primary outline-none ${inputClassName}`}
       />
       <button
         onClick={handleSave}
         aria-label="Αποθήκευση βάρους"
-        className={`rounded bg-surface-elevated hover:bg-border text-secondary hover:text-white ${buttonClassName}`}
+        className={`rounded bg-surface-elevated hover:bg-border text-secondary hover:text-primary ${buttonClassName}`}
         title={title}
       >
         <Save className="w-3.5 h-3.5" />

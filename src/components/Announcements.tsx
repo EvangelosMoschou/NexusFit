@@ -21,7 +21,7 @@ export const Announcements: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center gap-2 mb-5">
           <Megaphone className="w-4 h-4 text-accent" />
-          <h2 className="text-lg font-bold text-white tracking-tight">
+          <h2 className="text-lg font-bold text-primary tracking-tight">
             Ανακοινώσεις Γυμναστηρίου
           </h2>
         </div>
@@ -35,27 +35,46 @@ export const Announcements: React.FC = () => {
               <article
                 key={item.id}
                 className={`p-4 rounded-xl border ${
-                  isWarning
-                    ? "bg-amber-950/30 border-amber-800/60"
-                    : "bg-surface border-border"
+                  isWarning ? "" : "bg-surface border-border"
                 }`}
+                style={
+                  isWarning
+                    ? {
+                        backgroundColor: "rgb(var(--warn-bg-rgb))",
+                        borderColor: "rgb(var(--warn-border-rgb))",
+                        color: "rgb(var(--warn-ink-rgb))",
+                      }
+                    : undefined
+                }
               >
                 <div className="flex items-start gap-3">
                   <Icon
                     className={`w-4 h-4 mt-0.5 shrink-0 ${
-                      isWarning ? "text-amber-400" : "text-accent"
+                      isWarning ? "" : "text-accent"
                     }`}
                   />
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-sm font-bold text-white">{item.title}</h3>
+                      <h3
+                        className={`text-sm font-bold ${isWarning ? "" : "text-primary"}`}
+                      >
+                        {item.title}
+                      </h3>
                       {item.date && (
-                        <span className="text-[10px] font-mono text-tertiary">
+                        <span
+                          className={`text-[10px] font-mono ${
+                            isWarning ? "opacity-70" : "text-tertiary"
+                          }`}
+                        >
                           {formatDate(item.date)}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-secondary leading-relaxed mt-1 whitespace-pre-line">
+                    <p
+                      className={`text-xs leading-relaxed mt-1 whitespace-pre-line ${
+                        isWarning ? "opacity-90" : "text-secondary"
+                      }`}
+                    >
                       {item.body}
                     </p>
                   </div>

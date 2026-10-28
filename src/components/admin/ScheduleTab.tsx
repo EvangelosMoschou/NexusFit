@@ -59,14 +59,14 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold text-white">Εβδομαδιαίο Ωρολόγιο Πρόγραμμα</h2>
+          <h2 className="text-base font-bold text-primary">Εβδομαδιαίο Ωρολόγιο Πρόγραμμα</h2>
           <p className="text-xs text-secondary">Προσθέστε ή τροποποιήστε ομαδικά μαθήματα, ώρες και προπονητές.</p>
         </div>
 
         <button
           type="button"
           onClick={addClass}
-          className="px-3.5 py-2 rounded bg-accent hover:bg-accent-hover text-black font-bold text-xs flex items-center gap-1.5"
+          className="px-3.5 py-2 rounded bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs flex items-center gap-1.5"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Προσθήκη Μαθήματος</span>
@@ -80,7 +80,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
             key={d.value}
             onClick={() => onSelectedDayChange(d.value)}
             className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
-              selectedDay === d.value ? "bg-white text-black font-bold" : "bg-surface text-secondary hover:text-white border border-border"
+              selectedDay === d.value ? "bg-btn text-btn-ink font-bold" : "bg-surface text-secondary hover:text-primary border border-border"
             }`}
           >
             {d.greek}
@@ -99,7 +99,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   type="text"
                   value={item.time}
                   onChange={(e) => updateClass(item.id, { time: e.target.value })}
-                  className="w-full px-2 py-1 rounded bg-background border border-border text-white text-xs font-mono"
+                  className="w-full px-2 py-1 rounded bg-background border border-border text-primary text-xs font-mono"
                 />
               </div>
 
@@ -109,7 +109,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   type="text"
                   value={item.className}
                   onChange={(e) => updateClass(item.id, { className: e.target.value })}
-                  className="w-full px-2 py-1 rounded bg-background border border-border text-white text-xs font-bold"
+                  className="w-full px-2 py-1 rounded bg-background border border-border text-primary text-xs font-bold"
                 />
               </div>
 
@@ -118,7 +118,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                 <select
                   value={item.category}
                   onChange={(e) => updateClass(item.id, { category: e.target.value as GymClassSchedule["category"] })}
-                  className="w-full px-2 py-1 rounded bg-background border border-border text-white text-xs"
+                  className="w-full px-2 py-1 rounded bg-background border border-border text-primary text-xs"
                 >
                   <option value="Strength">Δύναμη</option>
                   <option value="HIIT">Υψηλή Ένταση</option>
@@ -135,7 +135,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({
                   type="text"
                   value={item.trainer}
                   onChange={(e) => updateClass(item.id, { trainer: e.target.value })}
-                  className="w-full px-2 py-1 rounded bg-background border border-border text-white text-xs"
+                  className="w-full px-2 py-1 rounded bg-background border border-border text-primary text-xs"
                 />
               </div>
             </div>

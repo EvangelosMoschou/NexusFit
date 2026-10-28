@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nexus Athletics · 3 προτάσεις χρώματος & φόντου</title>
+<style>
+  :root{
+    --shell-bg:#ececea;
+    --shell-ink:#17181b;
+    --shell-muted:#5f6368;
+    --shell-line:#d8d8d3;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--shell-bg);
+    color:var(--shell-ink);
+    font-family:var(--font);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 18px 80px}
+  .page-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px}
+  .page-head h1{font-size:clamp(22px,3vw,34px);line-height:1.15;margin:0 0 8px;letter-spacing:-.03em}
+  .page-head p{margin:0;max-width:62ch;color:var(--shell-muted);font-size:14px;line-height:1.55}
+  .stamp{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--shell-muted);border:1px solid var(--shell-line);border-radius:999px;padding:7px 12px;white-space:nowrap}
+
+  .switcher{display:flex;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:20;background:rgba(236,236,234,.94);backdrop-filter:blur(8px);padding:12px 0;border-bottom:1px solid var(--shell-line);margin-bottom:26px}
+  .tab{
+    appearance:none;border:1px solid var(--shell-line);background:#fff;color:var(--shell-ink);
+    font:600 12px/1 var(--font);padding:10px 14px;border-radius:999px;cursor:pointer;transition:.15s ease;
+  }
+  .tab:hover{border-color:#b9b9b3}
+  .tab.is-active{background:#17181b;color:#fff;border-color:#17181b}
+  .tab:focus-visible{outline:3px solid #17181b;outline-offset:2px}
+
+  .theme-block{margin:0 0 44px}
+  .theme-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px;margin:0 0 12px}
+  .theme-head h2{font-size:20px;margin:0;letter-spacing:-.02em}
+  .theme-head .tag{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--shell-muted)}
+  .palette{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+  .chip{display:inline-flex;align-items:center;gap:6px;font:500 10px/1 var(--font);color:var(--shell-muted);border:1px solid var(--shell-line);background:#fff;border-radius:999px;padding:5px 8px}
+  .dot{width:12px;height:12px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+
+  .note{font-size:12.5px;line-height:1.6;color:var(--shell-muted);max-width:78ch;margin:12px 0 0}
+  .note strong{color:var(--shell-ink)}
+
+  /* ---------- shared mock chrome ---------- */
+  .browser{border-radius:20px;overflow:hidden;box-shadow:0 30px 60px -40px rgba(10,12,10,.55);border:1px solid rgba(0,0,0,.08);background:#fff}
+  .chrome{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(20,22,20,.06);border-bottom:1px solid rgba(0,0,0,.06)}
+  .lights{display:flex;gap:5px}
+  .lights i{width:9px;height:9px;border-radius:50%;background:#c9c9c4;display:block}
+  .url{font:500 10.5px/1 var(--font);color:#6b6f6b;background:#fff;border:1px solid rgba(0,0,0,.07);border-radius:999px;padding:5px 10px}
+
+  /* ---------- mock tokens ---------- */
+  .mock{position:relative;isolation:isolate;background:var(--bg);color:var(--ink);overflow:hidden}
+  .mock *{box-sizing:border-box}
+  .mock .sect{position:relative;padding:30px 30px;border-top:1px solid var(--line)}
+  .mock .sect.alt{background:var(--bg2)}
+  .mock h3.sec{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin:0 0 14px;font-weight:800}
+  .mock .muted{color:var(--muted)}
+
+  /* nav */
+  .mock .nav{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 30px;border-bottom:1px solid var(--line)}
+  .mock .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .mock .mark{width:30px;height:30px;border-radius:var(--radius-sm);background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:0 0 auto}
+  .mock .mark svg{width:16px;height:16px}
+  .mock .brand b{font-size:12px;letter-spacing:.12em;font-weight:800;white-space:nowrap}
+  .mock .links{display:flex;gap:16px;font-size:11.5px;font-weight:600;color:var(--muted)}
+  .mock .navcta{font-size:11.5px;font-weight:800;padding:9px 13px;border-radius:999px;background:var(--ink);color:var(--bg);white-space:nowrap}
+
+  /* hero */
+  .mock .hero{position:relative;padding:40px 30px 34px;display:grid;grid-template-columns:1.35fr .9fr;gap:28px;align-items:end;border:none}
+  .mock .eyebrow{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;color:var(--accent2);margin-bottom:14px}
+  .mock .hero h1{font-size:clamp(26px,3.2vw,40px);line-height:1.06;letter-spacing:-.035em;margin:0 0 14px;font-weight:850;max-width:19ch}
+  .mock .hero p{font-size:13.5px;line-height:1.65;color:var(--muted);margin:0 0 22px;max-width:46ch}
+  .mock .ctas{display:flex;flex-wrap:wrap;gap:10px}
+  .mock .btn{font-size:12px;font-weight:800;padding:12px 16px;border-radius:999px;display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+  .mock .btn.pri{background:var(--accent);color:var(--accent-ink)}
+  .mock .btn.ghost{border:1.5px solid var(--line);color:var(--ink);background:transparent}
+  .mock .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .mock .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .mock .stat b{display:block;font-size:20px;letter-spacing:-.03em;line-height:1.05}
+  .mock .stat span{display:block;font-size:10.5px;color:var(--muted);margin-top:5px;line-height:1.35}
+
+  /* announcements */
+  .mock .ann{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:var(--radius-sm);border:1px solid var(--ann-line);background:var(--ann-bg);font-size:11.5px;line-height:1.5}
+  .mock .ann + .ann{margin-top:8px}
+  .mock .ann strong{display:block;font-size:11.5px;color:var(--ann-ink);margin-bottom:2px}
+  .mock .ann span{color:var(--ann-ink);opacity:.85}
+  .mock .ann .ico{width:14px;height:14px;flex:0 0 auto;margin-top:1px;color:var(--ann-ink)}
+
+  /* facilities */
+  .mock .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .mock .fac{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .mock .fac .fi{width:30px;height:30px;border-radius:var(--radius-sm);display:grid;place-items:center;background:var(--accent-soft);color:var(--accent2);margin-bottom:12px}
+  .mock .fac .fi svg{width:15px;height:15px}
+  .mock .fac b{display:block;font-size:12.5px;line-height:1.3;margin-bottom:6px}
+  .mock .fac p{margin:0;font-size:10.5px;line-height:1.5;color:var(--muted)}
+
+  /* timetable */
+  .mock .days{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .mock .day{font-size:10.5px;font-weight:700;padding:7px 11px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:transparent}
+  .mock .day.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  .mock .slot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px dashed var(--line);font-size:11.5px}
+  .mock .slot:first-of-type{border-top:none}
+  .mock .slot .t{font-weight:800;font-variant-numeric:tabular-nums;min-width:96px}
+  .mock .slot .n{font-weight:700}
+  .mock .slot .tr{color:var(--muted);font-size:10.5px}
+  .mock .badge{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent2);white-space:nowrap}
+
+  /* pricing */
+  .mock .plans{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .mock .plan{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px}
+  .mock .plan.featured{border:2px solid var(--accent);background:var(--surface)}
+  .mock .plan .k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800}
+  .mock .plan .price{font-size:26px;font-weight:850;letter-spacing:-.04em;line-height:1}
+  .mock .plan .price small{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0}
+  .mock .plan ul{margin:2px 0 4px;padding:0;list-style:none;display:grid;gap:7px}
+  .mock .plan li{font-size:10.8px;line-height:1.45;color:var(--muted);display:flex;gap:7px}
+  .mock .plan li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent2);margin-top:5px;flex:0 0 auto}
+  .mock .plan .btn{margin-top:auto;justify-content:center;font-size:11px;padding:11px 12px}
+
+  /* footer strip */
+  .mock .strip{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 30px;background:var(--ink);color:var(--bg)}
+  .mock .strip b{font-size:15px;letter-spacing:-.02em}
+  .mock .strip span{font-size:11px;opacity:.7}
+
+  /* ---------- theme A: sand / clay ---------- */
+  [data-theme="a"]{
+    --bg:#F6EFE5; --bg2:#EFE3D4; --surface:#FFFCF7; --ink:#241A12; --muted:#6C5B4B; --line:#E6D6C3;
+    --accent:#D6491F; --accent-ink:#FFF6F0; --accent-soft:#F7D9CA; --accent2:#1E5C4B;
+    --radius:18px; --radius-sm:12px;
+    --ann-bg:#FBEAD9; --ann-line:#EBC9A8; --ann-ink:#7A3A12;
+  }
+  [data-theme="a"] .mock{
+    background:
+      radial-gradient(700px 360px at 88% -10%, rgba(214,73,31,.13), transparent 60%),
+      radial-gradient(520px 300px at -8% 42%, rgba(30,92,75,.10), transparent 62%),
+      var(--bg);
+  }
+  [data-theme="a"] .mock::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;opacity:.5;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+  }
+  [data-theme="a"] .arch{position:absolute;pointer-events:none;z-index:-1;border-radius:999px 999px 0 0}
+  [data-theme="a"] .arch.one{width:260px;height:340px;right:34px;top:64px;background:linear-gradient(180deg,rgba(214,73,31,.16),rgba(214,73,31,.02));transform:rotate(6deg)}
+  [data-theme="a"] .arch.two{width:170px;height:230px;left:-40px;bottom:40px;background:linear-gradient(180deg,rgba(30,92,75,.12),transparent);transform:rotate(-8deg)}
+  [data-theme="a"] .mock .stat{border-radius:14px}
+  [data-theme="a"] .mock .navcta{border-radius:999px}
+
+  /* ---------- theme B: graphite / volt ---------- */
+  [data-theme="b"]{
+    --bg:#0A0C0B; --bg2:#0F1310; --surface:#141A16; --ink:#F2F6EF; --muted:#98A69B; --line:#253129;
+    --accent:#C6F83C; --accent-ink:#0A0C0B; --accent-soft:#1D2A14; --accent2:#C6F83C;
+    --radius:8px; --radius-sm:6px;
+    --ann-bg:#241A10; --ann-line:#6B4422; --ann-ink:#FFC48A;
+  }
+  [data-theme="b"] .mock{
+    background:
+      radial-gradient(760px 360px at 85% -8%, rgba(198,248,60,.14), transparent 60%),
+      radial-gradient(420px 260px at 0% 90%, rgba(255,90,46,.08), transparent 60%),
+      var(--bg);
+  }
+  [data-theme="b"] .mock::before{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;opacity:.5;
+    background-image:repeating-linear-gradient(135deg, rgba(198,248,60,.07) 0 1px, transparent 1px 22px);
+  }
+  [data-theme="b"] .mock::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;opacity:.4;
+    background-image:radial-gradient(rgba(198,248,60,.22) 1px, transparent 1px);
+    background-size:26px 26px;
+    -webkit-mask-image:linear-gradient(180deg, #000 0%, transparent 55%);
+            mask-image:linear-gradient(180deg, #000 0%, transparent 55%);
+  }
+  [data-theme="b"] .slash{position:absolute;pointer-events:none;z-index:-1;width:520px;height:14px;right:-60px;top:210px;background:var(--accent);transform:rotate(-18deg);opacity:.9}
+  [data-theme="b"] .slash.s2{width:340px;height:8px;right:-30px;top:246px;background:var(--accent2);opacity:.5}
+  [data-theme="b"] .mock .hero h1{font-weight:900}
+  [data-theme="b"] .mock .eyebrow{color:var(--accent)}
+  [data-theme="b"] .mock h3.sec{color:var(--accent)}
+  [data-theme="b"] .mock .nav{border-bottom-color:var(--line)}
+  [data-theme="b"] .mock .btn.pri{box-shadow:0 0 0 1px rgba(198,248,60,.3), 0 10px 30px -12px rgba(198,248,60,.45)}
+  [data-theme="b"] .mock .strip{background:var(--accent);color:#0A0C0B}
+  [data-theme="b"] .mock .strip span{opacity:.75}
+
+  /* ---------- theme C: coastal ---------- */
+  [data-theme="c"]{
+    --bg:#EFF7F6; --bg2:#E6F2F0; --surface:#FFFFFF; --ink:#0F2C2E; --muted:#5B7476; --line:#D3E6E2;
+    --accent:#FF6A3D; --accent-ink:#2A0F07; --accent-soft:#FFE1D7; --accent2:#0E7C86;
+    --radius:24px; --radius-sm:16px;
+    --ann-bg:#FFF0E9; --ann-line:#FFD2C3; --ann-ink:#8A3418;
+  }
+  [data-theme="c"] .mock{
+    background:
+      radial-gradient(680px 340px at 92% -12%, rgba(255,106,61,.12), transparent 62%),
+      radial-gradient(560px 320px at -10% 50%, rgba(14,124,134,.10), transparent 64%),
+      var(--bg);
+  }
+  [data-theme="c"] .blob{position:absolute;pointer-events:none;z-index:-1;filter:blur(2px)}
+  [data-theme="c"] .blob.one{width:300px;height:300px;right:-40px;top:30px;background:linear-gradient(160deg, rgba(255,106,61,.20), rgba(255,106,61,.02));border-radius:48% 52% 63% 37% / 42% 38% 62% 58%}
+  [data-theme="c"] .blob.two{width:240px;height:240px;left:-60px;bottom:90px;background:linear-gradient(160deg, rgba(14,124,134,.16), rgba(14,124,134,.01));border-radius:58% 42% 38% 62% / 55% 62% 38% 45%}
+  [data-theme="c"] .mock .hero{padding-top:44px}
+  [data-theme="c"] .mock .stat{border-radius:16px}
+  [data-theme="c"] .mock .strip{border-radius:0}
+
+  /* responsive */
+  @media (max-width: 900px){
+    .mock .hero{grid-template-columns:1fr;gap:20px}
+    .mock .grid4{grid-template-columns:1fr 1fr}
+    .mock .links{display:none}
+    .mock .stats{grid-template-columns:1fr 1fr}
+    .palette{margin-left:0}
+  }
+  @media (max-width: 620px){
+    .wrap{padding:18px 12px 60px}
+    .mock .nav{padding:13px 16px}
+    .mock .sect{padding:22px 16px}
+    .mock .hero{padding:26px 16px}
+    .mock .grid4{grid-template-columns:1fr}
+    .mock .plans{grid-template-columns:1fr}
+    .mock .strip{padding:18px 16px;flex-direction:column;align-items:flex-start}
+    .mock .navcta{display:none}
+    .mock .slot .tr{display:none}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="page-head">
+    <div>
+      <div class="stamp">Design proposals · 3</div>
+      <h1>Nexus Athletics: τρία πιο «γυμναστήριο» themes</h1>
+      <p>Το σημερινό είναι σκούρο γραφίτη με sky-cyan accent, που διαβάζεται εταιρικό. Οι τρεις προτάσεις κρατούν την ίδια δομή και το ίδιο ελληνικό περιεχόμενο, αλλάζουν όμως παλέτα, φωτεινότητα και γεωμετρία φόντου. Διάλεξε μία και τη μεταφέρω στο πραγματικό site.</p>
+    </div>
+  </div>
+
+  <div class="switcher" role="group" aria-label="Επιλογή θέματος">
+    <button class="tab is-active" data-target="a" aria-pressed="true">A · Άμμος &amp; Πηλός</button>
+    <button class="tab" data-target="b" aria-pressed="false">B · Γραφίτης &amp; Βολτ</button>
+    <button class="tab" data-target="c" aria-pressed="false">C · Θάλασσα &amp; Κοράλλι</button>
+    <button class="tab" data-target="all" aria-pressed="false">Και τα 3</button>
+  </div>
+
+  <!-- ============ THEME A ============ -->
+  <section class="theme-block" data-block="a">
+    <div class="theme-head">
+      <h2>A · Άμμος &amp; Πηλός</h2>
+      <span class="tag">Φωτεινό · ζεστό · editorial</span>
+      <div class="palette" aria-label="Παλέτα A">
+        <span class="chip"><i class="dot" style="background:#F6EFE5"></i>#F6EFE5</span>
+        <span class="chip"><i class="dot" style="background:#D6491F"></i>#D6491F</span>
+        <span class="chip"><i class="dot" style="background:#1E5C4B"></i>#1E5C4B</span>
+        <span class="chip"><i class="dot" style="background:#241A12"></i>#241A12</span>
+      </div>
+    </div>
+
+    <div class="browser">
+      <div class="chrome"><div class="lights"><i></i><i></i><i></i></div><span class="url">nexusathletics.gr</span></div>
+      <div class="mock" data-theme="a">
+        <div class="arch one"></div><div class="arch two"></div>
+
+        <nav class="nav">
+          <div class="brand">
+            <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg></span>
+            <b>NEXUS ATHLETICS</b>
+          </div>
+          <div class="links"><span>Εγκαταστάσεις</span><span>Ανακοινώσεις</span><span>Πρόγραμμα</span><span>Συνδρομές</span></div>
+          <span class="navcta">Είσοδος Μελών</span>
+        </nav>
+
+        <header class="hero">
+          <div>
+            <div class="eyebrow">Πολυχώρος άσκησης · Γλυφάδα</div>
+            <h1>Γιόγκα, πιλάτες, πολεμικές τέχνες και βάρη. Κάτω από την ίδια στέγη.</h1>
+            <p>1.800 τ.μ. με τέσσερις διαφορετικούς χώρους, 60+ ώρες ομαδικών μαθημάτων την εβδομάδα και προπονητές που ξέρουν το όνομά σου.</p>
+            <div class="ctas">
+              <a class="btn pri" href="#">Κλείσε δοκιμαστικό</a>
+              <a class="btn ghost" href="#">Δες το πρόγραμμα</a>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="stat"><b>1.800</b><span>τετραγωνικά μέτρα</span></div>
+            <div class="stat"><b>60+</b><span>ώρες μαθημάτων / εβδομάδα</span></div>
+            <div class="stat"><b>12</b><span>πιστοποιημένοι προπονητές</span></div>
+            <div class="stat"><b>950</b><span>ενεργά μέλη</span></div>
+          </div>
+        </header>
+
+        <section class="sect alt">
+          <h3 class="sec">Ανακοινώσεις</h3>
+          <div class="ann">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>
+            <div><strong>Δεν θα γίνουν σήμερα τα μαθήματα γιόγκα &amp; πιλάτες</strong><span>Τεχνική εργασία στην αίθουσα. Το πρόγραμμα επανέρχεται αύριο κανονικά.</span></div>
+          </div>
+          <div class="ann" style="--ann-bg:#EAF1EC;--ann-line:#CFE0D5;--ann-ink:#1E5C4B">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <div><strong>Νέα μαθήματα αυτοάμυνας</strong><span>Κάθε Πέμπτη 20:30. Ρώτησε στη ρεσεψιόν για εγγραφή.</span></div>
+          </div>
+        </section>
+
+        <section class="sect">
+          <h3 class="sec">Οι χώροι</h3>
+          <div class="grid4">
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c2 3 3 5 3 7a3 3 0 0 1-6 0c0-2 1-4 3-7Z"/><path d="M5 21c1-4 3-6 7-6s6 2 7 6"/></svg></div><b>Γιόγκα &amp; Πιλάτες</b><p>Ξύλινο δάπεδο, βοηθήματα και μηχανήματα πιλάτες.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4v16M18 4v16M6 12h12"/><circle cx="12" cy="12" r="2.5"/></svg></div><b>Πολεμικές τέχνες</b><p>Στρώμα, σάκοι πυγμαχίας και καθρέφτες.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg></div><b>Βάρη &amp; Διάδρομοι</b><p>Ελεύθερα βάρη, μηχανήματα, διάδρομοι, κωπηλατικά.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M5 20V9l7-5 7 5v11"/><path d="M9 20v-5h6v5"/></svg></div><b>Εξωτερικοί χώροι</b><p>Χλοοτάπητας, λειτουργικά όργανα και σκίαση.</p></div>
+          </div>
+        </section>
+
+        <section class="sect alt">
+          <h3 class="sec">Πρόγραμμα</h3>
+          <div class="days"><span class="day on">Δευτέρα</span><span class="day">Τρίτη</span><span class="day">Τετάρτη</span><span class="day">Πέμπτη</span></div>
+          <div class="slot"><span class="t">08:30</span><span class="n">Χάθα Γιόγκα</span><span class="tr">Μ. Σταύρου</span><span class="badge">Χαμηλή</span></div>
+          <div class="slot"><span class="t">18:00</span><span class="n">Πυγμαχία &amp; Τεχνική</span><span class="tr">Γ. Δημητρίου</span><span class="badge">Υψηλή</span></div>
+          <div class="slot"><span class="t">19:30</span><span class="n">Πιλάτες σε Μηχανήματα</span><span class="tr">Ε. Βασιλείου</span><span class="badge">Μέτρια</span></div>
+        </section>
+
+        <section class="sect">
+          <h3 class="sec">Συνδρομές</h3>
+          <div class="plans">
+            <div class="plan">
+              <div class="k">Πλήρης πρόσβαση</div>
+              <div class="price">45€ <small>/ μήνα</small></div>
+              <ul><li>Όλες οι αίθουσες &amp; εξωτερικοί χώροι</li><li>Όλα τα ομαδικά μαθήματα</li><li>Αποδυτήρια, ερμάρια, σάουνα</li></ul>
+              <a class="btn ghost" href="#">Επιλογή συνδρομής</a>
+            </div>
+            <div class="plan featured">
+              <div class="k">Πλήρης πρόσβαση + ψηφιακός βοηθός</div>
+              <div class="price">59€ <small>/ μήνα</small></div>
+              <ul><li>Όλα τα παραπάνω</li><li>Εξατομικευμένο εβδομαδιαίο πρόγραμμα</li><li>Προσαρμογή σε τραυματισμούς</li></ul>
+              <a class="btn pri" href="#">Επιλογή με βοηθό</a>
+            </div>
+          </div>
+        </section>
+
+        <div class="strip"><div><b>Πρώτο μάθημα δωρεάν.</b><br><span>Κράτηση θέσης online, χωρίς δέσμευση.</span></div><a class="btn pri" href="#">Κλείσε τώρα</a></div>
+      </div>
+    </div>
+    <p class="note"><strong>Γιατί δουλεύει:</strong> φεύγει τελείως από το σκούρο corporate. Η άμμος κρατά φωτεινή την πρώτη οθόνη, ο πηλός δίνει ενέργεια και το βαθύ πράσινο ισορροπεί. Οι καμάρες στο φόντο παραπέμπουν σε αίθουσα/ arches και όχι σε SaaS.</p>
+  </section>
+
+  <!-- ============ THEME B ============ -->
+  <section class="theme-block" data-block="b" style="display:none">
+    <div class="theme-head">
+      <h2>B · Γραφίτης &amp; Βολτ</h2>
+      <span class="tag">Σκούρο · αθλητικό · υψηλή ενέργεια</span>
+      <div class="palette" aria-label="Παλέτα B">
+        <span class="chip"><i class="dot" style="background:#0A0C0B"></i>#0A0C0B</span>
+        <span class="chip"><i class="dot" style="background:#C6F83C"></i>#C6F83C</span>
+        <span class="chip"><i class="dot" style="background:#FF5A2E"></i>#FF5A2E</span>
+        <span class="chip"><i class="dot" style="background:#F2F6EF"></i>#F2F6EF</span>
+      </div>
+    </div>
+
+    <div class="browser">
+      <div class="chrome"><div class="lights"><i></i><i></i><i></i></div><span class="url">nexusathletics.gr</span></div>
+      <div class="mock" data-theme="b">
+        <div class="slash"></div><div class="slash s2"></div>
+
+        <nav class="nav">
+          <div class="brand">
+            <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg></span>
+            <b>NEXUS ATHLETICS</b>
+          </div>
+          <div class="links"><span>Εγκαταστάσεις</span><span>Ανακοινώσεις</span><span>Πρόγραμμα</span><span>Συνδρομές</span></div>
+          <span class="navcta">Είσοδος Μελών</span>
+        </nav>
+
+        <header class="hero">
+          <div>
+            <div class="eyebrow">Πολυχώρος άσκησης · Γλυφάδα</div>
+            <h1>Γιόγκα, πιλάτες, πολεμικές τέχνες και βάρη. Κάτω από την ίδια στέγη.</h1>
+            <p>1.800 τ.μ. με τέσσερις διαφορετικούς χώρους, 60+ ώρες ομαδικών μαθημάτων την εβδομάδα και προπονητές που ξέρουν το όνομά σου.</p>
+            <div class="ctas">
+              <a class="btn pri" href="#">Κλείσε δοκιμαστικό</a>
+              <a class="btn ghost" href="#">Δες το πρόγραμμα</a>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="stat"><b>1.800</b><span>τετραγωνικά μέτρα</span></div>
+            <div class="stat"><b>60+</b><span>ώρες μαθημάτων / εβδομάδα</span></div>
+            <div class="stat"><b>12</b><span>πιστοποιημένοι προπονητές</span></div>
+            <div class="stat"><b>950</b><span>ενεργά μέλη</span></div>
+          </div>
+        </header>
+
+        <section class="sect alt">
+          <h3 class="sec">Ανακοινώσεις</h3>
+          <div class="ann">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>
+            <div><strong>Δεν θα γίνουν σήμερα τα μαθήματα γιόγκα &amp; πιλάτες</strong><span>Τεχνική εργασία στην αίθουσα. Το πρόγραμμα επανέρχεται αύριο κανονικά.</span></div>
+          </div>
+          <div class="ann" style="--ann-bg:#16211A;--ann-line:#2E4433;--ann-ink:#B9E6C8">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <div><strong>Νέα μαθήματα αυτοάμυνας</strong><span>Κάθε Πέμπτη 20:30. Ρώτησε στη ρεσεψιόν για εγγραφή.</span></div>
+          </div>
+        </section>
+
+        <section class="sect">
+          <h3 class="sec">Οι χώροι</h3>
+          <div class="grid4">
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c2 3 3 5 3 7a3 3 0 0 1-6 0c0-2 1-4 3-7Z"/><path d="M5 21c1-4 3-6 7-6s6 2 7 6"/></svg></div><b>Γιόγκα &amp; Πιλάτες</b><p>Ξύλινο δάπεδο, βοηθήματα και μηχανήματα πιλάτες.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4v16M18 4v16M6 12h12"/><circle cx="12" cy="12" r="2.5"/></svg></div><b>Πολεμικές τέχνες</b><p>Στρώμα, σάκοι πυγμαχίας και καθρέφτες.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg></div><b>Βάρη &amp; Διάδρομοι</b><p>Ελεύθερα βάρη, μηχανήματα, διάδρομοι, κωπηλατικά.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M5 20V9l7-5 7 5v11"/><path d="M9 20v-5h6v5"/></svg></div><b>Εξωτερικοί χώροι</b><p>Χλοοτάπητας, λειτουργικά όργανα και σκίαση.</p></div>
+          </div>
+        </section>
+
+        <section class="sect alt">
+          <h3 class="sec">Πρόγραμμα</h3>
+          <div class="days"><span class="day on">Δευτέρα</span><span class="day">Τρίτη</span><span class="day">Τετάρτη</span><span class="day">Πέμπτη</span></div>
+          <div class="slot"><span class="t">08:30</span><span class="n">Χάθα Γιόγκα</span><span class="tr">Μ. Σταύρου</span><span class="badge">Χαμηλή</span></div>
+          <div class="slot"><span class="t">18:00</span><span class="n">Πυγμαχία &amp; Τεχνική</span><span class="tr">Γ. Δημητρίου</span><span class="badge">Υψηλή</span></div>
+          <div class="slot"><span class="t">19:30</span><span class="n">Πιλάτες σε Μηχανήματα</span><span class="tr">Ε. Βασιλείου</span><span class="badge">Μέτρια</span></div>
+        </section>
+
+        <section class="sect">
+          <h3 class="sec">Συνδρομές</h3>
+          <div class="plans">
+            <div class="plan">
+              <div class="k">Πλήρης πρόσβαση</div>
+              <div class="price">45€ <small>/ μήνα</small></div>
+              <ul><li>Όλες οι αίθουσες &amp; εξωτερικοί χώροι</li><li>Όλα τα ομαδικά μαθήματα</li><li>Αποδυτήρια, ερμάρια, σάουνα</li></ul>
+              <a class="btn ghost" href="#">Επιλογή συνδρομής</a>
+            </div>
+            <div class="plan featured">
+              <div class="k">Πλήρης πρόσβαση + ψηφιακός βοηθός</div>
+              <div class="price">59€ <small>/ μήνα</small></div>
+              <ul><li>Όλα τα παραπάνω</li><li>Εξατομικευμένο εβδομαδιαίο πρόγραμμα</li><li>Προσαρμογή σε τραυματισμούς</li></ul>
+              <a class="btn pri" href="#">Επιλογή με βοηθό</a>
+            </div>
+          </div>
+        </section>
+
+        <div class="strip"><div><b>Πρώτο μάθημα δωρεάν.</b><br><span>Κράτηση θέσης online, χωρίς δέσμευση.</span></div><a class="btn ghost" href="#" style="border-color:#0A0C0B;color:#0A0C0B">Κλείσε τώρα</a></div>
+      </div>
+    </div>
+    <p class="note"><strong>Γιατί δουλεύει:</strong> κρατά το σκούρο που ταιριάζει σε gym, αλλά αλλάζει εντελώς το σήμα: βολτ λάιμ αντί για μπλε, διαγώνιες γραμμές και grid αντί για «κάρτες SaaS». Διαβάζεται αθλητικό, όχι επαγγελματικό δίκτυο.</p>
+  </section>
+
+  <!-- ============ THEME C ============ -->
+  <section class="theme-block" data-block="c" style="display:none">
+    <div class="theme-head">
+      <h2>C · Θάλασσα &amp; Κοράλλι</h2>
+      <span class="tag">Φωτεινό · φρέσκο · μεσογειακό</span>
+      <div class="palette" aria-label="Παλέτα C">
+        <span class="chip"><i class="dot" style="background:#EFF7F6"></i>#EFF7F6</span>
+        <span class="chip"><i class="dot" style="background:#FF6A3D"></i>#FF6A3D</span>
+        <span class="chip"><i class="dot" style="background:#0E7C86"></i>#0E7C86</span>
+        <span class="chip"><i class="dot" style="background:#0F2C2E"></i>#0F2C2E</span>
+      </div>
+    </div>
+
+    <div class="browser">
+      <div class="chrome"><div class="lights"><i></i><i></i><i></i></div><span class="url">nexusathletics.gr</span></div>
+      <div class="mock" data-theme="c">
+        <div class="blob one"></div><div class="blob two"></div>
+
+        <nav class="nav">
+          <div class="brand">
+            <span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg></span>
+            <b>NEXUS ATHLETICS</b>
+          </div>
+          <div class="links"><span>Εγκαταστάσεις</span><span>Ανακοινώσεις</span><span>Πρόγραμμα</span><span>Συνδρομές</span></div>
+          <span class="navcta">Είσοδος Μελών</span>
+        </nav>
+
+        <header class="hero">
+          <div>
+            <div class="eyebrow">Πολυχώρος άσκησης · Γλυφάδα</div>
+            <h1>Γιόγκα, πιλάτες, πολεμικές τέχνες και βάρη. Κάτω από την ίδια στέγη.</h1>
+            <p>1.800 τ.μ. με τέσσερις διαφορετικούς χώρους, 60+ ώρες ομαδικών μαθημάτων την εβδομάδα και προπονητές που ξέρουν το όνομά σου.</p>
+            <div class="ctas">
+              <a class="btn pri" href="#">Κλείσε δοκιμαστικό</a>
+              <a class="btn ghost" href="#">Δες το πρόγραμμα</a>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="stat"><b>1.800</b><span>τετραγωνικά μέτρα</span></div>
+            <div class="stat"><b>60+</b><span>ώρες μαθημάτων / εβδομάδα</span></div>
+            <div class="stat"><b>12</b><span>πιστοποιημένοι προπονητές</span></div>
+            <div class="stat"><b>950</b><span>ενεργά μέλη</span></div>
+          </div>
+        </header>
+
+        <section class="sect alt">
+          <h3 class="sec">Ανακοινώσεις</h3>
+          <div class="ann">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>
+            <div><strong>Δεν θα γίνουν σήμερα τα μαθήματα γιόγκα &amp; πιλάτες</strong><span>Τεχνική εργασία στην αίθουσα. Το πρόγραμμα επανέρχεται αύριο κανονικά.</span></div>
+          </div>
+          <div class="ann" style="--ann-bg:#E8F4F2;--ann-line:#C7E4DF;--ann-ink:#0E5F66">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <div><strong>Νέα μαθήματα αυτοάμυνας</strong><span>Κάθε Πέμπτη 20:30. Ρώτησε στη ρεσεψιόν για εγγραφή.</span></div>
+          </div>
+        </section>
+
+        <section class="sect">
+          <h3 class="sec">Οι χώροι</h3>
+          <div class="grid4">
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c2 3 3 5 3 7a3 3 0 0 1-6 0c0-2 1-4 3-7Z"/><path d="M5 21c1-4 3-6 7-6s6 2 7 6"/></svg></div><b>Γιόγκα &amp; Πιλάτες</b><p>Ξύλινο δάπεδο, βοηθήματα και μηχανήματα πιλάτες.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4v16M18 4v16M6 12h12"/><circle cx="12" cy="12" r="2.5"/></svg></div><b>Πολεμικές τέχνες</b><p>Στρώμα, σάκοι πυγμαχίας και καθρέφτες.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"/></svg></div><b>Βάρη &amp; Διάδρομοι</b><p>Ελεύθερα βάρη, μηχανήματα, διάδρομοι, κωπηλατικά.</p></div>
+            <div class="fac"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 20h18M5 20V9l7-5 7 5v11"/><path d="M9 20v-5h6v5"/></svg></div><b>Εξωτερικοί χώροι</b><p>Χλοοτάπητας, λειτουργικά όργανα και σκίαση.</p></div>
+          </div>
+        </section>
+
+        <section class="sect alt">
+          <h3 class="sec">Πρόγραμμα</h3>
+          <div class="days"><span class="day on">Δευτέρα</span><span class="day">Τρίτη</span><span class="day">Τετάρτη</span><span class="day">Πέμπτη</span></div>
+          <div class="slot"><span class="t">08:30</span><span class="n">Χάθα Γιόγκα</span><span class="tr">Μ. Σταύρου</span><span class="badge">Χαμηλή</span></div>
+          <div class="slot"><span class="t">18:00</span><span class="n">Πυγμαχία &amp; Τεχνική</span><span class="tr">Γ. Δημητρίου</span><span class="badge">Υψηλή</span></div>
+          <div class="slot"><span class="t">19:30</span><span class="n">Πιλάτες σε Μηχανήματα</span><span class="tr">Ε. Βασιλείου</span><span class="badge">Μέτρια</span></div>
+        </section>
+
+        <section class="sect">
+          <h3 class="sec">Συνδρομές</h3>
+          <div class="plans">
+            <div class="plan">
+              <div class="k">Πλήρης πρόσβαση</div>
+              <div class="price">45€ <small>/ μήνα</small></div>
+              <ul><li>Όλες οι αίθουσες &amp; εξωτερικοί χώροι</li><li>Όλα τα ομαδικά μαθήματα</li><li>Αποδυτήρια, ερμάρια, σάουνα</li></ul>
+              <a class="btn ghost" href="#">Επιλογή συνδρομής</a>
+            </div>
+            <div class="plan featured">
+              <div class="k">Πλήρης πρόσβαση + ψηφιακός βοηθός</div>
+              <div class="price">59€ <small>/ μήνα</small></div>
+              <ul><li>Όλα τα παραπάνω</li><li>Εξατομικευμένο εβδομαδιαίο πρόγραμμα</li><li>Προσαρμογή σε τραυματισμούς</li></ul>
+              <a class="btn pri" href="#">Επιλογή με βοηθό</a>
+            </div>
+          </div>
+        </section>
+
+        <div class="strip"><div><b>Πρώτο μάθημα δωρεάν.</b><br><span>Κράτηση θέσης online, χωρίς δέσμευση.</span></div><a class="btn pri" href="#">Κλείσε τώρα</a></div>
+      </div>
+    </div>
+    <p class="note"><strong>Γιατί δουλεύει:</strong> φωτεινό και φιλικό, με οργανικές φόρμες αντί για ευθείες. Το κοράλλι δίνει ενέργεια χωρίς να γίνεται επιθετικό, το πράσινο-θάλασσα κρατά το wellness στοιχείο. Καλό για μικτό κοινό (γιόγκα + βάρη).</p>
+  </section>
+
+  <p class="note" style="margin-top:8px">Και στις τρεις προτάσεις το περιεχόμενο, η ιεραρχία και τα components μένουν ίδια. Αλλάζει μόνο η παλέτα, η φωτεινότητα, η γωνία των σχημάτων και η «θερμοκρασία» του φόντου. Πες μου ποια θέλεις και την περνάω στα tokens του Tailwind και στα components.</p>
+</div>
+
+<script>
+  (function () {
+    var tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+    var blocks = Array.prototype.slice.call(document.querySelectorAll("[data-block]"));
+
+    function show(target) {
+      tabs.forEach(function (tab) {
+        var active = tab.getAttribute("data-target") === target;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+      blocks.forEach(function (block) {
+        var key = block.getAttribute("data-block");
+        block.style.display = target === "all" || key === target ? "" : "none";
+      });
+    }
+
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        show(tab.getAttribute("data-target"));
+      });
+    });
+  })();
+</script>
+</body>
+</html>

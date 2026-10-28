@@ -63,13 +63,13 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-base font-bold text-white">Διαχείριση Καρτών Μελών & Ψηφιακού Βοηθού</h2>
+        <h2 className="text-base font-bold text-primary">Διαχείριση Καρτών Μελών & Ψηφιακού Βοηθού</h2>
         <p className="text-xs text-secondary">Καταχώρηση νέων μελών και ενεργοποίηση της πρόσβασης στον ψηφιακό προπονητή (+14€).</p>
       </div>
 
       {/* Quick Add Member Form */}
       <form onSubmit={handleCreateMember} className="bg-surface border border-border rounded-xl p-5 space-y-4">
-        <div className="text-xs font-bold text-white flex items-center gap-1.5">
+        <div className="text-xs font-bold text-primary flex items-center gap-1.5">
           <Plus className="w-4 h-4 text-accent" />
           <span>Έκδοση Νέας Κάρτας Μέλους</span>
         </div>
@@ -83,7 +83,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
               placeholder="π.χ. NX-9921"
               value={newMember.memberCode}
               onChange={(e) => setNewMember({ ...newMember, memberCode: e.target.value })}
-              className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs outline-none font-mono"
+              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none font-mono"
             />
           </div>
 
@@ -95,7 +95,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
               placeholder="π.χ. Κωνσταντίνος Νικολάου"
               value={newMember.fullName}
               onChange={(e) => setNewMember({ ...newMember, fullName: e.target.value })}
-              className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs outline-none"
+              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none"
             />
           </div>
 
@@ -107,7 +107,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
               placeholder="member@example.com"
               value={newMember.email}
               onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-              className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs outline-none"
+              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none"
             />
           </div>
 
@@ -119,7 +119,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
               maxLength={6}
               value={newMember.pinCode}
               onChange={(e) => setNewMember({ ...newMember, pinCode: e.target.value })}
-              className="w-full px-3 py-2 rounded bg-background border border-border text-white text-xs outline-none font-mono tracking-widest"
+              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none font-mono tracking-widest"
             />
           </div>
         </div>
@@ -138,13 +138,13 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
               onChange={(e) => setNewMember({ ...newMember, hasAIAccess: e.target.checked })}
               className="rounded border-border text-accent focus:ring-0"
             />
-            <span className="font-semibold text-white">Ενεργοποίηση Ψηφιακού Βοηθού (+14€/μήνα)</span>
+            <span className="font-semibold text-primary">Ενεργοποίηση Ψηφιακού Βοηθού (+14€/μήνα)</span>
           </label>
 
           <button
             type="submit"
             disabled={isSaving}
-            className="px-4 py-2 rounded bg-accent hover:bg-accent-hover disabled:opacity-50 text-black font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+            className="px-4 py-2 rounded bg-accent hover:bg-accent-hover disabled:opacity-50 text-accent-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{isSaving ? "Αποθήκευση..." : "Αποθήκευση & Έκδοση Μέλους"}</span>
@@ -159,10 +159,10 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="font-mono font-bold text-accent text-sm">{m.member_code}</span>
-                <span className="font-bold text-white">{m.full_name}</span>
+                <span className="font-bold text-primary">{m.full_name}</span>
               </div>
               <div className="text-secondary">
-                {m.email} • Λήξη: <strong className="text-white font-mono">{m.expires_at}</strong>
+                {m.email} • Λήξη: <strong className="text-primary font-mono">{m.expires_at}</strong>
               </div>
             </div>
 

@@ -8,18 +8,141 @@
   padding: 0;
 }
 
+/* ----------------------------------------------------------------------------
+   Theme tokens
+   The default is the original charcoal / sky-cyan palette. The three preview
+   themes are opt-in via <html data-theme="sand|volt|coastal">.
+---------------------------------------------------------------------------- */
+
+:root,
+[data-theme="default"] {
+  --bg-rgb: 24 26 32;
+  --surface-rgb: 33 36 45;
+  --surface-card-rgb: 40 44 55;
+  --surface-elevated-rgb: 49 54 67;
+  --border-rgb: 59 65 81;
+  --border-light-rgb: 74 82 102;
+  --ink-rgb: 243 244 246;
+  --muted-rgb: 165 173 193;
+  --faint-rgb: 126 135 156;
+  --accent-rgb: 56 189 248;
+  --accent-hover-rgb: 2 132 199;
+  --accent-ink-rgb: 0 0 0;
+  --btn-rgb: 255 255 255;
+  --btn-hover-rgb: 235 238 242;
+  --btn-ink-rgb: 0 0 0;
+  --warn-bg-rgb: 60 24 8;
+  --warn-border-rgb: 146 64 14;
+  --warn-ink-rgb: 252 211 77;
+  color-scheme: dark;
+}
+
+[data-theme="sand"] {
+  --bg-rgb: 246 239 229;
+  --surface-rgb: 255 252 247;
+  --surface-card-rgb: 255 249 241;
+  --surface-elevated-rgb: 241 230 216;
+  --border-rgb: 230 214 195;
+  --border-light-rgb: 214 194 170;
+  --ink-rgb: 36 26 18;
+  --muted-rgb: 108 91 75;
+  --faint-rgb: 140 121 103;
+  --accent-rgb: 194 65 12;
+  --accent-hover-rgb: 154 52 18;
+  --accent-ink-rgb: 255 246 240;
+  --btn-rgb: 36 26 18;
+  --btn-hover-rgb: 60 45 33;
+  --btn-ink-rgb: 255 246 240;
+  --warn-bg-rgb: 251 234 217;
+  --warn-border-rgb: 235 201 168;
+  --warn-ink-rgb: 122 58 18;
+  color-scheme: light;
+}
+
+[data-theme="volt"] {
+  --bg-rgb: 10 12 11;
+  --surface-rgb: 20 26 22;
+  --surface-card-rgb: 26 33 28;
+  --surface-elevated-rgb: 33 42 36;
+  --border-rgb: 37 49 41;
+  --border-light-rgb: 54 70 59;
+  --ink-rgb: 242 246 239;
+  --muted-rgb: 152 166 155;
+  --faint-rgb: 120 134 123;
+  --accent-rgb: 198 248 60;
+  --accent-hover-rgb: 176 226 42;
+  --accent-ink-rgb: 10 12 11;
+  --btn-rgb: 242 246 239;
+  --btn-hover-rgb: 224 232 219;
+  --btn-ink-rgb: 10 12 11;
+  --warn-bg-rgb: 36 26 16;
+  --warn-border-rgb: 107 68 34;
+  --warn-ink-rgb: 255 196 138;
+  color-scheme: dark;
+}
+
+[data-theme="coastal"] {
+  --bg-rgb: 239 247 246;
+  --surface-rgb: 255 255 255;
+  --surface-card-rgb: 250 253 253;
+  --surface-elevated-rgb: 231 242 240;
+  --border-rgb: 211 230 226;
+  --border-light-rgb: 190 214 209;
+  --ink-rgb: 15 44 46;
+  --muted-rgb: 91 116 118;
+  --faint-rgb: 120 145 147;
+  --accent-rgb: 14 110 119;
+  --accent-hover-rgb: 10 84 92;
+  --accent-ink-rgb: 242 251 250;
+  --btn-rgb: 15 44 46;
+  --btn-hover-rgb: 26 64 66;
+  --btn-ink-rgb: 242 251 250;
+  --warn-bg-rgb: 255 240 233;
+  --warn-border-rgb: 255 210 195;
+  --warn-ink-rgb: 138 52 24;
+  color-scheme: light;
+}
+
 html {
   scroll-behavior: smooth;
   color-scheme: dark;
 }
 
+html[data-theme="sand"],
+html[data-theme="coastal"] {
+  color-scheme: light;
+}
+
 body {
-  background-color: #181A20;
-  color: #F1F3F7;
+  background-color: rgb(var(--bg-rgb));
+  color: rgb(var(--ink-rgb));
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   overflow-x: hidden;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Background geometry per theme. Kept as background layers on the page shell,
+   so no extra DOM and no stacking-context side effects. */
+[data-theme="sand"] main {
+  background-image:
+    radial-gradient(900px 480px at 88% -6%, rgba(194, 65, 12, 0.14), transparent 62%),
+    radial-gradient(700px 420px at -8% 46%, rgba(30, 92, 75, 0.1), transparent 64%);
+  background-attachment: fixed;
+}
+
+[data-theme="volt"] main {
+  background-image:
+    radial-gradient(900px 420px at 86% -8%, rgba(198, 248, 60, 0.13), transparent 62%),
+    repeating-linear-gradient(135deg, rgba(198, 248, 60, 0.055) 0 1px, transparent 1px 24px);
+  background-attachment: fixed;
+}
+
+[data-theme="coastal"] main {
+  background-image:
+    radial-gradient(820px 440px at 92% -8%, rgba(255, 106, 61, 0.16), transparent 62%),
+    radial-gradient(680px 420px at -10% 52%, rgba(14, 110, 119, 0.1), transparent 64%);
+  background-attachment: fixed;
 }
 
 /* Skeleton Loading Animation */
@@ -33,24 +156,24 @@ body {
 }
 
 .skeleton-box {
-  background-color: #313643;
+  background-color: rgb(var(--surface-elevated-rgb));
   animation: skeleton-pulse 1.6s ease-in-out infinite;
 }
 
 /* Soft, Friendly Panels */
 .panel {
-  background-color: #21242D;
-  border: 1px solid #3B4151;
+  background-color: rgb(var(--surface-rgb));
+  border: 1px solid rgb(var(--border-rgb));
 }
 
 .panel-card {
-  background-color: #282C37;
-  border: 1px solid #3B4151;
+  background-color: rgb(var(--surface-card-rgb));
+  border: 1px solid rgb(var(--border-rgb));
 }
 
 .panel-elevated {
-  background-color: #313643;
-  border: 1px solid #4A5266;
+  background-color: rgb(var(--surface-elevated-rgb));
+  border: 1px solid rgb(var(--border-light-rgb));
 }
 
 /* Subtle Scrollbar */
@@ -60,14 +183,14 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #181A20;
+  background: rgb(var(--bg-rgb));
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3B4151;
+  background: rgb(var(--border-rgb));
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4A5266;
+  background: rgb(var(--border-light-rgb));
 }

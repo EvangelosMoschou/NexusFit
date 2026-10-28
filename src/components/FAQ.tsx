@@ -38,7 +38,7 @@ export const FAQ: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between pb-6 mb-6 border-b border-border gap-2">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-primary tracking-tight">
               Συχνές Ερωτήσεις & Διευκρινίσεις
             </h2>
             <p className="text-secondary text-xs sm:text-sm mt-1">
@@ -60,12 +60,12 @@ export const FAQ: React.FC = () => {
                   onClick={() => toggle(idx)}
                   className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 hover:bg-surface-elevated/40 transition-colors"
                 >
-                  <span className="text-sm font-semibold text-white">
+                  <span className="text-sm font-semibold text-primary">
                     {faq.q}
                   </span>
                   <ChevronDown
                     className={`w-4 h-4 text-secondary shrink-0 transition-transform duration-200 ${
-                      isOpen ? "rotate-180 text-white" : ""
+                      isOpen ? "rotate-180 text-primary" : ""
                     }`}
                   />
                 </button>

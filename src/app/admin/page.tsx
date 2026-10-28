@@ -160,10 +160,10 @@ export default function AdminPortalPage() {
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-surface border border-border rounded-xl p-8 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-12 h-12 rounded-xl bg-accent text-black font-extrabold flex items-center justify-center mx-auto shadow-md">
+            <div className="w-12 h-12 rounded-xl bg-accent text-accent-ink font-extrabold flex items-center justify-center mx-auto shadow-md">
               <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Nexus Athletics — Πίνακας Διαχείρισης</h1>
+            <h1 className="text-xl font-bold text-primary tracking-tight">Nexus Athletics — Πίνακας Διαχείρισης</h1>
             <p className="text-xs text-secondary">
               Πίνακας διαχείρισης τιμών, προγραμμάτων και μελών γυμναστηρίου.
             </p>
@@ -192,7 +192,7 @@ export default function AdminPortalPage() {
                   placeholder="••••••••"
                   value={adminPin}
                   onChange={(e) => setAdminPin(e.target.value)}
-                  className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-background border border-border text-white text-xs outline-none focus:border-border-light font-mono"
+                  className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono"
                 />
                 <Lock className="w-4 h-4 text-tertiary absolute left-3 top-3" />
                 <button
@@ -200,7 +200,7 @@ export default function AdminPortalPage() {
                   onClick={() => setShowAdminPassword((visible) => !visible)}
                   aria-label={showAdminPassword ? "Απόκρυψη κωδικού" : "Εμφάνιση κωδικού"}
                   aria-pressed={showAdminPassword}
-                  className="absolute right-2 top-2 p-1.5 rounded text-tertiary hover:text-white transition-colors"
+                  className="absolute right-2 top-2 p-1.5 rounded text-tertiary hover:text-primary transition-colors"
                 >
                   {showAdminPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -214,14 +214,14 @@ export default function AdminPortalPage() {
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-lg bg-white hover:bg-white/90 text-black font-bold text-xs transition-colors shadow-sm"
+              className="w-full py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors shadow-sm"
             >
               Είσοδος στον Πίνακα Ελέγχου
             </button>
           </form>
 
           <div className="text-center pt-2">
-            <Link href="/" className="text-xs text-secondary hover:text-white flex items-center justify-center gap-1">
+            <Link href="/" className="text-xs text-secondary hover:text-primary flex items-center justify-center gap-1">
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Επιστροφή στην Αρχική Σελίδα</span>
             </Link>
@@ -255,12 +255,12 @@ export default function AdminPortalPage() {
       <header className="bg-surface border-b border-border sticky top-0 z-40 backdrop-blur-md py-4">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="w-8 h-8 rounded-lg bg-accent text-black font-extrabold flex items-center justify-center text-sm shadow-sm">
+            <Link href="/" className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm">
               <Dumbbell className="w-4 h-4 stroke-[2.5]" />
             </Link>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-white">{config.gymName}</span>
+                <span className="font-bold text-sm text-primary">{config.gymName}</span>
                 <span className="text-[10px] font-mono bg-accent/20 text-accent px-2 py-0.5 rounded font-bold">
                   Διαχείριση
                 </span>
@@ -279,7 +279,7 @@ export default function AdminPortalPage() {
             <button
               onClick={handleSaveConfig}
               disabled={isSaving}
-              className="px-4 py-2 rounded-lg bg-white hover:bg-white/90 text-black font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              className="px-4 py-2 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
             >
               <Save className="w-3.5 h-3.5" />
               <span>{isSaving ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}</span>
@@ -293,7 +293,7 @@ export default function AdminPortalPage() {
                 sessionStorage.removeItem("nexus_admin_auth");
                 setIsAuthenticated(false);
               }}
-              className="p-2 rounded-lg bg-surface-elevated hover:bg-border text-secondary hover:text-white border border-border text-xs"
+              className="p-2 rounded-lg bg-surface-elevated hover:bg-border text-secondary hover:text-primary border border-border text-xs"
               title="Αποσύνδεση"
             >
               Έξοδος
@@ -313,7 +313,7 @@ export default function AdminPortalPage() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.key ? "bg-white text-black font-bold shadow-sm" : "text-secondary hover:text-white"
+                  activeTab === tab.key ? "bg-btn text-btn-ink font-bold shadow-sm" : "text-secondary hover:text-primary"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
