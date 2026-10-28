@@ -81,7 +81,7 @@ another gym without touching components.
 
 | Layer | Choice |
 |---|---|
-| Framework | **Next.js 15.1.7** (App Router, React Server Components, `output: "standalone"`) |
+| Framework | **Next.js 15.5.28** (App Router, React Server Components, `output: "standalone"`) |
 | UI | **React 19**, **TailwindCSS 3.4**, **lucide-react** icons |
 | Language | **TypeScript 5** (strict) |
 | Database | **`node:sqlite`** (`DatabaseSync`) — Node's built-in SQLite, no external driver |
