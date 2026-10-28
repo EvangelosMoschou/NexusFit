@@ -34,6 +34,7 @@
   --warn-bg-rgb: 60 24 8;
   --warn-border-rgb: 146 64 14;
   --warn-ink-rgb: 252 211 77;
+  --decor-2-rgb: 56 189 248;
   color-scheme: dark;
 }
 
@@ -56,6 +57,7 @@
   --warn-bg-rgb: 251 234 217;
   --warn-border-rgb: 235 201 168;
   --warn-ink-rgb: 122 58 18;
+  --decor-2-rgb: 30 92 75;
   color-scheme: light;
 }
 
@@ -78,6 +80,7 @@
   --warn-bg-rgb: 36 26 16;
   --warn-border-rgb: 107 68 34;
   --warn-ink-rgb: 255 196 138;
+  --decor-2-rgb: 255 90 46;
   color-scheme: dark;
 }
 
@@ -100,6 +103,7 @@
   --warn-bg-rgb: 255 240 233;
   --warn-border-rgb: 255 210 195;
   --warn-ink-rgb: 138 52 24;
+  --decor-2-rgb: 255 106 61;
   color-scheme: light;
 }
 
@@ -143,6 +147,187 @@ body {
     radial-gradient(820px 440px at 92% -8%, rgba(255, 106, 61, 0.16), transparent 62%),
     radial-gradient(680px 420px at -10% 52%, rgba(14, 110, 119, 0.1), transparent 64%);
   background-attachment: fixed;
+}
+
+/* Carry a quiet version of the theme texture down the page. */
+[data-theme="sand"] #main-content > section {
+  background-image: radial-gradient(
+    760px 300px at 100% 0%,
+    rgb(var(--accent-rgb) / 0.06),
+    transparent 65%
+  );
+}
+
+[data-theme="volt"] #main-content > section {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(var(--accent-rgb) / 0.05) 0 1px,
+    transparent 1px 26px
+  );
+}
+
+[data-theme="coastal"] #main-content > section {
+  background-image: radial-gradient(
+    760px 300px at 100% 0%,
+    rgb(var(--decor-2-rgb) / 0.08),
+    transparent 65%
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   Decorative shapes (hero). Hidden on the default theme.
+---------------------------------------------------------------------------- */
+
+.decor {
+  position: absolute;
+  display: none;
+  pointer-events: none;
+}
+
+[data-theme="sand"] .decor-sand,
+[data-theme="volt"] .decor-volt,
+[data-theme="coastal"] .decor-coastal {
+  display: block;
+}
+
+[data-theme="sand"] .decor-grain,
+[data-theme="coastal"] .decor-grain {
+  display: block;
+}
+
+.decor-grain {
+  inset: 0;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.06'/%3E%3C/svg%3E");
+}
+
+/* A · arches + sun */
+.decor-sand.arch-a {
+  width: clamp(160px, 18vw, 300px);
+  height: clamp(220px, 28vw, 420px);
+  right: 3%;
+  top: 64px;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--accent-rgb) / 0.16),
+    rgb(var(--accent-rgb) / 0.01)
+  );
+  transform: rotate(6deg);
+}
+
+.decor-sand.arch-b {
+  width: clamp(120px, 14vw, 220px);
+  height: clamp(160px, 20vw, 300px);
+  left: -4%;
+  bottom: -40px;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--decor-2-rgb) / 0.14),
+    rgb(var(--decor-2-rgb) / 0)
+  );
+  transform: rotate(-8deg);
+}
+
+.decor-sand.sun {
+  width: clamp(60px, 7vw, 110px);
+  height: clamp(60px, 7vw, 110px);
+  left: 8%;
+  top: 132px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 40% 35%,
+    rgb(var(--accent-rgb) / 0.18),
+    rgb(var(--accent-rgb) / 0.02)
+  );
+}
+
+/* B · diagonal slashes + ring + dots */
+.decor-volt.slash-a {
+  width: 42vw;
+  height: 12px;
+  right: -8%;
+  top: 228px;
+  background: rgb(var(--accent-rgb) / 0.7);
+  transform: rotate(-18deg);
+  box-shadow: 0 0 32px rgb(var(--accent-rgb) / 0.25);
+}
+
+.decor-volt.slash-b {
+  width: 28vw;
+  height: 6px;
+  right: -4%;
+  top: 266px;
+  background: rgb(var(--decor-2-rgb) / 0.55);
+  transform: rotate(-18deg);
+}
+
+.decor-volt.halo {
+  width: clamp(180px, 20vw, 300px);
+  height: clamp(180px, 20vw, 300px);
+  left: -5%;
+  bottom: -40px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgb(var(--accent-rgb) / 0.12),
+    rgb(var(--accent-rgb) / 0) 70%
+  );
+}
+
+.decor-volt.dots {
+  width: 220px;
+  height: 150px;
+  right: 4%;
+  bottom: 26px;
+  opacity: 0.5;
+  background-image: radial-gradient(
+    rgb(var(--accent-rgb) / 0.35) 1px,
+    transparent 1px
+  );
+  background-size: 18px 18px;
+}
+
+/* C · organic blobs + wave */
+.decor-coastal.blob-a {
+  width: clamp(220px, 26vw, 380px);
+  height: clamp(220px, 26vw, 380px);
+  right: -6%;
+  top: 16px;
+  border-radius: 48% 52% 63% 37% / 42% 38% 62% 58%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgb(var(--decor-2-rgb) / 0.22),
+    rgb(var(--decor-2-rgb) / 0) 70%
+  );
+  filter: blur(2px);
+}
+
+.decor-coastal.blob-b {
+  width: clamp(180px, 20vw, 300px);
+  height: clamp(180px, 20vw, 300px);
+  left: -8%;
+  bottom: -30px;
+  border-radius: 58% 42% 38% 62% / 55% 62% 38% 45%;
+  background: radial-gradient(
+    circle at 40% 35%,
+    rgb(var(--accent-rgb) / 0.16),
+    rgb(var(--accent-rgb) / 0) 70%
+  );
+  filter: blur(2px);
+}
+
+.decor-coastal.wave {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 70px;
+  background: radial-gradient(
+    60% 120% at 50% 100%,
+    rgb(var(--accent-rgb) / 0.1),
+    transparent 70%
+  );
 }
 
 /* Skeleton Loading Animation */
