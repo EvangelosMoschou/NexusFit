@@ -5,6 +5,8 @@ import Link from "next/link";
 import {
   ShieldCheck,
   Lock,
+  Eye,
+  EyeOff,
   Users,
   Calendar,
   Tag,
@@ -27,6 +29,7 @@ import { InfoTab } from "@/components/admin/InfoTab";
 export default function AdminPortalPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminPin, setAdminPin] = useState("");
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"leads" | "pricing" | "schedule" | "info" | "members">("leads");
 
@@ -171,19 +174,36 @@ export default function AdminPortalPage() {
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-semibold text-secondary mb-1">
+              <label
+                htmlFor="admin-password"
+                className="block text-[11px] font-semibold text-secondary mb-1"
+              >
                 Κωδικός Πρόσβασης Διαχειριστή (Admin Password)
               </label>
               <div className="relative">
                 <input
-                  type="password"
+                  id="admin-password"
+                  type={showAdminPassword ? "text" : "password"}
                   required
                   placeholder="••••••••"
                   value={adminPin}
                   onChange={(e) => setAdminPin(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-white text-xs outline-none focus:border-border-light font-mono"
+                  className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-background border border-border text-white text-xs outline-none focus:border-border-light font-mono"
                 />
                 <Lock className="w-4 h-4 text-tertiary absolute left-3 top-3" />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword((visible) => !visible)}
+                  aria-label={showAdminPassword ? "Απόκρυψη κωδικού" : "Εμφάνιση κωδικού"}
+                  aria-pressed={showAdminPassword}
+                  className="absolute right-2 top-2 p-1.5 rounded text-tertiary hover:text-white transition-colors"
+                >
+                  {showAdminPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
               </div>
               <p className="text-[10px] text-tertiary mt-1">Ο κωδικός διαχειριστή ρυθμίζεται μέσω της μεταβλητής ADMIN_PASSWORD στο .env</p>
             </div>
