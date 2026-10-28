@@ -59,12 +59,28 @@ function databasePathFor(tenantId: string, dataDir: string): string {
   return path.join(tenantDir, `${tenantId}.db`);
 }
 
+// Resolves the directory that holds the SQLite files.
+//
+// Serverless hosts present a read-only filesystem, so `process.cwd()/data`
+// cannot be created there. On Vercel we fall back to /tmp, which is writable
+// but ephemeral and per-instance: data does not survive a cold start.
+export function getDataDir(): string {
+  if (process.env.SQLITE_DATA_DIR) return process.env.SQLITE_DATA_DIR;
+  if (process.env.VERCEL) {
+    console.warn(
+      "[sqliteDb] VERCEL detected without SQLITE_DATA_DIR; falling back to /tmp/nexusfit (data is lost on cold start)."
+    );
+    return "/tmp/nexusfit";
+  }
+  return path.join(process.cwd(), "data");
+}
+
 export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync {
   const existing = connections.get(tenantId);
   if (existing) return existing;
 
   // Writable data directory override (e.g. /tmp on read-only-FS hosts like Vercel).
-  const dataDir = process.env.SQLITE_DATA_DIR || path.join(process.cwd(), "data");
+  const dataDir = getDataDir();
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
@@ -131,17 +147,16 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
     console.error("[sqliteDb] pin migration failed:", err);
   }
 
-  // Seed default demo members only for the default tenant, and never in
-  // production: a real deployment (or an extra tenant) must not ship accounts
-  // with known credentials (NX-8492 / PIN 1234).
+  // Seed default demo members only for the default tenant and only when it is
+  // safe to do so: a real deployment must not ship accounts with known
+  // credentials (NX-8492 / PIN 1234). Production therefore requires an explicit
+  // SEED_DEMO_MEMBERS=1 opt-in, which exists for throwaway demo instances.
   const countStmt = db.prepare("SELECT COUNT(*) as count FROM members");
   const row = countStmt.get() as { count: number } | undefined;
+  const demoSeedAllowed =
+    process.env.NODE_ENV !== "production" || process.env.SEED_DEMO_MEMBERS === "1";
 
-  if (
-    tenantId === DEFAULT_TENANT_ID &&
-    process.env.NODE_ENV !== "production" &&
-    (!row || row.count === 0)
-  ) {
+  if (tenantId === DEFAULT_TENANT_ID && demoSeedAllowed && (!row || row.count === 0)) {
     const insertMember = db.prepare(`
       INSERT INTO members (id, member_code, full_name, email, pin_code, tier_name, has_ai_access, subscription_status, expires_at, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

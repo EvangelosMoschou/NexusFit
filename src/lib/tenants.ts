@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { defaultGymConfig } from "@/config/gymConfig";
 import { hashPin } from "./passwordHash";
-import { DEFAULT_TENANT_ID } from "./sqliteDb";
+import { DEFAULT_TENANT_ID, getDataDir } from "./sqliteDb";
 
 export interface Tenant {
   id: string;
@@ -25,10 +25,6 @@ let registry: DatabaseSync | null = null;
 const DOMAIN_CACHE_TTL_MS = 10_000;
 let domainCache: { byDomain: Map<string, string>; at: number } | null = null;
 
-function dataDir(): string {
-  return process.env.SQLITE_DATA_DIR || path.join(process.cwd(), "data");
-}
-
 function normalizeHost(host: string | null | undefined): string {
   if (!host) return "";
   return host.split(":")[0].trim().toLowerCase();
@@ -37,7 +33,7 @@ function normalizeHost(host: string | null | undefined): string {
 export function getRegistry(): DatabaseSync {
   if (registry) return registry;
 
-  const dir = dataDir();
+  const dir = getDataDir();
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
