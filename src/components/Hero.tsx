@@ -71,7 +71,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
                     <Dumbbell className="w-4 h-4" />
                     <span className="font-mono text-base font-black text-white">{config.stats.squareMeters} τ.μ.</span>
                   </div>
-                  <div className="text-[11px] text-secondary">Αίθουσες Γιόγκα & Πιλάτες</div>
+                  <div className="text-[11px] text-secondary">Αίθουσες, βάρη & υπαίθριοι χώροι</div>
                 </div>
 
                 <div className="p-3.5 rounded-lg bg-background border border-border space-y-1">

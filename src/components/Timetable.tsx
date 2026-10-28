@@ -58,7 +58,7 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
               Εβδομαδιαίο Πρόγραμμα Ομαδικών
             </h2>
             <p className="text-secondary text-xs sm:text-sm mt-1">
-              65+ ώρες ομαδικών μαθημάτων εβδομαδιαίως, περιλαμβάνονται στη συνδρομή.
+              {config.stats.weeklyClasses}+ ώρες ομαδικών μαθημάτων εβδομαδιαίως, περιλαμβάνονται στη συνδρομή.
             </p>
           </div>
 

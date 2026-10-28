@@ -12,7 +12,7 @@ const demoExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(
 
 const aiSubscription = {
   tier: "all_inclusive_ai" as const,
-  tierName: "Ευεξία & Ψηφιακός Βοηθός (59€/μήνα)",
+  tierName: "Πλήρης Πρόσβαση & Ψηφιακός Βοηθός (59€/μήνα)",
   status: "active" as const,
   expiresAt: demoExpiry,
   autoRenew: true,
@@ -21,7 +21,7 @@ const aiSubscription = {
 
 const standardSubscription = {
   tier: "standard" as const,
-  tierName: "Συνδρομή Ευεξίας (45€/μήνα)",
+  tierName: "Συνδρομή Πλήρους Πρόσβασης (45€/μήνα)",
   status: "active" as const,
   expiresAt: demoExpiry,
   autoRenew: true,
