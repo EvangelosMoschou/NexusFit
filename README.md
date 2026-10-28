@@ -46,6 +46,8 @@ another gym without touching components.
 **Public landing page**
 - Hero, facilities showcase, weekly class timetable (day filters), pricing tiers
   (Standard vs. All-Access + AI Copilot), expanding FAQ, lead/booking form, footer.
+- **Announcements** section for closures, cancelled classes and last-minute changes.
+  It is hidden when there are none and is edited from the admin console.
 - Ctrl/Cmd+K **command palette** (`SearchModal`) that searches the exercise database.
 - GDPR **cookie consent banner** + Terms/Privacy **legal modals**.
 - **PWA**: installable, web manifest, install prompt, scroll progress bar, back-to-top.
@@ -63,9 +65,10 @@ another gym without touching components.
 - Per-exercise **weight logger** with progressive-overload history.
 - Print/PDF export and copy-to-clipboard of any plan.
 
-**Admin console** (`/admin`, password-gated, 5 tabs)
+**Admin console** (`/admin`, password-gated, 6 tabs)
 - **Leads** — list inquiries and move them through `pending → contacted → registered`.
 - **Members** — create/update/delete members and toggle their AI-pass tier.
+- **Announcements** — publish, edit or remove the notices shown on the landing page.
 - **Pricing / Schedule / Info** — each edits one slice of the live gym config, which
   immediately propagates to the public site.
 
@@ -190,7 +193,7 @@ NexusFit/
     ├── app/
     │   ├── layout.tsx            Root layout, Greek metadata, PWA link, dark theme
     │   ├── page.tsx              Client entry: landing ⇄ portal ⇄ lite mode
-    │   ├── admin/page.tsx        Admin console (login + 5 tabs)
+    │   ├── admin/page.tsx        Admin console (login + 6 tabs)
     │   ├── not-found.tsx         404
     │   ├── globals.css
     │   └── api/**/route.ts       REST handlers (see API Reference)

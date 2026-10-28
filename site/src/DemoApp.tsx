@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import type { PortalTab } from "@/components/MemberMenu";
 import { Hero } from "@/components/Hero";
+import { Announcements } from "@/components/Announcements";
 import { Facilities } from "@/components/Facilities";
 import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
@@ -225,6 +226,7 @@ export function DemoApp() {
             onOpenContact={() => handleOpenContact()}
             onOpenLogin={() => (member ? openMemberTab("overview") : setIsLoginOpen(true))}
           />
+          <Announcements />
           <Facilities />
           <Timetable onOpenBooking={() => handleOpenContact()} />
           <Pricing
