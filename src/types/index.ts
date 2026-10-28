@@ -133,6 +133,14 @@ export interface LegalSection {
   body: string;
 }
 
+export interface GymAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  level: "info" | "warning";
+  date?: string;
+}
+
 export interface GymConfig {
   gymName: string;
   legalName: string;
@@ -158,6 +166,7 @@ export interface GymConfig {
     expertTrainers: number;
     weeklyClasses: number;
   };
+  announcements: GymAnnouncement[];
   facilities: Facility[];
   schedule: GymClassSchedule[];
   trainers: Trainer[];

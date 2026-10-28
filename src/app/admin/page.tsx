@@ -7,6 +7,7 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Megaphone,
   Users,
   Calendar,
   Tag,
@@ -25,13 +26,16 @@ import { MembersTab, MemberItem } from "@/components/admin/MembersTab";
 import { PricingTab } from "@/components/admin/PricingTab";
 import { ScheduleTab } from "@/components/admin/ScheduleTab";
 import { InfoTab } from "@/components/admin/InfoTab";
+import { AnnouncementsTab } from "@/components/admin/AnnouncementsTab";
 
 export default function AdminPortalPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminPin, setAdminPin] = useState("");
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"leads" | "pricing" | "schedule" | "info" | "members">("leads");
+  const [activeTab, setActiveTab] = useState<
+    "leads" | "pricing" | "schedule" | "info" | "members" | "announcements"
+  >("leads");
 
   // Data States
   const [config, setConfig] = useState<GymConfig>(defaultGymConfig);
@@ -235,6 +239,11 @@ export default function AdminPortalPage() {
       label: `Αιτήματα & Leads (${leads.filter((l) => l.status === "pending").length})`,
     },
     { key: "members" as const, icon: Users, label: `Μέλη & Ψηφιακές Συνδρομές (${members.length})` },
+    {
+      key: "announcements" as const,
+      icon: Megaphone,
+      label: `Ανακοινώσεις (${config.announcements?.length ?? 0})`,
+    },
     { key: "pricing" as const, icon: Tag, label: "Συνδρομές & Τιμοκατάλογος" },
     { key: "schedule" as const, icon: Calendar, label: "Ωρολόγιο Πρόγραμμα" },
     { key: "info" as const, icon: Building2, label: "Στοιχεία & Εγκαταστάσεις" },
@@ -320,6 +329,9 @@ export default function AdminPortalPage() {
         )}
         {activeTab === "members" && (
           <MembersTab members={members} onRefresh={fetchAdminData} onDelete={handleDeleteMember} />
+        )}
+        {activeTab === "announcements" && (
+          <AnnouncementsTab config={config} setConfig={setConfig} />
         )}
         {activeTab === "pricing" && <PricingTab config={config} setConfig={setConfig} />}
         {activeTab === "schedule" && (

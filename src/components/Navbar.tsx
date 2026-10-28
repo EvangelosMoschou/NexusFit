@@ -30,6 +30,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const publicNavLinks = [
     { label: "Εγκαταστάσεις", href: "#facilities" },
+    ...(config.announcements?.length
+      ? [{ label: "Ανακοινώσεις", href: "#announcements" }]
+      : []),
     { label: "Πρόγραμμα", href: "#schedule" },
     { label: "Συνδρομές", href: "#pricing" },
     { label: "Επικοινωνία", href: "#contact" },
