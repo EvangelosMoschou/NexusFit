@@ -266,8 +266,8 @@ npm run serve:prod   # node .next/standalone/server.js
 
 **Demo credentials** (seeded on first run in an empty database, **only when
 `NODE_ENV !== "production"`** — a real deployment never creates accounts with
-known PINs unless you explicitly set `SEED_DEMO_MEMBERS=1`, which exists for
-throwaway demo instances):
+known PINs unless you explicitly set `DEMO_MODE=1` (or `SEED_DEMO_MEMBERS=1`),
+which exists for throwaway demo instances):
 
 | Member code | PIN | Tier |
 |---|---|---|
@@ -305,7 +305,8 @@ variable to be set — without it, admin login returns `503`.
 | `SESSION_SECRET` | Production | — | HMAC key used to sign member session cookies. Member login returns `503` in production if unset or shorter than 16 characters. Generate with `openssl rand -hex 32`. |
 | `CRON_SECRET` | For retention | — | Shared secret required by `POST /api/cron/retention`. The route returns `503` if unset. |
 | `SQLITE_DATA_DIR` | No | `<cwd>/data` | Directory for `nexusfit.db`. Useful on read-only filesystems (e.g. Vercel → `/tmp`). When `VERCEL` is set and this is missing, the app falls back to `/tmp/nexusfit` and logs a warning. |
-| `SEED_DEMO_MEMBERS` | No | — | Set to `1` to seed the demo members (`NX-8492` / `NX-3109`, PIN `1234`) even when `NODE_ENV=production`. Demo instances only — never on a real deployment. |
+| `DEMO_MODE` | No | — | One-variable demo setup: seeds the demo members (`NX-8492` / `NX-3109`, PIN `1234`), seeds the admin password `admin1` and signs sessions with a known demo secret, even when `NODE_ENV=production`. **Never on a real deployment.** |
+| `SEED_DEMO_MEMBERS` | No | — | Narrower alternative to `DEMO_MODE`: seeds only the demo members (`NX-8492` / `NX-3109`, PIN `1234`) in production. Demo instances only. |
 | `NEXT_PUBLIC_SITE_URL` | No | — | Canonical site URL used for SEO metadata. |
 | `PORT` / `HOSTNAME` | No | `3000` / — | Standalone/Docker server binding. |
 | `SITE_DOMAIN` | Docker only | `localhost` | Domain Caddy uses for TLS in `docker-compose.yml`. |
@@ -511,8 +512,9 @@ with an offline AI coach and an exercise checklist that makes **zero network req
 - **Member auth** — scrypt-hashed PINs, `timingSafeEqual` comparison, and an **HMAC-SHA256 signed** session cookie (HttpOnly, `Secure` in production) that cannot be forged from a guessable member id.
 - **Rate limiting** on the AI endpoint.
 - **No known-credential accounts in production** — demo members (`NX-8492` / PIN
-  `1234`) are seeded only outside production and only for the default tenant,
-  unless `SEED_DEMO_MEMBERS=1` is set explicitly for a demo instance.
+  `1234`) and the `admin1` admin fallback are seeded only outside production and
+  only for the default tenant, unless `DEMO_MODE=1` (or, for the members alone,
+  `SEED_DEMO_MEMBERS=1`) is set explicitly for a demo instance.
 - **Security headers** set globally in `next.config.ts`: HSTS (2 years, preload),
   `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: origin-when-cross-origin`, and a `Permissions-Policy` that disables
@@ -575,13 +577,18 @@ do not share `/tmp`, so data written by one request may be invisible to the next
 
 1. Import the repository in Vercel (framework is auto-detected as Next.js; `engines.node`
    pins Node 22, which is required for the built-in `node:sqlite`).
-2. Set the environment variables: `SESSION_SECRET`, `ADMIN_PASSWORD`, `GEMINI_API_KEY`,
-   `NEXT_PUBLIC_SITE_URL`, and `SQLITE_DATA_DIR=/tmp/nexusfit`
-   (the fallback is automatic, but setting it explicitly avoids the warning).
-3. Set `SEED_DEMO_MEMBERS=1` if you want member logins to work on a fresh instance —
-   without it, production seeding is skipped and there are no members to sign in as.
-4. Deploy, then open `/admin` with `ADMIN_PASSWORD` and the member portal with
-   `NX-8492` / `1234`.
+2. **Demo instance:** add a single variable, `DEMO_MODE=1`, scoped to Production
+   *and* Preview. It seeds the demo members, sets the admin password to `admin1`
+   and signs member sessions with a known demo secret, so nothing else is needed.
+3. **Real instance instead:** set `ADMIN_PASSWORD`, `SESSION_SECRET` (at least 16
+   chars), `SQLITE_DATA_DIR=/tmp/nexusfit`, and optionally `GEMINI_API_KEY` and
+   `NEXT_PUBLIC_SITE_URL`. Do **not** set `DEMO_MODE`.
+4. Environment variables are only read by a new deployment: after changing them,
+   redeploy (`Deployments → ⋯ → Redeploy`) or push a commit.
+5. Open `/admin` with the admin password, and the member portal with
+   `NX-8492` / `1234` on a demo instance. If the logs still contain
+   `ADMIN_PASSWORD is not set` or `Demo members were not seeded`, the variables
+   did not reach that deployment.
 
 For durable data, use Docker Compose (below) or swap the `Repository` implementation
 for Postgres (see [Known Gaps](#known-gaps--roadmap)).

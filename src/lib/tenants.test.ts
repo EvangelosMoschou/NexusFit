@@ -79,6 +79,12 @@ describe("default tenant admin seed", () => {
     expect(adminSeedPassword("development", undefined)).toBe("admin");
     expect(adminSeedPassword(undefined, undefined)).toBe("admin");
   });
+
+  it("uses the demo password only when demo mode is explicit", () => {
+    expect(adminSeedPassword("production", undefined, true)).toBe("admin1");
+    expect(adminSeedPassword("production", "real-password", true)).toBe("real-password");
+    expect(adminSeedPassword("development", undefined, true)).toBe("admin1");
+  });
 });
 
 describe("tenant data isolation", () => {
