@@ -4,8 +4,8 @@
   "description": "Το γυμναστήριο σου στο κινητό σου με τον έξυπνο AI Workout Copilot.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#08080A",
-  "theme_color": "#CCFF00",
+  "background_color": "#181A20",
+  "theme_color": "#181A20",
   "orientation": "portrait-primary",
   "icons": [
     {

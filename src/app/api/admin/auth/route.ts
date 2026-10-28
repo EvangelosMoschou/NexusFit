@@ -5,6 +5,7 @@ import {
   verifyAdminPassword,
 } from "@/lib/adminAuth";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,6 +17,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Tenant not configured" },
         { status: 503 }
+      );
+    }
+
+    // A single admin password guards the whole console; stop offline guessing.
+    const limit = checkRateLimit(
+      `login:admin:${tenantId}:${getClientIp(req.headers)}`,
+      5,
+      60_000
+    );
+    if (!limit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Πολλές προσπάθειες σύνδεσης. Δοκιμάστε ξανά σε λίγο.",
+        },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
       );
     }
 

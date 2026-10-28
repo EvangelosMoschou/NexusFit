@@ -15,6 +15,12 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+# Opt-in build flag for the theme preview control. Off by default on a real host.
+ARG NEXT_PUBLIC_THEME_PREVIEW=0
+ENV NEXT_PUBLIC_THEME_PREVIEW=${NEXT_PUBLIC_THEME_PREVIEW}
+ARG NEXT_PUBLIC_SITE_URL=""
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 RUN npm run build
 
 # 4. Production Runner (Ultra-Lightweight ~120MB)

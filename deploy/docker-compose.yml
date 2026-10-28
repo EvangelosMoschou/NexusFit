@@ -1,62 +1,98 @@
-version: '3.8'
-
 services:
   nexusfit_app:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      args:
+        NEXT_PUBLIC_THEME_PREVIEW: "${NEXT_PUBLIC_THEME_PREVIEW:-0}"
+        NEXT_PUBLIC_SITE_URL: "${NEXT_PUBLIC_SITE_URL:-}"
     container_name: nexusfit_gym_site
-    restart: always
+    restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - SESSION_SECRET=${SESSION_SECRET}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - CRON_SECRET=${CRON_SECRET}
+      NODE_ENV: production
+      PORT: "3000"
+      SQLITE_DATA_DIR: /app/data
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      SESSION_SECRET: "${SESSION_SECRET:?SESSION_SECRET is required (openssl rand -hex 32)}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}"
+      CRON_SECRET: "${CRON_SECRET:?CRON_SECRET is required}"
     volumes:
       # Persistent storage for local SQLite database
       - nexusfit_data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   caddy:
     image: caddy:2-alpine
     container_name: nexusfit_caddy
-    restart: always
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     environment:
-      - SITE_DOMAIN=${SITE_DOMAIN:-localhost}
+      SITE_DOMAIN: "${SITE_DOMAIN:-localhost}"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - nexusfit_app
+      nexusfit_app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
+  # Consistent snapshots of every SQLite database (registry + all tenants).
   db_backup:
-    image: alpine:3.20
+    image: node:22-alpine
     container_name: nexusfit_db_backup
-    restart: always
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: "14"
     volumes:
       - nexusfit_data:/data:ro
       - ./backups:/backups
+      - ./backup.mjs:/scripts/backup.mjs:ro
     entrypoint: ["/bin/sh", "-c"]
-    command: ["while true; do ts=$$(date +%Y%m%d_%H%M%S); tar -czf /backups/nexusfit_db_$$ts.tar.gz -C /data . && echo \"backup $$ts ok\"; find /backups -name 'nexusfit_db_*.tar.gz' -mtime +14 -delete; sleep 86400; done"]
+    command: ["mkdir -p /backups; while true; do node /scripts/backup.mjs || echo 'backup failed'; sleep 86400; done"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
   # GDPR data-retention job: deletes lead inquiries older than the policy window
   retention_cron:
     image: alpine:3.20
     container_name: nexusfit_retention
-    restart: always
+    restart: unless-stopped
     depends_on:
-      - nexusfit_app
+      nexusfit_app:
+        condition: service_healthy
     environment:
-      - CRON_SECRET=${CRON_SECRET}
+      CRON_SECRET: "${CRON_SECRET:?CRON_SECRET is required}"
     entrypoint: ["/bin/sh", "-c"]
     command: ["apk add --no-cache curl >/dev/null 2>&1; while true; do curl -fsS -X POST -H \"x-cron-secret: $$CRON_SECRET\" http://nexusfit_app:3000/api/cron/retention && echo \"retention ok\"; sleep 86400; done"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   nexusfit_data:

@@ -22,6 +22,10 @@ import { useUTM } from "@/lib/useUTM";
 import { useNetworkStatus } from "@/lib/useNetworkStatus";
 import { getCurrentMember, MemberUser, addPlanToMemberHistory, storeMemberSession } from "@/lib/auth";
 
+// Theme previews are a design tool, not part of the public site. They are only
+// compiled in when the build explicitly opts in.
+const THEME_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_THEME_PREVIEW === "1";
+
 // Code-Splitting: Lazy-load heavy modals & views only when triggered
 const MemberPortalPage = dynamic(
   () => import("@/components/dashboard/MemberPortalPage").then((mod) => mod.MemberPortalPage),
@@ -222,7 +226,7 @@ export default function Home() {
 
         <ScrollTopButton />
         <PWAInstallPrompt />
-        <ThemePreviewSwitcher />
+        {THEME_PREVIEW_ENABLED && <ThemePreviewSwitcher />}
       </main>
     );
   }
@@ -289,7 +293,7 @@ export default function Home() {
       <FloatingContact />
 
       {/* Temporary theme comparison control */}
-      <ThemePreviewSwitcher />
+      {THEME_PREVIEW_ENABLED && <ThemePreviewSwitcher />}
 
       {/* Search Modal */}
       {isSearchOpen && (
