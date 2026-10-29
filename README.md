@@ -48,6 +48,8 @@ another gym without touching components.
   (Standard vs. All-Access + AI Copilot), expanding FAQ, lead/booking form, footer.
 - **Announcements** section for closures, cancelled classes and last-minute changes.
   It is hidden when there are none and is edited from the admin console.
+- **Exercise library** before the contact form: searchable cards with muscle
+  group, equipment and difficulty, served from the local exercise database.
 - Ctrl/Cmd+K **command palette** (`SearchModal`) that searches the exercise database.
 - GDPR **cookie consent banner** + Terms/Privacy **legal modals**.
 - **PWA**: installable, web manifest, install prompt, scroll progress bar, back-to-top.
@@ -63,11 +65,13 @@ another gym without touching components.
 - **AI Coach chat modal** for questions about exercises, substitutions, sets/reps
   and nutrition.
 - Per-exercise **weight logger** with progressive-overload history.
+- A **Code 39 barcode** of the member code on the access card.
 - Print/PDF export and copy-to-clipboard of any plan.
 
 **Admin console** (`/admin`, password-gated, 6 tabs)
 - **Leads** — list inquiries and move them through `pending → contacted → registered`.
-- **Members** — create/update/delete members and toggle their AI-pass tier.
+- **Members** — create/update/delete members, toggle their AI-pass tier, search by
+  name/code/email, and open a profile with the barcode and saved-plan history.
 - **Announcements** — publish, edit or remove the notices shown on the landing page.
 - **Pricing / Schedule / Info** — each edits one slice of the live gym config, which
   immediately propagates to the public site.

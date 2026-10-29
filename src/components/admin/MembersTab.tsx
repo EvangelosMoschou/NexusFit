@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Trash2, Bot, Lock } from "lucide-react";
+import { Plus, Trash2, Bot, Lock, Search } from "lucide-react";
 import { postJson } from "@/lib/apiClient";
+import { MemberDetailModal } from "@/components/admin/MemberDetailModal";
 
 export interface MemberItem {
   id: string;
@@ -38,6 +39,17 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
   const [newMember, setNewMember] = useState(emptyMemberForm);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+
+  const needle = query.trim().toLowerCase();
+  const filteredMembers = needle
+    ? members.filter((member) =>
+        [member.full_name, member.member_code, member.email, member.tier_name].some((value) =>
+          value.toLowerCase().includes(needle)
+        )
+      )
+    : members;
 
   const handleCreateMember = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -153,41 +165,85 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
       </form>
 
       {/* Existing Members Table */}
-      <div className="divide-y divide-border border border-border rounded-xl bg-surface overflow-hidden">
-        {members.map((m) => (
-          <div key={m.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-accent text-sm">{m.member_code}</span>
-                <span className="font-bold text-primary">{m.full_name}</span>
-              </div>
-              <div className="text-secondary">
-                {m.email} • Λήξη: <strong className="text-primary font-mono">{m.expires_at}</strong>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className={`px-2.5 py-1 rounded text-[11px] font-mono font-semibold flex items-center gap-1.5 ${
-                m.has_ai_access === 1
-                  ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800"
-                  : "bg-surface-elevated text-secondary border border-border"
-              }`}>
-                {m.has_ai_access === 1 ? <Bot className="w-3.5 h-3.5 text-accent" /> : <Lock className="w-3 h-3" />}
-                <span>{m.has_ai_access === 1 ? "Ψηφιακός Βοηθός" : "Βασικό Πακέτο"}</span>
-              </div>
-
-              <button
-                onClick={() => onDelete(m.id)}
-                aria-label="Διαγραφή Μέλους"
-                className="p-1.5 rounded text-secondary hover:text-red-400 transition-colors"
-                title="Διαγραφή Μέλους"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-primary">Μέλη ({filteredMembers.length})</h3>
+            <p className="text-[11px] text-tertiary">
+              Αναζήτηση με όνομα, κωδικό κάρτας ή email. Πατήστε ένα μέλος για πλήρες προφίλ.
+            </p>
           </div>
-        ))}
+
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-tertiary absolute left-3 top-3" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Αναζήτηση μέλους..."
+              aria-label="Αναζήτηση μέλους"
+              className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light"
+            />
+          </div>
+        </div>
+
+        <div className="divide-y divide-border border border-border rounded-xl bg-surface overflow-hidden">
+          {filteredMembers.length === 0 ? (
+            <div className="p-6 text-center text-xs text-secondary">
+              Δεν βρέθηκαν μέλη για αυτή την αναζήτηση.
+            </div>
+          ) : (
+            filteredMembers.map((m) => (
+              <div
+                key={m.id}
+                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs hover:bg-surface-elevated/50 transition-colors"
+              >
+                <button
+                  type="button"
+                  onClick={() => setSelectedMemberId(m.id)}
+                  className="flex-1 min-w-0 text-left space-y-1"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono font-bold text-accent text-sm">{m.member_code}</span>
+                    <span className="font-bold text-primary">{m.full_name}</span>
+                  </div>
+                  <div className="text-secondary truncate">
+                    {m.email} • Λήξη: <strong className="text-primary font-mono">{m.expires_at}</strong>
+                  </div>
+                  <div className="text-[10px] text-accent">Προβολή προφίλ & barcode →</div>
+                </button>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className={`px-2.5 py-1 rounded text-[11px] font-mono font-semibold flex items-center gap-1.5 ${
+                    m.has_ai_access === 1
+                      ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800"
+                      : "bg-surface-elevated text-secondary border border-border"
+                  }`}>
+                    {m.has_ai_access === 1 ? <Bot className="w-3.5 h-3.5 text-accent" /> : <Lock className="w-3 h-3" />}
+                    <span>{m.has_ai_access === 1 ? "Ψηφιακός Βοηθός" : "Βασικό Πακέτο"}</span>
+                  </div>
+
+                  <button
+                    onClick={() => onDelete(m.id)}
+                    aria-label="Διαγραφή Μέλους"
+                    className="p-1.5 rounded text-secondary hover:text-red-400 transition-colors"
+                    title="Διαγραφή Μέλους"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
+
+      {selectedMemberId && (
+        <MemberDetailModal
+          memberId={selectedMemberId}
+          onClose={() => setSelectedMemberId(null)}
+        />
+      )}
     </div>
   );
 };
