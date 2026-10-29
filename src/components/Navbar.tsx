@@ -5,6 +5,7 @@ import { useGymConfig } from "@/lib/useGymConfig";
 import { Menu, X, Search, LogIn, Dumbbell } from "lucide-react";
 import { MemberMenu, PortalTab } from "@/components/MemberMenu";
 import { MemberUser } from "@/lib/auth";
+import { scrollToSection } from "@/lib/scroll";
 
 interface NavbarProps {
   onOpenContact: () => void;
@@ -29,13 +30,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { config } = useGymConfig();
 
   const publicNavLinks = [
-    { label: "Εγκαταστάσεις", href: "#facilities" },
-    ...(config.announcements?.length
-      ? [{ label: "Ανακοινώσεις", href: "#announcements" }]
-      : []),
-    { label: "Πρόγραμμα", href: "#schedule" },
-    { label: "Συνδρομές", href: "#pricing" },
-    { label: "Επικοινωνία", href: "#contact" },
+    { label: "Εγκαταστάσεις", id: "facilities" },
+    ...(config.announcements?.length ? [{ label: "Ανακοινώσεις", id: "announcements" }] : []),
+    { label: "Πρόγραμμα", id: "schedule" },
+    { label: "Συνδρομές", id: "pricing" },
+    { label: "Ασκήσεις", id: "exercises" },
+    { label: "Επικοινωνία", id: "contact" },
   ];
 
   const memberMenu =
@@ -47,7 +47,15 @@ export const Navbar: React.FC<NavbarProps> = ({
     <>
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 z-[70] px-4 py-2 bg-btn text-btn-ink text-xs font-bold rounded-lg shadow-lg"
+        onClick={(event) => {
+          event.preventDefault();
+          const target = document.getElementById("main-content");
+          if (!target) return;
+          target.setAttribute("tabindex", "-1");
+          target.focus({ preventScroll: true });
+          target.scrollIntoView({ behavior: "smooth" });
+        }}
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 z-[70] px-4 py-2 bg-white text-black text-xs font-bold rounded-lg shadow-lg"
       >
         Μετάβαση στο περιεχόμενο
       </a>
@@ -64,17 +72,21 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
               <Dumbbell className="w-4 h-4 stroke-[2.5]" />
             </div>
-            <span className="font-bold text-base tracking-tight text-primary uppercase">
+            <span className="font-bold text-base tracking-tight text-primary uppercase whitespace-nowrap">
               {config.gymName}
             </span>
           </button>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden xl:flex items-center gap-4 2xl:gap-6">
             {publicNavLinks.map((link) => (
               <a
                 key={link.label}
-                href={link.href}
+                href={`#${link.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  scrollToSection(link.id);
+                }}
                 className="text-xs font-semibold text-secondary hover:text-primary transition-colors"
               >
                 {link.label}
@@ -83,7 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Action Buttons */}
-          <div className="hidden md:flex items-center gap-2.5">
+          <div className="hidden xl:flex items-center gap-2">
             <button
               onClick={onOpenSearch}
               aria-label="Αναζήτηση"
@@ -112,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Mobile Menu Trigger */}
-          <div className="flex items-center gap-2 md:hidden">
+          <div className="flex items-center gap-2 xl:hidden">
             {memberMenu ?? (
               <button
                 onClick={onOpenLogin}
@@ -134,12 +146,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Mobile Drawer Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden bg-surface border-b border-border px-5 py-4 space-y-3">
+          <div className="xl:hidden bg-surface border-b border-border px-5 py-4 space-y-3">
             {publicNavLinks.map((link) => (
               <a
                 key={link.label}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
+                href={`#${link.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setMobileMenuOpen(false);
+                  scrollToSection(link.id);
+                }}
                 className="block py-2 text-sm font-medium text-secondary hover:text-primary border-b border-border/40"
               >
                 {link.label}

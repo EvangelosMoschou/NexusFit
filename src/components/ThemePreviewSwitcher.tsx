@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Check, Palette } from "lucide-react";
+import { Check, FileQuestion, Palette } from "lucide-react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 
 type ThemeId = "default" | "sand" | "volt" | "coastal";
@@ -44,10 +44,17 @@ function applyTheme(id: ThemeId): void {
   } catch {}
 }
 
+interface ThemePreviewSwitcherProps {
+  // The 404 preview route only exists in the Next app, not the static demo.
+  showNotFoundLink?: boolean;
+}
+
 // Temporary preview control: lets the owner compare the colour proposals on
 // the real site. Remove this component (and the tokens can stay) once a theme
 // is chosen.
-export const ThemePreviewSwitcher: React.FC = () => {
+export const ThemePreviewSwitcher: React.FC<ThemePreviewSwitcherProps> = ({
+  showNotFoundLink = false,
+}) => {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeId>("default");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -137,6 +144,18 @@ export const ThemePreviewSwitcher: React.FC = () => {
               );
             })}
           </div>
+
+          {showNotFoundLink && (
+            <div className="border-t border-border p-1.5">
+              <a
+                href="/404"
+                className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-[11px] font-semibold text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
+              >
+                <FileQuestion className="w-3.5 h-3.5 shrink-0" />
+                <span>Δοκιμή σελίδας 404</span>
+              </a>
+            </div>
+          )}
         </div>
       )}
 

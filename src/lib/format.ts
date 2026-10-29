@@ -31,3 +31,13 @@ export function muscleGroupLabel(value: string): string {
 export function equipmentLabel(value: string): string {
   return EQUIPMENT_LABELS[value] ?? value;
 }
+
+const DIFFICULTY_LABELS: Record<string, string> = {
+  beginner: "Αρχάριος",
+  intermediate: "Μέσος",
+  advanced: "Προχωρημένος",
+};
+
+export function difficultyLabel(value: string): string {
+  return DIFFICULTY_LABELS[value] ?? value;
+}

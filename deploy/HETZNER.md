@@ -75,7 +75,7 @@ inlined at build time). Everything else is read at runtime.
 
 ## 6. Preview builds (optional)
 
-The theme switcher is **off** unless the build opts in:
+The Docker build hides the theme switcher by default; opt in with:
 
 ```bash
 NEXT_PUBLIC_THEME_PREVIEW=1 docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build
