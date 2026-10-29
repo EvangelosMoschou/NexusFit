@@ -8,6 +8,7 @@ import { Facilities } from "@/components/Facilities";
 import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
 import { FAQ } from "@/components/FAQ";
+import { Exercises } from "@/components/Exercises";
 import { LeadBooking } from "@/components/LeadBooking";
 import { Footer } from "@/components/Footer";
 import { CookieBanner } from "@/components/CookieBanner";
@@ -236,6 +237,7 @@ export function DemoApp() {
             onOpenAIWizard={() => setIsLoginOpen(true)}
           />
           <FAQ />
+          <Exercises />
           <LeadBooking
             preselectedPlan={selectedPlanName}
             onOpenLegal={(type) => setLegalModalType(type)}

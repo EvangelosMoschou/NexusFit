@@ -11,6 +11,7 @@ import { Facilities } from "@/components/Facilities";
 import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
 import { FAQ } from "@/components/FAQ";
+import { Exercises } from "@/components/Exercises";
 import { LeadBooking } from "@/components/LeadBooking";
 import { Footer } from "@/components/Footer";
 import { CookieBanner } from "@/components/CookieBanner";
@@ -21,10 +22,11 @@ import { GeneratedWorkoutPlan } from "@/types";
 import { useUTM } from "@/lib/useUTM";
 import { useNetworkStatus } from "@/lib/useNetworkStatus";
 import { getCurrentMember, MemberUser, addPlanToMemberHistory, storeMemberSession } from "@/lib/auth";
+import { clearUrlHash } from "@/lib/scroll";
 
-// Theme previews are a design tool, not part of the public site. They are only
-// compiled in when the build explicitly opts in.
-const THEME_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_THEME_PREVIEW === "1";
+// Theme previews are visible by default while the design is being chosen.
+// A real deployment build can hide them with NEXT_PUBLIC_THEME_PREVIEW=0.
+const THEME_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_THEME_PREVIEW !== "0";
 
 // Code-Splitting: Lazy-load heavy modals & views only when triggered
 const MemberPortalPage = dynamic(
@@ -87,19 +89,31 @@ export default function Home() {
   // Capture UTM parameters
   useUTM();
 
-  // Load session from cookies/storage
+  // Load session from cookies/storage and normalise an old hash link.
   useEffect(() => {
     const current = getCurrentMember();
     if (current) setMember(current);
+    clearUrlHash();
+  }, []);
+
+  // Opening the member area pushes one history entry, so the browser Back
+  // button closes it instead of walking through section anchors.
+  useEffect(() => {
+    const handlePopState = () => setView("home");
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   const isMemberAIActive = member?.subscription.hasAIAccess && member?.subscription.status === "active";
 
+  const currentUrl = () => window.location.pathname + window.location.search;
+
   // The brand always returns to the landing page, keeping the session intact.
   const goHome = () => {
     setView("home");
-    if (window.location.hash) {
-      history.replaceState(null, "", window.location.pathname + window.location.search);
+    clearUrlHash();
+    if (window.history.state?.nexusfitView === "portal") {
+      window.history.replaceState({ nexusfitView: "home" }, "", currentUrl());
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -107,12 +121,22 @@ export default function Home() {
   const openMemberTab = (tab: PortalTab) => {
     setPortalTab(tab);
     setView("portal");
+    clearUrlHash();
+    if (window.history.state?.nexusfitView === "portal") {
+      window.history.replaceState({ nexusfitView: "portal" }, "", currentUrl());
+    } else {
+      window.history.pushState({ nexusfitView: "portal" }, "", currentUrl());
+    }
     window.scrollTo({ top: 0 });
   };
 
   const handleLogout = () => {
     setMember(null);
     setView("home");
+    clearUrlHash();
+    if (window.history.state?.nexusfitView === "portal") {
+      window.history.replaceState({ nexusfitView: "home" }, "", currentUrl());
+    }
   };
 
   const handleOpenContact = (planName?: string) => {
@@ -226,7 +250,7 @@ export default function Home() {
 
         <ScrollTopButton />
         <PWAInstallPrompt />
-        {THEME_PREVIEW_ENABLED && <ThemePreviewSwitcher />}
+        {THEME_PREVIEW_ENABLED && <ThemePreviewSwitcher showNotFoundLink />}
       </main>
     );
   }
@@ -273,6 +297,9 @@ export default function Home() {
         {/* Expandable FAQ */}
         <FAQ />
 
+        {/* Exercise library */}
+        <Exercises />
+
         {/* Contact & Inquiries Form */}
         <LeadBooking 
           preselectedPlan={selectedPlanName} 
@@ -293,7 +320,7 @@ export default function Home() {
       <FloatingContact />
 
       {/* Temporary theme comparison control */}
-      {THEME_PREVIEW_ENABLED && <ThemePreviewSwitcher />}
+      {THEME_PREVIEW_ENABLED && <ThemePreviewSwitcher showNotFoundLink />}
 
       {/* Search Modal */}
       {isSearchOpen && (

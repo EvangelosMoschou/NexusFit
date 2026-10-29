@@ -56,8 +56,8 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="NexusFit" />
         <link rel="apple-touch-icon" href="/icons/icon.svg" />
         {/* Applies the saved preview theme before paint to avoid a flash.
-            Included only in builds that explicitly enable the preview. */}
-        {process.env.NEXT_PUBLIC_THEME_PREVIEW === "1" && (
+            Omitted only when the build disables the preview with 0. */}
+        {process.env.NEXT_PUBLIC_THEME_PREVIEW !== "0" && (
           <script
             dangerouslySetInnerHTML={{
               __html:

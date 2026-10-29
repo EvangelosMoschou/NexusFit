@@ -311,7 +311,7 @@ variable to be set — without it, admin login returns `503`.
 | `DEMO_MODE` | No | — | One-variable demo setup: seeds the demo members (`NX-8492` / `NX-3109`, PIN `1234`), seeds the admin password `admin1` and signs sessions with a known demo secret, even when `NODE_ENV=production`. **Never on a real deployment.** |
 | `SEED_DEMO_MEMBERS` | No | — | Narrower alternative to `DEMO_MODE`: seeds only the demo members (`NX-8492` / `NX-3109`, PIN `1234`) in production. Demo instances only. |
 | `NEXT_PUBLIC_SITE_URL` | No | — | Canonical site URL used for SEO metadata (`metadataBase`). Build-time: rebuild to change. |
-| `NEXT_PUBLIC_THEME_PREVIEW` | No | `0` | Build-time flag. `1` enables the theme preview control and the `?theme=` override. Keep `0` in production. |
+| `NEXT_PUBLIC_THEME_PREVIEW` | No | shown | Build-time flag. Set to `0` to hide the theme preview control and the `?theme=` override. Unset (e.g. a Vercel preview) shows them; the Docker build defaults to `0`. |
 | `PORT` / `HOSTNAME` | No | `3000` / — | Standalone/Docker server binding. |
 | `SITE_DOMAIN` | Docker only | `localhost` | Domain Caddy uses for TLS in `docker-compose.yml`. |
 
@@ -633,8 +633,8 @@ persists data in `localStorage`; it deliberately has no server-side functionalit
 - **In-memory rate limiting** — resets on restart and is per-process, so it does
   not hold under a PM2 cluster or multiple containers. The Docker setup is
   single-instance by design.
-- **Theme preview control** — enabled only in builds compiled with
-  `NEXT_PUBLIC_THEME_PREVIEW=1`; a normal production build ships without it.
+- **Theme preview control** — visible by default while a theme is being chosen;
+  the Docker build hides it unless built with `NEXT_PUBLIC_THEME_PREVIEW=1`.
 - **TLS per gym is manual** — a new gym's domain must be added to the reverse
   proxy configuration (Caddy issues the certificate automatically once listed).
 - **Local plan storage is per-device** — a member's plans live in `localStorage` and are

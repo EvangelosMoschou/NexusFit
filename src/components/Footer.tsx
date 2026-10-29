@@ -3,6 +3,7 @@
 import React from "react";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { clearConsent } from "@/lib/consent";
+import { scrollToSection } from "@/lib/scroll";
 
 interface FooterProps {
   onOpenLegal: (type: "tos" | "privacy") => void;
@@ -32,10 +33,11 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
           <div className="space-y-2">
             <div className="font-semibold text-primary">Πλοήγηση</div>
             <ul className="space-y-1.5 text-secondary">
-              <li><a href="#facilities" className="hover:text-primary transition-colors">Εγκαταστάσεις</a></li>
-              <li><a href="#schedule" className="hover:text-primary transition-colors">Πρόγραμμα Ομαδικών</a></li>
-              <li><a href="#pricing" className="hover:text-primary transition-colors">Συνδρομές & Ψηφιακό Πρόσθετο</a></li>
-              <li><a href="#contact" className="hover:text-primary transition-colors">Ηλεκτρονική Εγγραφή</a></li>
+              <li><a href="#facilities" onClick={(e) => { e.preventDefault(); scrollToSection("facilities"); }} className="hover:text-primary transition-colors">Εγκαταστάσεις</a></li>
+              <li><a href="#schedule" onClick={(e) => { e.preventDefault(); scrollToSection("schedule"); }} className="hover:text-primary transition-colors">Πρόγραμμα Ομαδικών</a></li>
+              <li><a href="#pricing" onClick={(e) => { e.preventDefault(); scrollToSection("pricing"); }} className="hover:text-primary transition-colors">Συνδρομές & Ψηφιακό Πρόσθετο</a></li>
+              <li><a href="#exercises" onClick={(e) => { e.preventDefault(); scrollToSection("exercises"); }} className="hover:text-primary transition-colors">Ασκήσεις & Τεχνική</a></li>
+              <li><a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection("contact"); }} className="hover:text-primary transition-colors">Ηλεκτρονική Εγγραφή</a></li>
             </ul>
           </div>
 
