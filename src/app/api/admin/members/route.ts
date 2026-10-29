@@ -3,8 +3,24 @@ import { getRepository } from "@/lib/db";
 import { adminRoute } from "@/lib/api";
 
 export const GET = adminRoute(
-  async (_req, tenantId) =>
-    NextResponse.json({ success: true, members: await getRepository(tenantId).listMembers() }),
+  async (req, tenantId) => {
+    // `?id=` returns one member with their workout history for the admin
+    // profile view; without it the endpoint lists every member.
+    const id = req.nextUrl.searchParams.get("id");
+
+    if (id) {
+      const detail = await getRepository(tenantId).exportMember(id);
+      if (!detail.member) {
+        return NextResponse.json({ success: false, error: "Member not found" }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, member: detail.member, plans: detail.plans });
+    }
+
+    return NextResponse.json({
+      success: true,
+      members: await getRepository(tenantId).listMembers(),
+    });
+  },
   "Failed to fetch members"
 );
 

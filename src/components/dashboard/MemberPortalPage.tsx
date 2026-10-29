@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { MemberUser, logoutMember, clearMemberSession } from "@/lib/auth";
 import { MemberMenu, PortalTab } from "@/components/MemberMenu";
+import { Barcode } from "@/components/Barcode";
 import { GeneratedWorkoutPlan } from "@/types";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { 
@@ -321,7 +322,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 <div className="flex items-center justify-between pb-3 border-b border-border">
                   <div>
                     <span className="text-[10px] font-mono uppercase text-accent font-bold">
-                      Current Active Routine
+                      Ενεργό Πρόγραμμα
                     </span>
                     <h3 className="text-base font-bold text-primary mt-0.5">
                       {latestPlan ? latestPlan.splitName : "Δεν υπάρχει ενεργό πρόγραμμα"}
@@ -351,7 +352,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                         <div key={idx} className="p-3.5 rounded-lg bg-background border border-border space-y-2">
                           <div className="text-xs font-bold text-primary flex items-center justify-between">
                             <span>{day.dayName}</span>
-                            <span className="text-[10px] text-tertiary font-mono">{day.estimatedMinutes} min</span>
+                            <span className="text-[10px] text-tertiary font-mono">{day.estimatedMinutes} λεπτά</span>
                           </div>
                           <div className="text-[11px] text-secondary">
                             Εστίαση: {day.focus}
@@ -432,8 +433,11 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   <span className="text-tertiary">Κωδικός κάρτας:</span>
                   <span className="text-accent font-bold">{member.memberCode}</span>
                 </div>
+                <div className="p-3 rounded-lg bg-background border border-border">
+                  <Barcode value={member.memberCode} height={56} />
+                </div>
                 <div className="text-[11px] text-tertiary leading-relaxed">
-                  Δείξτε τον κωδικό μέλους στη ρεσεψιόν για είσοδο στους χώρους και στα ομαδικά.
+                  Δείξτε το barcode ή τον κωδικό μέλους στη ρεσεψιόν για είσοδο στους χώρους και στα ομαδικά.
                 </div>
               </div>
 
