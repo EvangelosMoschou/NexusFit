@@ -36,6 +36,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
               <li><a href="#facilities" onClick={(e) => { e.preventDefault(); scrollToSection("facilities"); }} className="hover:text-primary transition-colors">Εγκαταστάσεις</a></li>
               <li><a href="#schedule" onClick={(e) => { e.preventDefault(); scrollToSection("schedule"); }} className="hover:text-primary transition-colors">Πρόγραμμα Ομαδικών</a></li>
               <li><a href="#pricing" onClick={(e) => { e.preventDefault(); scrollToSection("pricing"); }} className="hover:text-primary transition-colors">Συνδρομές & Ψηφιακό Πρόσθετο</a></li>
+              <li><a href="#gallery" onClick={(e) => { e.preventDefault(); scrollToSection("gallery"); }} className="hover:text-primary transition-colors">Φωτογραφίες</a></li>
               <li><a href="#exercises" onClick={(e) => { e.preventDefault(); scrollToSection("exercises"); }} className="hover:text-primary transition-colors">Ασκήσεις & Τεχνική</a></li>
               <li><a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection("contact"); }} className="hover:text-primary transition-colors">Ηλεκτρονική Εγγραφή</a></li>
             </ul>

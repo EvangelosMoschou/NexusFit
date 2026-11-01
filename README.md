@@ -50,6 +50,8 @@ another gym without touching components.
   It is hidden when there are none and is edited from the admin console.
 - **Exercise library** before the contact form: searchable cards with muscle
   group, equipment and difficulty, served from the local exercise database.
+- **Photo gallery**: the admin uploads gym photos and they appear in a lightbox
+  gallery after the facilities section.
 - Ctrl/Cmd+K **command palette** (`SearchModal`) that searches the exercise database.
 - GDPR **cookie consent banner** + Terms/Privacy **legal modals**.
 - **PWA**: installable, web manifest, install prompt, scroll progress bar, back-to-top.
@@ -68,11 +70,12 @@ another gym without touching components.
 - A **Code 39 barcode** of the member code on the access card.
 - Print/PDF export and copy-to-clipboard of any plan.
 
-**Admin console** (`/admin`, password-gated, 6 tabs)
+**Admin console** (`/admin`, password-gated, 7 tabs)
 - **Leads** — list inquiries and move them through `pending → contacted → registered`.
 - **Members** — create/update/delete members, toggle their AI-pass tier, search by
   name/code/email, and open a profile with the barcode and saved-plan history.
 - **Announcements** — publish, edit or remove the notices shown on the landing page.
+- **Photos** — upload, preview and delete gallery images (JPG/PNG/WebP/AVIF).
 - **Pricing / Schedule / Info** — each edits one slice of the live gym config, which
   immediately propagates to the public site.
 
@@ -197,7 +200,7 @@ NexusFit/
     ├── app/
     │   ├── layout.tsx            Root layout, Greek metadata, PWA link, dark theme
     │   ├── page.tsx              Client entry: landing ⇄ portal ⇄ lite mode
-    │   ├── admin/page.tsx        Admin console (login + 6 tabs)
+    │   ├── admin/page.tsx        Admin console (login + 7 tabs)
     │   ├── not-found.tsx         404
     │   ├── globals.css
     │   └── api/**/route.ts       REST handlers (see API Reference)
@@ -335,6 +338,7 @@ schema and seeds defaults on first use.
 | `workout_plans` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `split_name`, `split_type`, `days_per_week`, `session_duration`, `plan_json`, `created_at` | `plan_json` is the full `GeneratedWorkoutPlan`. |
 | `lead_inquiries` | `id`, `full_name`, `email`, `phone`, `goal`, `preferred_plan`, `notes`, `status`, `created_at` | `status`: `pending` / `contacted` / `registered`. |
 | `site_config` | `key` (PK), `value`, `updated_at` | The white-label config, stored under key `gym_config`. |
+| `media` | `id`, `filename`, `mime`, `size`, `alt`, `data` (BLOB), `created_at` | Gallery photos, stored in the tenant database so backups and isolation cover them. |
 
 **Guarantees**
 - **PIN hashing** — `passwordHash.ts` uses async `scrypt` with a per-hash salt and compares
@@ -370,6 +374,8 @@ message if the handler throws.
 | `DELETE` | `/api/member/erase` | GDPR erasure: deletes the signed-in member, their plans (cascade) and any lead inquiries sharing their email, then clears the cookie. | `200 { success }`, `401` |
 | `POST` | `/api/cron/retention` | Deletes lead inquiries older than 12 months. Requires the `x-cron-secret` header. | `200 { success, removed }`, `401`, `503` (no `CRON_SECRET`) |
 | `POST` | `/api/ai-agent/chat` | `{ query }`. Rate-limited per IP. | `200 { id, sender, text, timestamp, … }`, `400`, `429` (with `Retry-After`), `500` |
+| `GET` | `/api/media` | Published gallery metadata. | `200 { success, media }` |
+| `GET` | `/api/media/{id}` | Image bytes (`Cache-Control: immutable`, `nosniff`). | `200` image, `404` |
 
 ### Admin (require the admin session cookie)
 
@@ -385,6 +391,9 @@ message if the handler throws.
 | `GET` | `/api/admin/members` | — | List members (**never** includes `pin_code`). |
 | `POST` | `/api/admin/members` | member fields | Create or update a member (upsert on `member_code`). |
 | `DELETE` | `/api/admin/members` | `?id=` | Delete a member. |
+| `GET` | `/api/admin/media` | — | List gallery photos with URLs and sizes. |
+| `POST` | `/api/admin/media` | multipart `file`, `alt` | Upload a photo. The MIME type is detected from the bytes; max 4 MB, JPG/PNG/WebP/AVIF. |
+| `DELETE` | `/api/admin/media` | `?id=` | Delete a photo. |
 
 ---
 

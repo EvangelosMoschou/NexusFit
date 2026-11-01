@@ -25,6 +25,10 @@ import {
   purgeExpiredLeads,
   deleteLeadsByEmail,
   eraseMemberCompletely,
+  listMediaAdmin,
+  getMediaWithData,
+  saveMediaToDb,
+  deleteMediaAdmin,
 } from "./sqliteDb";
 
 afterAll(() => {
@@ -247,5 +251,26 @@ describe("sqliteDb", () => {
 
     // Erasing an unknown member reports failure rather than throwing.
     expect(eraseMemberCompletely("mem-does-not-exist")).toBe(false);
+  });
+
+  it("stores, serves and deletes gallery media", () => {
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+    const saved = saveMediaToDb({
+      filename: "test.png",
+      mime: "image/png",
+      size: bytes.length,
+      alt: "Δοκιμαστική φωτογραφία",
+      data: bytes,
+    });
+
+    expect(saved).not.toBeNull();
+    expect(listMediaAdmin().some((item) => item.id === saved!.id)).toBe(true);
+
+    const fetched = getMediaWithData(saved!.id);
+    expect(fetched?.mime).toBe("image/png");
+    expect(Array.from(fetched!.data)).toEqual(Array.from(bytes));
+
+    expect(deleteMediaAdmin(saved!.id)).toBe(true);
+    expect(getMediaWithData(saved!.id)).toBeNull();
   });
 });

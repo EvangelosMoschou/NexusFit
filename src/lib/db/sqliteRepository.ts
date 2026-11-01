@@ -13,6 +13,10 @@ import {
   getMemberByCredentials,
   saveWorkoutPlanToDb,
   saveLeadInquiryToDb,
+  listMediaAdmin,
+  getMediaWithData,
+  saveMediaToDb,
+  deleteMediaAdmin,
 } from "@/lib/sqliteDb";
 import { Repository } from "./repository";
 
@@ -30,6 +34,18 @@ export function createSqliteRepository(tenantId: string): Repository {
     },
     async updateGymConfig(config) {
       return updateSavedGymConfig(config, tenantId);
+    },
+    async listMedia() {
+      return listMediaAdmin(tenantId);
+    },
+    async getMedia(id) {
+      return getMediaWithData(id, tenantId);
+    },
+    async saveMedia(input) {
+      return saveMediaToDb(input, tenantId);
+    },
+    async deleteMedia(id) {
+      return deleteMediaAdmin(id, tenantId);
     },
     async listMembers() {
       return getAllMembersAdmin(tenantId);

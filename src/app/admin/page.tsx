@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   Megaphone,
+  Images,
   Users,
   Calendar,
   Tag,
@@ -27,6 +28,7 @@ import { PricingTab } from "@/components/admin/PricingTab";
 import { ScheduleTab } from "@/components/admin/ScheduleTab";
 import { InfoTab } from "@/components/admin/InfoTab";
 import { AnnouncementsTab } from "@/components/admin/AnnouncementsTab";
+import { MediaTab } from "@/components/admin/MediaTab";
 
 export default function AdminPortalPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -34,7 +36,7 @@ export default function AdminPortalPage() {
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "leads" | "pricing" | "schedule" | "info" | "members" | "announcements"
+    "leads" | "pricing" | "schedule" | "info" | "members" | "announcements" | "media"
   >("leads");
 
   // Data States
@@ -244,6 +246,7 @@ export default function AdminPortalPage() {
       icon: Megaphone,
       label: `Ανακοινώσεις (${config.announcements?.length ?? 0})`,
     },
+    { key: "media" as const, icon: Images, label: "Φωτογραφίες" },
     { key: "pricing" as const, icon: Tag, label: "Συνδρομές & Τιμοκατάλογος" },
     { key: "schedule" as const, icon: Calendar, label: "Ωρολόγιο Πρόγραμμα" },
     { key: "info" as const, icon: Building2, label: "Στοιχεία & Εγκαταστάσεις" },
@@ -333,6 +336,7 @@ export default function AdminPortalPage() {
         {activeTab === "announcements" && (
           <AnnouncementsTab config={config} setConfig={setConfig} />
         )}
+        {activeTab === "media" && <MediaTab />}
         {activeTab === "pricing" && <PricingTab config={config} setConfig={setConfig} />}
         {activeTab === "schedule" && (
           <ScheduleTab

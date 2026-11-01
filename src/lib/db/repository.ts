@@ -1,5 +1,12 @@
 import { GeneratedWorkoutPlan, GymConfig } from "@/types";
-import { DbAdminMember, DbLeadInquiry, MemberSession } from "./types";
+import {
+  DbAdminMember,
+  DbLeadInquiry,
+  DbMedia,
+  MediaInput,
+  MediaWithData,
+  MemberSession,
+} from "./types";
 
 export type LeadStatus = "pending" | "contacted" | "registered";
 
@@ -38,6 +45,12 @@ export interface Repository {
   // Gym configuration (white-label content)
   getGymConfig(): Promise<GymConfig>;
   updateGymConfig(config: Partial<GymConfig>): Promise<boolean>;
+
+  // Media library (gallery photos)
+  listMedia(): Promise<DbMedia[]>;
+  getMedia(id: string): Promise<MediaWithData | null>;
+  saveMedia(input: MediaInput): Promise<DbMedia | null>;
+  deleteMedia(id: string): Promise<boolean>;
 
   // Members
   listMembers(): Promise<DbAdminMember[]>;

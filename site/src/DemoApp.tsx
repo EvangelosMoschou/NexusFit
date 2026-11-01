@@ -5,6 +5,7 @@ import { Hero } from "@/components/Hero";
 import { Announcements } from "@/components/Announcements";
 import { ThemePreviewSwitcher } from "@/components/ThemePreviewSwitcher";
 import { Facilities } from "@/components/Facilities";
+import { Gallery } from "@/components/Gallery";
 import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
 import { FAQ } from "@/components/FAQ";
@@ -231,6 +232,7 @@ export function DemoApp() {
           />
           <Announcements />
           <Facilities />
+          <Gallery />
           <Timetable onOpenBooking={() => handleOpenContact()} />
           <Pricing
             onSelectPlan={(planName) => handleOpenContact(planName)}

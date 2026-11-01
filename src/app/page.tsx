@@ -8,6 +8,7 @@ import { Hero } from "@/components/Hero";
 import { Announcements } from "@/components/Announcements";
 import { ThemePreviewSwitcher } from "@/components/ThemePreviewSwitcher";
 import { Facilities } from "@/components/Facilities";
+import { Gallery } from "@/components/Gallery";
 import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
 import { FAQ } from "@/components/FAQ";
@@ -284,6 +285,9 @@ export default function Home() {
 
         {/* Facilities */}
         <Facilities />
+
+        {/* Gallery */}
+        <Gallery />
 
         {/* Timetable */}
         <Timetable onOpenBooking={() => handleOpenContact()} />

@@ -40,6 +40,29 @@ export interface DbLeadInquiry {
 
 export type DbAdminMember = Omit<DbMember, "pin_code">;
 
+// Gallery photos are stored as BLOBs in the tenant database, so backups and
+// tenant isolation cover them without a separate file store.
+export interface DbMedia {
+  id: string;
+  filename: string;
+  mime: string;
+  size: number;
+  alt: string;
+  created_at: string;
+}
+
+export interface MediaInput {
+  filename: string;
+  mime: string;
+  size: number;
+  alt: string;
+  data: Uint8Array;
+}
+
+export interface MediaWithData extends DbMedia {
+  data: Uint8Array;
+}
+
 // The authenticated member shape returned to the app (mirrors MemberUser on the
 // client, minus anything the client does not need).
 export interface MemberSession {
