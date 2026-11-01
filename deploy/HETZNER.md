@@ -101,3 +101,18 @@ off on the final public deployment, then rebuild with `0`.
   hash; rotate it deliberately or recreate the registry.
 - **Never run `docker compose down -v`** unless you intend to delete the
   `nexusfit_data` volume, which holds every database.
+
+## 8. Security checklist
+
+- `chmod 600 deploy/.env` — it holds the admin password and session secret.
+- Use `openssl rand -hex 32` for `SESSION_SECRET` and `CRON_SECRET`; pick a
+  long random `ADMIN_PASSWORD` (16+ characters). The server logs a
+  `[security]` warning at boot when one is missing or short.
+- Copy backups **off the server** and encrypt them (restic, borg, or an
+  encrypted Hetzner Storage Box). They contain member data and PIN hashes.
+- Keep the host patched (`unattended-upgrades` or regular `apt upgrade`) and
+  expose only 22/80/443.
+- Optionally put Cloudflare's free proxy in front for DDoS/WAF; keep Caddy's
+  TLS mode on Full (strict).
+- Not implemented yet: a Content-Security-Policy (Next injects inline RSC
+  scripts, so it needs nonces) and two-factor authentication for `/admin`.

@@ -6,7 +6,8 @@ import { resolveTenantIdFromHeaders } from "@/lib/tenants";
 
 export async function POST(req: NextRequest) {
   try {
-    const memberId = verifyMemberSession(req.cookies.get(MEMBER_COOKIE)?.value);
+    const tenantId = resolveTenantIdFromHeaders(req.headers);
+    const memberId = verifyMemberSession(req.cookies.get(MEMBER_COOKIE)?.value, tenantId);
 
     if (!memberId) {
       return NextResponse.json(
@@ -25,10 +26,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const saved = await getRepository(resolveTenantIdFromHeaders(req.headers)).saveWorkoutPlan(
-      memberId,
-      plan
-    );
+    const saved = await getRepository(tenantId).saveWorkoutPlan(memberId, plan);
     return NextResponse.json({ success: saved });
   } catch {
     return NextResponse.json(

@@ -22,25 +22,38 @@ function sign(value: string, secret: string): string {
   return createHmac("sha256", secret).update(value).digest("hex");
 }
 
-export function signMemberId(memberId: string): string | null {
+// The signed payload carries the tenant as well as the member id. Without the
+// tenant, a cookie issued by one gym would authenticate an identically named
+// member id in another gym on the same multi-tenant deployment.
+export function signMemberSession(tenantId: string, memberId: string): string | null {
   const secret = memberSessionSecret();
   if (!secret) return null;
-  return `${memberId}.${sign(memberId, secret)}`;
+
+  const encoded = Buffer.from(`${tenantId}:${memberId}`, "utf8").toString("base64url");
+  return `${encoded}.${sign(encoded, secret)}`;
 }
 
-export function verifyMemberSession(value: string | undefined): string | null {
+export function verifyMemberSession(value: string | undefined, tenantId: string): string | null {
   const secret = memberSessionSecret();
   if (!secret || !value) return null;
 
   const separator = value.lastIndexOf(".");
   if (separator <= 0) return null;
 
-  const memberId = value.slice(0, separator);
+  const encoded = value.slice(0, separator);
   const provided = Buffer.from(value.slice(separator + 1), "hex");
-  const expected = Buffer.from(sign(memberId, secret), "hex");
+  const expected = Buffer.from(sign(encoded, secret), "hex");
 
   if (provided.length !== expected.length) return null;
   if (!timingSafeEqual(provided, expected)) return null;
+
+  const payload = Buffer.from(encoded, "base64url").toString("utf8");
+  const colon = payload.indexOf(":");
+  if (colon <= 0) return null;
+
+  const tokenTenant = payload.slice(0, colon);
+  const memberId = payload.slice(colon + 1);
+  if (tokenTenant !== tenantId || !memberId) return null;
 
   return memberId;
 }

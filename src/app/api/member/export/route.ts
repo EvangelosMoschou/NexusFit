@@ -7,13 +7,14 @@ import { resolveTenantIdFromHeaders } from "@/lib/tenants";
 // GDPR right of access / portability: returns the signed-in member's own data
 // as a downloadable JSON file.
 export async function GET(req: NextRequest) {
-  const memberId = verifyMemberSession(req.cookies.get(MEMBER_COOKIE)?.value);
+  const tenantId = resolveTenantIdFromHeaders(req.headers);
+  const memberId = verifyMemberSession(req.cookies.get(MEMBER_COOKIE)?.value, tenantId);
 
   if (!memberId) {
     return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
   }
 
-  const data = await getRepository(resolveTenantIdFromHeaders(req.headers)).exportMember(memberId);
+  const data = await getRepository(tenantId).exportMember(memberId);
   if (!data.member) {
     return NextResponse.json({ success: false, error: "Member not found" }, { status: 404 });
   }

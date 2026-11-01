@@ -1,6 +1,13 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
 import { listTenants } from "@/lib/tenants";
+
+function secretsMatch(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 // Scheduled retention job: deletes lead inquiries older than the retention
 // window. Call from a cron sidecar with the shared CRON_SECRET header.
@@ -14,7 +21,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (req.headers.get("x-cron-secret") !== secret) {
+  if (!secretsMatch(req.headers.get("x-cron-secret") ?? "", secret)) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 

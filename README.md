@@ -517,7 +517,7 @@ with an offline AI coach and an exercise checklist that makes **zero network req
   parameters.
 - **Admin auth** — `adminAuth.ts` derives a SHA-256 token from `ADMIN_PASSWORD` and
   compares the cookie value; there is no server-side session store.
-- **Member auth** — scrypt-hashed PINs, `timingSafeEqual` comparison, and an **HMAC-SHA256 signed** session cookie (HttpOnly, `Secure` in production) that cannot be forged from a guessable member id.
+- **Member auth** — scrypt-hashed PINs, `timingSafeEqual` comparison, and an **HMAC-SHA256 signed, tenant-bound** session cookie (HttpOnly, `Secure` in production) that cannot be forged from a guessable member id or replayed against another gym.
 - **Rate limiting** on the AI endpoint, member login (per IP and per member
   code), admin login and lead submissions.
 - **No known-credential accounts in production** — demo members (`NX-8492` / PIN
@@ -526,8 +526,13 @@ with an offline AI coach and an exercise checklist that makes **zero network req
   `SEED_DEMO_MEMBERS=1`) is set explicitly for a demo instance.
 - **Security headers** set globally in `next.config.ts`: HSTS (2 years, preload),
   `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`,
-  `Referrer-Policy: origin-when-cross-origin`, and a `Permissions-Policy` that disables
-  camera, microphone and geolocation.
+  `Referrer-Policy: origin-when-cross-origin`, a `Permissions-Policy` that disables
+  camera, microphone and geolocation, plus COOP, CORP and
+  `X-Permitted-Cross-Domain-Policies: none`.
+- **Startup security warnings** (`instrumentation.ts`) flag a missing or short
+  `SESSION_SECRET`/`ADMIN_PASSWORD`/`CRON_SECRET` and an accidental demo mode.
+- **Backups are written `0600`** (database snapshots contain member data and
+  PIN hashes).
 - **`poweredByHeader: false`** and **`console.*` stripped in production**.
 
 ---
@@ -639,6 +644,10 @@ persists data in `localStorage`; it deliberately has no server-side functionalit
   single-instance by design.
 - **Theme preview control** — visible by default while a theme is being chosen;
   the Docker build hides it unless built with `NEXT_PUBLIC_THEME_PREVIEW=1`.
+- **No Content-Security-Policy** — the other security headers are set, but a CSP
+  needs nonces or a proxy because Next injects inline RSC scripts.
+- **No two-factor authentication for `/admin`** — one password, protected by the
+  per-IP rate limit and a long random value.
 - **TLS per gym is manual** — a new gym's domain must be added to the reverse
   proxy configuration (Caddy issues the certificate automatically once listed).
 - **Local plan storage is per-device** — a member's plans live in `localStorage` and are

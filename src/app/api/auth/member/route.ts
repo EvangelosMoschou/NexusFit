@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
-import { signMemberId } from "@/lib/session";
+import { signMemberSession } from "@/lib/session";
 import { MEMBER_COOKIE, SECURE_COOKIES } from "@/lib/cookies";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const token = signMemberId(member.id);
+    const token = signMemberSession(tenantId, member.id);
     if (!token) {
       return NextResponse.json(
         { success: false, error: "Ο διακομιστής δεν έχει ρυθμιστεί για ασφαλείς συνεδρίες." },

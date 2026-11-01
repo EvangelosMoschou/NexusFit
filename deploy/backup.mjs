@@ -11,7 +11,10 @@ const dataDir = process.env.DATA_DIR ?? "/data";
 const outDir = process.env.BACKUP_DIR ?? "/backups";
 const retentionDays = Number(process.env.BACKUP_RETENTION_DAYS ?? "14");
 
-fs.mkdirSync(outDir, { recursive: true });
+// Backups contain member data and PIN hashes: keep them readable only by the
+// owner (and the operator copying them off the host).
+process.umask(0o077);
+fs.mkdirSync(outDir, { recursive: true, mode: 0o700 });
 
 function findDatabases(dir) {
   const found = [];
@@ -47,6 +50,7 @@ for (const file of databases) {
     const db = new DatabaseSync(file, { readOnly: true });
     try {
       db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
+      fs.chmodSync(target, 0o600);
       written += 1;
     } finally {
       db.close();
