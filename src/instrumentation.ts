@@ -21,6 +21,24 @@ export async function register(): Promise<void> {
     warnings.push("ADMIN_PASSWORD is shorter than 12 characters.");
   }
 
+  const trainerPassword = process.env.TRAINER_PASSWORD;
+  if (!trainerPassword) {
+    warnings.push(
+      "TRAINER_PASSWORD is missing: the legacy shared trainer login is disabled; staff accounts still work."
+    );
+  } else if (trainerPassword.length < 12) {
+    warnings.push("TRAINER_PASSWORD is shorter than 12 characters.");
+  }
+
+  const accessControlKey = process.env.ACCESS_CONTROL_KEY;
+  if (!accessControlKey) {
+    warnings.push(
+      "ACCESS_CONTROL_KEY is missing: QR access and /api/access/scan are disabled."
+    );
+  } else if (accessControlKey.length < 16) {
+    warnings.push("ACCESS_CONTROL_KEY is shorter than 16 characters.");
+  }
+
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && cronSecret.length < 32) {
     warnings.push("CRON_SECRET is shorter than 32 characters.");

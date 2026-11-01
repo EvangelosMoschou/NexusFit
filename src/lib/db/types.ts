@@ -63,6 +63,158 @@ export interface MediaWithData extends DbMedia {
   data: Uint8Array;
 }
 
+// Gym occupancy: one row per visit, open while checked_out_at is null.
+export interface DbVisit {
+  id: string;
+  member_id: string;
+  checked_in_at: string;
+  checked_out_at: string | null;
+  last_activity_at: string | null;
+  created_at: string;
+}
+
+// Minimal member row used to decide whether a subscription gates occupancy.
+export interface MemberAccess {
+  id: string;
+  member_code: string;
+  full_name: string;
+  subscription_status: string;
+  expires_at: string;
+  has_ai_access: number;
+}
+
+export interface InsideMember {
+  member_id: string;
+  member_code: string;
+  full_name: string;
+  checked_in_at: string;
+}
+
+export interface VisitWithMember extends DbVisit {
+  member_code: string;
+  full_name: string;
+}
+
+export type StaffRole = "admin" | "trainer";
+
+export interface StaffAccount {
+  id: string;
+  name: string;
+  email: string;
+  role: StaffRole;
+  permissions: string[];
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_login_at: string | null;
+}
+
+export interface DbStaffAccount extends StaffAccount {
+  password_hash: string;
+}
+
+export interface StaffInput {
+  name: string;
+  email: string;
+  role: StaffRole;
+  password: string;
+  permissions?: string[];
+}
+
+export interface StaffUpdate {
+  name?: string;
+  email?: string;
+  role?: StaffRole;
+  password?: string;
+  permissions?: string[];
+  active?: boolean;
+}
+
+export interface AuditEntry {
+  id: string;
+  actor_id: string | null;
+  actor_name: string;
+  actor_email: string | null;
+  actor_role: string;
+  actor_legacy: boolean;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  details: Record<string, unknown>;
+  ip: string | null;
+  created_at: string;
+}
+
+export interface AuditInput {
+  actorId?: string | null;
+  actorName: string;
+  actorEmail?: string | null;
+  actorRole: string;
+  actorLegacy?: boolean;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  details?: Record<string, unknown>;
+  ip?: string | null;
+}
+
+export interface AuditFilters {
+  limit?: number;
+  offset?: number;
+  action?: string;
+  entityType?: string;
+  actorId?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface AuditPage {
+  entries: AuditEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface MemberNotification {
+  id: string;
+  member_id: string;
+  type: string;
+  title: string;
+  body: string;
+  dedupe_key: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface MemberNotificationInput {
+  type: string;
+  title: string;
+  body: string;
+  dedupeKey: string;
+}
+
+export interface AccessEvent {
+  id: string;
+  member_id: string;
+  event_type: string;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AccessEventWithMember extends AccessEvent {
+  member_code: string;
+  full_name: string;
+}
+
+export interface AccessAlert {
+  member_id: string;
+  member_code: string;
+  full_name: string;
+  event_count: number;
+  last_event_at: string;
+  event_types: string[];
+}
+
 // The authenticated member shape returned to the app (mirrors MemberUser on the
 // client, minus anything the client does not need).
 export interface MemberSession {

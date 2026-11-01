@@ -35,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { label: "Πρόγραμμα", id: "schedule" },
     { label: "Συνδρομές", id: "pricing" },
     { label: "Ασκήσεις", id: "exercises" },
+    { label: "Τοποθεσία", id: "location" },
     { label: "Επικοινωνία", id: "contact" },
   ];
 

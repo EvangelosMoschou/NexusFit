@@ -141,6 +141,26 @@ export interface GymAnnouncement {
   date?: string;
 }
 
+export interface OccupancyHourPoint {
+  hour: number;
+  avg: number;
+}
+
+export interface OccupancyDayPoint {
+  day: string;
+  dayGreek: string;
+  short: string;
+  hours: OccupancyHourPoint[];
+}
+
+export interface OccupancyAnalytics {
+  weeks: number;
+  since: string;
+  capacity: number;
+  timezone: string;
+  days: OccupancyDayPoint[];
+}
+
 export interface GymConfig {
   gymName: string;
   legalName: string;
@@ -149,6 +169,8 @@ export interface GymConfig {
   city: string;
   address: string;
   phone?: string;
+  latitude?: number;
+  longitude?: number;
   email: string;
   workingHours: {
     weekdays: string;
@@ -166,6 +188,13 @@ export interface GymConfig {
     expertTrainers: number;
     weeklyClasses: number;
   };
+  // Used by the live occupancy badge (people currently checked in).
+  capacity: number;
+  // Close an open visit after this many minutes without member activity.
+  // 0 disables idle auto-checkout; the 8-hour stale cleanup still applies.
+  idleCheckoutMinutes: number;
+  // Minimum time between a checkout and a new self-service entry.
+  reentryCooldownMinutes: number;
   announcements: GymAnnouncement[];
   facilities: Facility[];
   schedule: GymClassSchedule[];

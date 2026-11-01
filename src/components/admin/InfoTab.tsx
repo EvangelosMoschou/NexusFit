@@ -43,7 +43,19 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
         </div>
 
         <div>
-          <label className="block text-[11px] text-secondary mb-1">Διεύθυνση</label>
+          <label className="block text-[11px] text-secondary mb-1">Τηλέφωνο</label>
+          <input
+            type="tel"
+            value={config.phone ?? ""}
+            onChange={(e) => setField("phone", e.target.value)}
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] text-secondary mb-1">
+            Διεύθυνση (οδός & αριθμός)
+          </label>
           <input
             type="text"
             value={config.address}
@@ -60,6 +72,73 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             onChange={(e) => setField("city", e.target.value)}
             className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
           />
+        </div>
+
+        <div>
+          <label className="block text-[11px] text-secondary mb-1">Γεωγραφικό πλάτος</label>
+          <input
+            type="number"
+            step="0.000001"
+            value={config.latitude ?? ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              const parsed = Number(value);
+              setField(
+                "latitude",
+                value === "" || !Number.isFinite(parsed) ? undefined : parsed
+              );
+            }}
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-mono"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] text-secondary mb-1">Γεωγραφικό μήκος</label>
+          <input
+            type="number"
+            step="0.000001"
+            value={config.longitude ?? ""}
+            onChange={(e) => {
+              const value = e.target.value;
+              const parsed = Number(value);
+              setField(
+                "longitude",
+                value === "" || !Number.isFinite(parsed) ? undefined : parsed
+              );
+            }}
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-mono"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <p className="text-[10px] text-tertiary leading-relaxed">
+            Οι συντεταγμένες τροφοδοτούν τον χάρτη της αρχικής σελίδας. Για τον
+            Λευκό Πύργο Θεσσαλονίκης: <span className="font-mono">40.62630, 22.94850</span>.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-[11px] text-secondary mb-1">
+            Cooldown επανεισόδου (λεπτά)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={120}
+            value={config.reentryCooldownMinutes}
+            onChange={(e) =>
+              setField(
+                "reentryCooldownMinutes",
+                Math.max(0, Number(e.target.value) || 0)
+              )
+            }
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+          />
+          <p className="text-[10px] text-tertiary mt-1 leading-relaxed">
+            Default 0 = απενεργοποιημένο. Όταν είναι 0, οι γρήγορες
+            έξοδοι/επανείσοδοι επιτρέπονται αλλά καταγράφονται και
+            ενεργοποιούν alarm αν ξεπεράσουν το όριο της εβδομάδας.
+          </p>
         </div>
 
         <div>
@@ -90,6 +169,40 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             }
             className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
           />
+        </div>
+
+        <div>
+          <label className="block text-[11px] text-secondary mb-1">
+            Χωρητικότητα (άτομα)
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={1000}
+            value={config.capacity}
+            onChange={(e) => setField("capacity", Math.max(0, Number(e.target.value) || 0))}
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] text-secondary mb-1">
+            Αυτόματο τέλος παρουσίας (λεπτά αδράνειας)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={480}
+            value={config.idleCheckoutMinutes}
+            onChange={(e) =>
+              setField("idleCheckoutMinutes", Math.max(0, Number(e.target.value) || 0))
+            }
+            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+          />
+          <p className="text-[10px] text-tertiary mt-1 leading-relaxed">
+            0 = απενεργοποιημένο. Μεγαλύτερη τιμή = λιγότερα λάθος check-out όταν
+            κάποιος προπονείται χωρίς το κινητό.
+          </p>
         </div>
       </div>
 

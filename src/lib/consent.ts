@@ -3,7 +3,8 @@
 // We store a versioned record (not a bare string) so that a consent choice can
 // be audited: it carries when it was given and which policy version it covers.
 // Bumping CONSENT_VERSION invalidates older consents and re-prompts the visitor.
-export const CONSENT_VERSION = 1;
+// Bumped when the privacy/cookie disclosures change materially.
+export const CONSENT_VERSION = 6;
 export const CONSENT_STORAGE_KEY = "nexusfit_cookie_consent";
 
 export type ConsentChoice = "accepted" | "essential_only";

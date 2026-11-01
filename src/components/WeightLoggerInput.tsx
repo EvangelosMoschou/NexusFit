@@ -3,6 +3,7 @@
 import React from "react";
 import { Save } from "lucide-react";
 import { logExercisePerformance } from "@/lib/storage";
+import { pingVisitActivity } from "@/lib/visitActivity";
 
 interface WeightLoggerInputProps {
   exerciseId: string;
@@ -35,6 +36,8 @@ export const WeightLoggerInput: React.FC<WeightLoggerInputProps> = ({
       repsAchieved: 8,
       date: new Date().toLocaleDateString("el-GR"),
     });
+    // A weight entry is a strong signal that the member is still training.
+    pingVisitActivity();
     onValueChange("");
     onLogged?.();
   };

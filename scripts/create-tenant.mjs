@@ -2,10 +2,10 @@
 // Creates a tenant in the NexusFit registry.
 //
 // Usage:
-//   node scripts/create-tenant.mjs <id> <name> <domain> [adminPassword]
+//   node scripts/create-tenant.mjs <id> <name> <domain> <adminPassword> [trainerPassword]
 //
 // Example:
-//   node scripts/create-tenant.mjs iron "Iron Gym" iron.example.com 'S3cret!'
+//   node scripts/create-tenant.mjs iron "Iron Gym" iron.example.com 'S3cret!' 'TrainerS3cret!'
 //
 // The registry lives beside the tenant databases (SQLITE_DATA_DIR, default
 // ./data). This script writes it directly with node:sqlite, so it needs no build
@@ -24,10 +24,12 @@ function hashSecret(secret) {
   return `scrypt:${salt.toString("hex")}:${hash.toString("hex")}`;
 }
 
-const [id, name, domain, adminPassword] = process.argv.slice(2);
+const [id, name, domain, adminPassword, trainerPassword] = process.argv.slice(2);
 
 if (!id || !name || !domain || !adminPassword) {
-  console.error("Usage: node scripts/create-tenant.mjs <id> <name> <domain> <adminPassword>");
+  console.error(
+    "Usage: node scripts/create-tenant.mjs <id> <name> <domain> <adminPassword> [trainerPassword]"
+  );
   process.exit(1);
 }
 
@@ -47,9 +49,16 @@ db.exec(`
     name TEXT NOT NULL,
     domains TEXT NOT NULL,
     admin_password_hash TEXT NOT NULL,
+    trainer_password_hash TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
   );
 `);
+
+// Upgrade a registry created before the trainer role existed.
+const columns = db.prepare("PRAGMA table_info(tenants)").all();
+if (!columns.some((column) => column.name === "trainer_password_hash")) {
+  db.exec("ALTER TABLE tenants ADD COLUMN trainer_password_hash TEXT NOT NULL DEFAULT ''");
+}
 
 const existing = db.prepare("SELECT * FROM tenants").all();
 const tenantDomains = domain
@@ -79,8 +88,20 @@ if (domainTaken) {
 }
 
 db.prepare(
-  "INSERT INTO tenants (id, name, domains, admin_password_hash, created_at) VALUES (?, ?, ?, ?, ?)"
-).run(tenantId, name.trim(), JSON.stringify(tenantDomains), hashSecret(adminPassword), new Date().toISOString());
+  "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+).run(
+  tenantId,
+  name.trim(),
+  JSON.stringify(tenantDomains),
+  hashSecret(adminPassword),
+  trainerPassword ? hashSecret(trainerPassword) : "",
+  new Date().toISOString()
+);
 
 console.log(`Created tenant "${tenantId}" (${name.trim()}) serving: ${tenantDomains.join(", ")}`);
+console.log(
+  trainerPassword
+    ? "Trainer login is enabled for this tenant."
+    : "Trainer login is disabled (no trainer password was provided)."
+);
 console.log(`Its database will be created on first request at ${path.join(dataDir, "tenants", `${tenantId}.db`)}`);

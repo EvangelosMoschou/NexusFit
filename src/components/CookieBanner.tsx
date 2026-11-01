@@ -35,7 +35,9 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenPrivacy }) => 
     <div className="fixed bottom-4 left-4 right-4 sm:left-6 sm:right-auto sm:max-w-md z-40">
       <div className="bg-surface border border-border p-4 rounded-lg shadow-2xl space-y-3">
         <div className="text-xs text-secondary leading-relaxed">
-          Χρησιμοποιούμε απαραίτητα αρχεία καταγραφής για τη βελτιστοποίηση της πλοήγησης και την ασφαλή λειτουργία των υπηρεσιών μας. Διαβάστε την{" "}
+          Χρησιμοποιούμε απαραίτητα cookies σύνδεσης και ασφάλειας. Προαιρετικά
+          αποθηκεύουμε τοπικά UTM, πρόγραμμα και καταγραφές βαρών μόνο με
+          συγκατάθεση. Διαβάστε την{" "}
           <button
             type="button"
             onClick={onOpenPrivacy}

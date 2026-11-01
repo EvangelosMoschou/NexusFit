@@ -52,6 +52,19 @@ another gym without touching components.
   group, equipment and difficulty, served from the local exercise database.
 - **Photo gallery**: the admin uploads gym photos and they appear in a lightbox
   gallery after the facilities section.
+- **Location & map**: editable street address and coordinates, an always-loaded
+  OpenStreetMap embed and a **«Πώς θα έρθω»** button that opens Google Maps on
+  Android/desktop or Apple Maps on Apple mobile devices, starting from the
+  visitor's current location. The template ships with White Tower, Thessaloniki
+  (`Λεωφόρος Νίκης 1`, `40.62630, 22.94850`).
+- **Premium-only live occupancy badge**: members with the premium
+  (`has_ai_access`) tier see how many people are inside and the capacity,
+  refreshed every minute. Standard members, visitors and expired subscriptions
+  get a lock instead of the numbers.
+- **Premium occupancy forecast**: day tabs (Monday–Sunday) with average people
+  per hour over the last 8 weeks, plus quietest/busiest hours, so premium
+  members can plan ahead. Staff see the same chart in Occupancy. Demo mode seeds
+  historical visits so the bars are visible immediately.
 - Ctrl/Cmd+K **command palette** (`SearchModal`) that searches the exercise database.
 - GDPR **cookie consent banner** + Terms/Privacy **legal modals**.
 - **PWA**: installable, web manifest, install prompt, scroll progress bar, back-to-top.
@@ -63,6 +76,24 @@ another gym without touching components.
 - **AI Workout Wizard** — 4 steps (goal → experience/frequency → injuries → duration)
   that produces a full weekly plan with sets, reps, RPE, rest times, warm-up protocol
   and a cardio recommendation.
+- **Check-in / «Τέλος προπόνησης»** that feeds the live occupancy count, from the
+  portal or from a tablet at the entrance (`/checkin`). An activity heartbeat and
+  weight logs keep an open visit alive; idle visits close automatically after a
+  configurable window (default 60 minutes, `0` disables it).
+- **In-app notifications** in the profile dropdown: subscription expiry, gym
+  announcements and schedule updates, with unread badges and mark-as-read. They
+  are derived idempotently from the member's state and the current config, so
+  existing announcements/schedules appear without a migration.
+- **Access control**: a rotating signed QR (90 seconds) in the member portal and
+  a device-authenticated scanner endpoint with explicit `in`/`out` direction.
+  Anti-passback blocks a second entry while inside and rejects exit without
+  entry. Re-entry cooldown defaults to **0** (humans may need to step out), but
+  duplicate entries and quick exit→re-enter events are tracked; more than one in
+  a rolling 7 days raises an admin alarm. Staff can always override at the desk.
+- **Subscription gating**: occupancy, capacity and the forecast require the
+  **premium** tier (`has_ai_access`). Any active standard subscription can still
+  check in/out and see its own 30-day visit count, but not the aggregate. Expired
+  members can log in and close an open visit, but cannot check in.
 - **Manual Workout Builder** for members who want to hand-craft a plan.
 - **AI Coach chat modal** for questions about exercises, substitutions, sets/reps
   and nutrition.
@@ -70,14 +101,38 @@ another gym without touching components.
 - A **Code 39 barcode** of the member code on the access card.
 - Print/PDF export and copy-to-clipboard of any plan.
 
-**Admin console** (`/admin`, password-gated, 7 tabs)
+**Admin console** (`/admin`, 11 tabs)
 - **Leads** — list inquiries and move them through `pending → contacted → registered`.
 - **Members** — create/update/delete members, toggle their AI-pass tier, search by
   name/code/email, and open a profile with the barcode and saved-plan history.
+  Members with an access alarm get a **Προσοχή** badge. Deleting a member is the
+  full GDPR erasure path (plans, visits, matching leads).
+- **Occupancy** — live count, who is inside, checkout at the desk and recent visits.
+  Capacity, idle auto-checkout and access cooldown are edited in **Info**.
+- **Access** — weekly anomaly tracker: duplicate check-ins and quick exit→re-entry
+  (within 30 minutes), with an alarm above one event per rolling 7 days and a
+  direct link to the member profile.
+- **Staff** — create multiple named admins or trainers, set trainer permissions,
+  reset passwords, deactivate accounts and permanently delete them (GDPR). The
+  deleted account's audit history is anonymized, not destroyed.
+- **Audit log** — append-only history of staff/admin logins and writes with
+  actor, action, entity, details, IP and 12-month retention. Filter by action or
+  entity and paginate.
 - **Announcements** — publish, edit or remove the notices shown on the landing page.
 - **Photos** — upload, preview and delete gallery images (JPG/PNG/WebP/AVIF).
 - **Pricing / Schedule / Info** — each edits one slice of the live gym config, which
-  immediately propagates to the public site.
+  immediately propagates to the public site. **Info** also contains the street
+  address, phone and map coordinates.
+
+**Trainer area** (`/trainer`, permission-based)
+- Staff trainer accounts sign in with email + password. Their tabs and actions are
+  controlled by permissions: `members_view`, `occupancy_view`, `occupancy_manage`,
+  `announcements_manage`, `schedule_manage`.
+- The legacy shared `TRAINER_PASSWORD` still works as a fallback with the original
+  capabilities. The server enforces every permission; hiding a tab is not the
+  security boundary.
+- The fallback `ADMIN_PASSWORD` remains an owner/recovery credential; staff admin
+  accounts are managed from **Admin → Προσωπικό**.
 
 **Resilience**
 - Deterministic **local AI fallback** — the coach still answers with zero network and
@@ -187,7 +242,8 @@ NexusFit/
 │   └── 50_RULES_WEBSITE_CHECKLIST.txt  30 anti-patterns + 20 essential features
 │
 ├── scripts/
-│   └── create-tenant.mjs         Tenant provisioning CLI (npm run tenant:create)
+│   ├── create-tenant.mjs         Tenant provisioning CLI (npm run tenant:create)
+│   └── set-tenant-password.mjs   Rotate admin/trainer passwords (npm run tenant:password)
 │
 ├── site/                         Static interactive demo (Vite → GitHub Pages)
 │   ├── src/                      Demo shell, in-browser mock API, test
@@ -200,7 +256,9 @@ NexusFit/
     ├── app/
     │   ├── layout.tsx            Root layout, Greek metadata, PWA link, dark theme
     │   ├── page.tsx              Client entry: landing ⇄ portal ⇄ lite mode
-    │   ├── admin/page.tsx        Admin console (login + 7 tabs)
+    │   ├── admin/page.tsx        Admin console (login + 11 tabs)
+    │   ├── checkin/page.tsx      Entrance tablet (PIN check-in/out)
+    │   ├── trainer/page.tsx      Permission-based staff area
     │   ├── not-found.tsx         404
     │   ├── globals.css
     │   └── api/**/route.ts       REST handlers (see API Reference)
@@ -234,10 +292,13 @@ NexusFit/
 | `aiWorkoutEngine.ts` | Deterministic plan generator: split-by-frequency, goal-driven sets/reps/RPE/rest, injury-safe exercise selection. |
 | `aiAgentChat.ts` | Zero-cost local chat engine (injury/alternative/nutrition/sets-reps intents). |
 | `aiSafetyHarness.ts` | Pre-flight persona-lock, out-of-scope & medical/steroid red-flag filters, trusted-domain list, system-prompt builder. |
-| `api.ts` | `adminRoute()` — tenant-aware auth guard + consistent error envelope for admin handlers. |
-| `session.ts` | HMAC-SHA256 signing/verification of member session cookies (`SESSION_SECRET`). |
-| `adminAuth.ts` | SHA-256 admin session cookie (`ADMIN_PASSWORD`-derived). |
-| `cookies.ts` | Cookie names and `Secure` flag policy shared by auth routes. |
+| `api.ts` | `adminRoute()` / `trainerRoute()` — tenant-aware auth + permission guards and a consistent error envelope. |
+| `audit.ts` / `auditActions.ts` | Best-effort audit writer, actor normalization, action/entity labels. |
+| `session.ts` | HMAC-SHA256 signing/verification of member, legacy trainer and staff session cookies (`SESSION_SECRET`). |
+| `adminAuth.ts` | Legacy SHA-256 admin session cookie (`ADMIN_PASSWORD`-derived). |
+| `staffAuth.ts` | Named staff accounts: DB-checked sessions, login, permissions, password-hash binding. |
+| `staffPermissions.ts` | Permission keys, defaults, normalization and role checks. |
+| `cookies.ts` | Cookie names (`nexusfit_member_id`, `nexusfit_admin`, `nexusfit_trainer`, `nexusfit_staff`) and `Secure` policy. |
 | `consent.ts` | Cookie-consent preferences persisted on the client. |
 | `apiClient.ts` | Browser fetch wrapper that normalises the `{ success, error, message }` envelope. |
 | `format.ts` | Small shared formatting helpers. |
@@ -284,8 +345,15 @@ which exists for throwaway demo instances):
 | `NX-8492` | `1234` | All-Access **+ AI Copilot** |
 | `NX-3109` | `1234` | Standard (no AI access) |
 
-The admin panel lives at `/admin` and requires the `ADMIN_PASSWORD` environment
-variable to be set — without it, admin login returns `503`.
+In demo mode, `NX-3109` is also seeded with two recent access anomalies, so
+**Admin → Πρόσβαση** shows a flagged profile and the member list shows a
+**Προσοχή** badge. Demo mode also seeds 8 weeks of historical visits so the
+occupancy forecast chart has data.
+
+The admin panel lives at `/admin` and accepts the legacy `ADMIN_PASSWORD` (owner/
+recovery) or a named staff admin account created from **Admin → Προσωπικό**.
+Without `ADMIN_PASSWORD` the default tenant is not seeded and admin login
+returns `503`.
 
 **npm scripts**
 
@@ -299,7 +367,8 @@ variable to be set — without it, admin login returns `503`.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | `vitest run` |
 | `npm run format` / `format:check` | Prettier write / check |
-| `npm run tenant:create -- <id> <name> <domain> <password>` | Provision a tenant (see [Multi-tenancy](#multi-tenancy-many-gyms-one-deployment)) |
+| `npm run tenant:create -- <id> <name> <domain> <password> [trainerPassword]` | Provision a tenant (see [Multi-tenancy](#multi-tenancy-many-gyms-one-deployment)) |
+| `npm run tenant:password -- <id> <admin\|trainer> <password>` | Set or rotate a tenant's admin/trainer password |
 | `npm run demo:dev` / `demo:build` | Vite interactive demo (dev server / static build in `site/dist`) |
 | `npm run docker:build` / `docker:up` / `docker:down` | Docker workflow (see [Deployment](#deployment)) |
 
@@ -315,8 +384,11 @@ variable to be set — without it, admin login returns `503`.
 | `SESSION_SECRET` | Production | — | HMAC key used to sign member session cookies. Member login returns `503` in production if unset or shorter than 16 characters. Generate with `openssl rand -hex 32`. |
 | `CRON_SECRET` | For retention | — | Shared secret required by `POST /api/cron/retention`. The route returns `503` if unset. |
 | `SQLITE_DATA_DIR` | No | `<cwd>/data` | Directory for `nexusfit.db`. Useful on read-only filesystems (e.g. Vercel → `/tmp`). When `VERCEL` is set and this is missing, the app falls back to `/tmp/nexusfit` and logs a warning. |
-| `DEMO_MODE` | No | — | One-variable demo setup: seeds the demo members (`NX-8492` / `NX-3109`, PIN `1234`), seeds the admin password `admin1` and signs sessions with a known demo secret, even when `NODE_ENV=production`. **Never on a real deployment.** |
+| `DEMO_MODE` | No | — | One-variable demo setup: seeds the demo members (`NX-8492` / `NX-3109`, PIN `1234`), the admin password `admin1`, the trainer password `trainer1` and a known demo session secret, even when `NODE_ENV=production`. **Never on a real deployment.** |
 | `SEED_DEMO_MEMBERS` | No | — | Narrower alternative to `DEMO_MODE`: seeds only the demo members (`NX-8492` / `NX-3109`, PIN `1234`) in production. Demo instances only. |
+| `TRAINER_PASSWORD` | No | — | Optional legacy shared trainer password for the default tenant. Staff trainer accounts created in Admin → Προσωπικό do not depend on it. Unset in production disables only the legacy shared login; development/demo fall back to `trainer1`. Rotate with `npm run tenant:password -- default trainer '<new>'`. |
+| `ACCESS_CONTROL_KEY` | For QR access | — | Shared secret (16+ chars) that the entrance scanner sends in `x-access-key` to `POST /api/access/scan`. Unset disables QR access. |
+| `GYM_TIMEZONE` | No | `Europe/Athens` | Timezone used to group visits into weekday/hour buckets for the occupancy forecast. |
 | `NEXT_PUBLIC_SITE_URL` | No | — | Canonical site URL used for SEO metadata (`metadataBase`). Build-time: rebuild to change. |
 | `NEXT_PUBLIC_THEME_PREVIEW` | No | shown | Build-time flag. Set to `0` to hide the theme preview control and the `?theme=` override. Unset (e.g. a Vercel preview) shows them; the Docker build defaults to `0`. |
 | `PORT` / `HOSTNAME` | No | `3000` / — | Standalone/Docker server binding. |
@@ -339,6 +411,11 @@ schema and seeds defaults on first use.
 | `lead_inquiries` | `id`, `full_name`, `email`, `phone`, `goal`, `preferred_plan`, `notes`, `status`, `created_at` | `status`: `pending` / `contacted` / `registered`. |
 | `site_config` | `key` (PK), `value`, `updated_at` | The white-label config, stored under key `gym_config`. |
 | `media` | `id`, `filename`, `mime`, `size`, `alt`, `data` (BLOB), `created_at` | Gallery photos, stored in the tenant database so backups and isolation cover them. |
+| `visits` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `checked_in_at`, `checked_out_at`, `last_activity_at`, `created_at` | One row per visit; open visits (`checked_out_at IS NULL`) feed the occupancy count. Idle visits close after the configured window; older than 8 hours are always stale. |
+| `staff_accounts` | `id`, `name`, `email` (unique), `role` (`admin`/`trainer`), `password_hash`, `permissions` (JSON), `active`, `created_at`, `updated_at`, `last_login_at` | Named staff accounts per tenant. Deleting the row removes the account and invalidates its sessions; password hashes never leave the server. |
+| `audit_log` | `id`, `actor_id`, `actor_name`, `actor_email`, `actor_role`, `actor_legacy`, `action`, `entity_type`, `entity_id`, `details` (JSON), `ip`, `created_at` | Append-only staff/admin action history. Retained 12 months and purged by the retention cron; actor identifiers are anonymized when a staff account is deleted. |
+| `member_notifications` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `type`, `title`, `body`, `dedupe_key`, `read_at`, `created_at` | In-app notification feed. Unique `(member_id, dedupe_key)` makes generation idempotent; deleted with the member. |
+| `access_events` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `event_type`, `details` (JSON), `created_at` | Duplicate-entry and quick-re-entry anomalies for the weekly alarm. Retained 12 months and purged by the retention cron. |
 
 **Guarantees**
 - **PIN hashing** — `passwordHash.ts` uses async `scrypt` with a per-hash salt and compares
@@ -356,9 +433,12 @@ schema and seeds defaults on first use.
 ## API Reference
 
 All endpoints return a `{ success: boolean, ... }` JSON envelope. Admin endpoints are
-wrapped by `adminRoute()`, which returns `401 { success: false, error: "Unauthorized" }`
-when the `nexusfit_admin` cookie is missing or invalid, and `500` with a standard error
-message if the handler throws.
+wrapped by `adminRoute()`, which accepts the legacy `nexusfit_admin` cookie or a
+named staff admin's `nexusfit_staff` cookie. Trainer endpoints use `trainerRoute()`,
+which accepts a staff trainer or the legacy trainer cookie and enforces the required
+permission. Both return `401 { success: false, error: "Unauthorized" }` when the
+session is missing/invalid, `403` for a missing permission, and `500` with a
+standard error message if the handler throws.
 
 ### Public
 
@@ -370,19 +450,51 @@ message if the handler throws.
 | `POST` | `/api/auth/member` | `{ identifier, pin }` (member code **or** email + PIN). Sets the **HMAC-signed** `nexusfit_member_id` cookie (HttpOnly, `Secure` in prod, `SameSite=Lax`, 30 days). | `200 { success, member }`, `400`, `401`, `503` (no `SESSION_SECRET`), `500` |
 | `POST` | `/api/auth/logout` | Clears the member session cookie (`Max-Age=0`). | `200 { success }` |
 | `POST` | `/api/member/workouts` | `{ plan }`. Requires the `nexusfit_member_id` cookie. | `200 { success }`, `400` missing plan, `401` not authenticated |
-| `GET` | `/api/member/export` | GDPR access/portability: downloads the signed-in member's data + plans as JSON (`Content-Disposition: attachment`). Requires the member cookie. | `200` file, `401`, `404` |
+| `GET` | `/api/member/export` | GDPR access/portability: downloads the signed-in member's data, plans, visits, notifications and access events as JSON (`Content-Disposition: attachment`). Requires the member cookie. | `200` file, `401`, `404` |
+| `GET` | `/api/member/notifications` | In-app notification feed; generates missing expiry/announcement/schedule entries idempotently. | `200 { success, notifications, unreadCount }`, `401`, `404` |
+| `POST` | `/api/member/notifications` | `{ markAll: true }` or `{ id }` to mark read. | `200 { success, unreadCount }`, `400`, `401` |
+| `GET` | `/api/member/access-token` | Rotating signed QR token (90 s) for the entrance scanner. Requires an active subscription and configured access control. | `200 { success, token, expiresAt }`, `401`, `403`, `503` |
 | `DELETE` | `/api/member/erase` | GDPR erasure: deletes the signed-in member, their plans (cascade) and any lead inquiries sharing their email, then clears the cookie. | `200 { success }`, `401` |
-| `POST` | `/api/cron/retention` | Deletes lead inquiries older than 12 months. Requires the `x-cron-secret` header. | `200 { success, removed }`, `401`, `503` (no `CRON_SECRET`) |
+| `POST` | `/api/cron/retention` | Deletes lead inquiries older than 12 months, closes idle/stale visits, purges audit entries and access events older than 12 months. Requires the `x-cron-secret` header. | `200 { success, removed, visitsClosed, idleVisitsClosed, auditPurged, accessEventsPurged, tenants }`, `401`, `503` (no `CRON_SECRET`) |
 | `POST` | `/api/ai-agent/chat` | `{ query }`. Rate-limited per IP. | `200 { id, sender, text, timestamp, … }`, `400`, `429` (with `Retry-After`), `500` |
 | `GET` | `/api/media` | Published gallery metadata. | `200 { success, media }` |
 | `GET` | `/api/media/{id}` | Image bytes (`Cache-Control: immutable`, `nosniff`). | `200` image, `404` |
+| `GET` | `/api/occupancy` | Premium-member-only live count. Standard members, non-members and expired subscriptions get `{ locked: true }` without numbers; admin/trainer cookies are allowed. | `200 { success, locked, inside?, capacity?, updatedAt }` |
+| `GET` | `/api/occupancy/analytics` | `?weeks=8` (1–26). Premium-only average presence per weekday/hour from visits; same staff access as live occupancy. | `200 { success, locked, weeks, days, capacity, timezone }` |
+| `POST` | `/api/checkin` | Entrance kiosk: `{ identifier, pin, action: "in" \| "out" }`. Rate-limited; no session is created. Any active subscription may check in/out; occupancy is returned only for Premium. | `200 { success, memberName, status, locked, occupancy }`, `400`, `401`, `403`, `404`, `429` |
+| `GET` | `/api/member/visit` | Signed-in member's visit status; aggregate occupancy only with Premium. | `200`, `401`, `404` |
+| `POST` | `/api/member/visit` | `{ action: "in" \| "out" \| "heartbeat" }`. Check-in requires an active subscription; checkout/heartbeat are always allowed; aggregate occupancy is Premium-only. | `200`, `400`, `401`, `403`, `404` |
 
-### Admin (require the admin session cookie)
+### Access control (device-authenticated)
+
+`POST /api/access/scan` is for the entrance turnstile/scanner, not browsers. It
+requires `x-access-key: $ACCESS_CONTROL_KEY` and a signed rotating token from
+`GET /api/member/access-token`.
+
+```bash
+curl -X POST https://<domain>/api/access/scan \
+  -H "content-type: application/json" \
+  -H "x-access-key: $ACCESS_CONTROL_KEY" \
+  -d '{"token":"<qr-token>","direction":"in"}'
+```
+
+- `in`: denies while already inside, when the subscription is inactive, or
+  during the configured re-entry cooldown.
+- `out`: denies when the member is not inside.
+- Denials are written to the audit log (`access.denied`) with reason and IP.
+
+### Admin (require the legacy admin or named staff-admin session)
 
 | Method | Path | Body | Purpose |
 |---|---|---|---|
-| `POST` | `/api/admin/auth` | `{ password }` | Login; sets the `nexusfit_admin` cookie (8 h, `Secure` in prod). `503` if `ADMIN_PASSWORD` unset, `401` if wrong. |
-| `POST` | `/api/admin/logout` | — | Clears the admin session cookie. |
+| `POST` | `/api/admin/auth` | `{ email?, password }` | With `email`, logs in a named staff admin and sets the signed `nexusfit_staff` cookie. Without `email`, uses the legacy `ADMIN_PASSWORD` and `nexusfit_admin` cookie (8 h, `Secure` in prod). `503` if sessions are unconfigured, `401` if wrong. |
+| `POST` | `/api/admin/logout` | — | Clears both the legacy admin and staff session cookies. |
+| `GET` | `/api/admin/me` | — | Verifies the HttpOnly session (also logs out deleted/deactivated staff accounts). |
+| `GET` | `/api/admin/staff` | — | List staff accounts (never password hashes). |
+| `POST` | `/api/admin/staff` | `{ name, email, role, password, permissions? }` | Create an admin or trainer account. Passwords are scrypt-hashed. |
+| `PATCH` | `/api/admin/staff` | `{ id, permissions?, active?, password?, … }` | Update permissions, active state or reset a password. Self-demotion/deactivation is blocked. |
+| `DELETE` | `/api/admin/staff` | `?id=` | Permanently delete a staff account (GDPR), invalidate its sessions and anonymize its audit history. Self-deletion is blocked. |
+| `GET` | `/api/admin/audit` | `?limit=&offset=&action=&entityType=&actorId=&from=&to=` | Paginated, filterable audit history (max 200 rows/page). Admin-only. |
 | `GET` | `/api/admin/config` | — | Read the saved gym config. |
 | `POST` | `/api/admin/config` | `{ config }` | Merge-and-save gym config. `400` if body missing. |
 | `GET` | `/api/admin/leads` | — | List all leads. |
@@ -390,10 +502,26 @@ message if the handler throws.
 | `POST` | `/api/admin/leads` | `{ … }` | Update a lead's status. |
 | `GET` | `/api/admin/members` | — | List members (**never** includes `pin_code`). |
 | `POST` | `/api/admin/members` | member fields | Create or update a member (upsert on `member_code`). |
-| `DELETE` | `/api/admin/members` | `?id=` | Delete a member. |
+| `DELETE` | `/api/admin/members` | `?id=` | Permanent GDPR erasure: member, plans, visits and lead inquiries with the same email. |
 | `GET` | `/api/admin/media` | — | List gallery photos with URLs and sizes. |
 | `POST` | `/api/admin/media` | multipart `file`, `alt` | Upload a photo. The MIME type is detected from the bytes; max 4 MB, JPG/PNG/WebP/AVIF. |
 | `DELETE` | `/api/admin/media` | `?id=` | Delete a photo. |
+| `GET` | `/api/admin/occupancy` | — | Live count, who is inside, recent visits. |
+| `POST` | `/api/admin/occupancy` | `{ memberId, action }` | Check a member in or out at the desk. |
+| `GET` | `/api/admin/access` | — | Access anomaly alarms (>1 event / 7 days) and recent events. |
+
+### Trainer (require a staff-trainer or legacy trainer session)
+
+| Method | Path | Body | Purpose |
+|---|---|---|---|
+| `POST` | `/api/trainer/auth` | `{ email?, password }` | With `email`, logs in a staff trainer account and sets `nexusfit_staff`. Without `email`, uses the legacy `TRAINER_PASSWORD`. Rate-limited per IP and email. |
+| `POST` | `/api/trainer/logout` | — | Clears both trainer and staff cookies. |
+| `GET` | `/api/trainer/me` | — | Session + role + permissions (legacy shared login included). |
+| `GET` | `/api/trainer/members` | `?id=` optional | Requires `members_view`. Member list, or one member with plans and visits. |
+| `GET` | `/api/trainer/occupancy` | — | Requires `occupancy_view`. Live count, who is inside, recent visits. |
+| `POST` | `/api/trainer/occupancy` | `{ memberId, action }` | Requires `occupancy_manage`. Check a member in or out. |
+| `GET` | `/api/trainer/config` | — | Requires `announcements_manage` or `schedule_manage`. |
+| `POST` | `/api/trainer/config` | `{ announcements?, schedule? }` | Saves only the slice(s) the trainer is allowed to edit. |
 
 ---
 
@@ -464,20 +592,42 @@ process resolves the tenant from the request's `Host` header.
 > unavailable.
 
 **The tenant registry** lives in its own SQLite database at `data/registry.db`
-(`tenants` table: `id`, `name`, `domains`, `admin_password_hash`, `created_at`).
-A `default` tenant is seeded automatically on first use from the existing
-`ADMIN_PASSWORD` variable, so an upgrade from single-tenant needs no manual step.
+(`tenants` table: `id`, `name`, `domains`, `admin_password_hash`,
+`trainer_password_hash`, `created_at`). A `default` tenant is seeded
+automatically on first use from the existing `ADMIN_PASSWORD` (and optional
+`TRAINER_PASSWORD`) variables, so an upgrade from single-tenant needs no manual
+step.
 
 **Provisioning a gym**
 
 ```bash
-# id, display name, domain(s), admin password
-npm run tenant:create -- iron "Iron Gym" iron.example.com 'S3cret!'
+# id, display name, domain(s), admin password, optional trainer password
+npm run tenant:create -- iron "Iron Gym" iron.example.com 'S3cret!' 'TrainerS3cret!'
+
+# Set or rotate either password later
+npm run tenant:password -- iron trainer 'NewTrainerS3cret!'
 ```
 
 Its database (`data/tenants/iron.db`) is created and seeded with the default gym
 config on the first request. Removing a gym means deleting its database file and
 its registry row.
+
+**Multiple admins:** each tenant has its own staff table and its own data. Named
+admin and trainer accounts are stored per tenant, their sessions are bound to
+`tenantId + account + password hash`, and the legacy admin token is derived from
+`tenantId + adminPasswordHash`. A cookie issued on gym A is rejected on gym B.
+This supports many gyms and many named admins/trainers per gym in one deployment.
+The legacy `ADMIN_PASSWORD` remains an owner/recovery credential and is not shown
+in the staff list.
+
+**A chain of gyms (2–3 locations, same brand):** create one tenant per domain
+(`thessaloniki.example`, `athens.example`, …) with the same `gymName`, but its own
+address, coordinates, staff, members and occupancy. This works today and keeps
+each location's data isolated. A **shared member/chain identity** (one member can
+enter all locations with the same QR) is a separate feature: it needs a tenant
+group/shared member registry, because QR tokens and member sessions are
+tenant-bound by design. Decide first whether the locations are independent
+franchises or one chain with cross-location access.
 
 **Data layout**
 
@@ -504,10 +654,11 @@ domain can share a wildcard certificate.
 - Rate limits are keyed by `tenantId + IP`, so one gym cannot consume another
   gym's allowance.
 
-**Known limitation (still open):** PIN and admin-password hashing still uses the
-synchronous `scryptSync`. In a shared process a burst of logins for one gym
-briefly blocks the event loop for the others. Moving to async `scrypt` behind the
-already-async `Repository` boundary is the remaining task.
+**Known limitations:** the audit log is append-only in each tenant's SQLite
+database (no external SIEM export), and IP addresses come from the request
+headers — configure trusted proxy headers before relying on them for forensics.
+For a large number of gyms or multiple app instances, move the repository from
+per-tenant SQLite to Postgres; the `Repository` seam is already in place.
 
 ---
 
@@ -524,11 +675,21 @@ with an offline AI coach and an exercise checklist that makes **zero network req
 
 - **No SQL injection surface** — every query is a prepared statement with bound
   parameters.
-- **Admin auth** — `adminAuth.ts` derives a SHA-256 token from `ADMIN_PASSWORD` and
-  compares the cookie value; there is no server-side session store.
+- **Admin auth** — the legacy `ADMIN_PASSWORD` still derives a SHA-256 cookie; named
+  staff admins use a signed, DB-checked staff cookie. Deleting/deactivating an
+  account or changing its password invalidates the session immediately.
 - **Member auth** — scrypt-hashed PINs, `timingSafeEqual` comparison, and an **HMAC-SHA256 signed, tenant-bound** session cookie (HttpOnly, `Secure` in production) that cannot be forged from a guessable member id or replayed against another gym.
+- **Staff permissions** — enforced server-side in `trainerRoute()`; UI tab hiding
+  is only cosmetic. Permission changes apply on the next request without re-login.
+- **Access control** — rotating HMAC-signed QR tokens (90 s), device-key
+  authentication, explicit entry/exit direction, DB-enforced anti-passback,
+  duplicate/quick-re-entry tracking, a weekly admin alarm and audit logging of
+  denied scans. The device key and token are never accepted through cookies.
+- **Audit trail** — staff/admin logins and all staff-side writes are appended to a
+  tenant-scoped `audit_log` with actor, action, entity, details, IP and time. It is
+  admin-only, retained 12 months, and staff deletion anonymizes the actor fields.
 - **Rate limiting** on the AI endpoint, member login (per IP and per member
-  code), admin login and lead submissions.
+  code), admin/trainer login (per IP and email) and lead submissions.
 - **No known-credential accounts in production** — demo members (`NX-8492` / PIN
   `1234`) and the `admin1` admin fallback are seeded only outside production and
   only for the default tenant, unless `DEMO_MODE=1` (or, for the members alone,
@@ -539,10 +700,29 @@ with an offline AI coach and an exercise checklist that makes **zero network req
   camera, microphone and geolocation, plus COOP, CORP and
   `X-Permitted-Cross-Domain-Policies: none`.
 - **Startup security warnings** (`instrumentation.ts`) flag a missing or short
-  `SESSION_SECRET`/`ADMIN_PASSWORD`/`CRON_SECRET` and an accidental demo mode.
-- **Backups are written `0600`** (database snapshots contain member data and
-  PIN hashes).
+  `SESSION_SECRET`/`ADMIN_PASSWORD`/`TRAINER_PASSWORD`/`CRON_SECRET` and an
+  accidental demo mode.
+- **Backups are written `0600`** (database snapshots contain member data, PIN
+  hashes and staff password hashes).
 - **`poweredByHeader: false`** and **`console.*` stripped in production**.
+
+**Privacy & cookies**
+- Essential cookies: `nexusfit_member_id` (30 days) and `nexusfit_admin` /
+  `nexusfit_trainer` / `nexusfit_staff` (8 hours), all HttpOnly + SameSite=Lax +
+  Secure in production.
+- Consent-gated local storage: UTM parameters, saved plans and weight logs.
+  Theme/lite-mode preferences, the consent record and the member UI cache are
+  functional storage disclosed in the privacy policy.
+- The privacy policy defaults (sections 3, 5, 7, 8, 9, 10, 11 and 12) cover
+  cookies, staff accounts, retention, deletion, the audit log, the always-loaded
+  map and access-anomaly tracking. Existing saved configs receive the current
+  mandatory cookie/retention/security sections plus any newly added sections.
+- Member self-service export/erase; admin member delete and staff account delete
+  are full erasure paths. `CONSENT_VERSION` is bumped to re-prompt after material
+  policy changes.
+- Audit history keeps action records for security/accountability for 12 months;
+  a deleted staff account's actor name/email/id are anonymized. The privacy policy
+  includes an explicit audit-log section (section 10).
 
 ---
 
@@ -618,10 +798,13 @@ do not share `/tmp`, so data written by one request may be invisible to the next
    `NEXT_PUBLIC_SITE_URL`. Do **not** set `DEMO_MODE`.
 4. Environment variables are only read by a new deployment: after changing them,
    redeploy (`Deployments → ⋯ → Redeploy`) or push a commit.
-5. Open `/admin` with the admin password, and the member portal with
-   `NX-8492` / `1234` on a demo instance. If the logs still contain
-   `ADMIN_PASSWORD is not set` or `Demo members were not seeded`, the variables
-   did not reach that deployment.
+5. Open `/admin` with the admin password (or a staff account you create), and the
+   member portal with `NX-8492` / `1234` on a demo instance. If the logs still
+   contain `ADMIN_PASSWORD is not set` or `Demo members were not seeded`, the
+   variables did not reach that deployment.
+6. Staff accounts live in the tenant SQLite database, so on Vercel they are lost
+   on a cold start like all other data. Create them again for a smoke test; use
+   durable hosting for real staff accounts.
 
 For durable data, use Docker Compose (below) or swap the `Repository` implementation
 for Postgres (see [Known Gaps](#known-gaps--roadmap)).

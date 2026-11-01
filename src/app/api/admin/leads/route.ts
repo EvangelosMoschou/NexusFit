@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
 import { adminRoute } from "@/lib/api";
+import { writeAudit } from "@/lib/audit";
 
 export const GET = adminRoute(
   async (_req, tenantId) =>
@@ -8,7 +9,7 @@ export const GET = adminRoute(
   "Failed to fetch leads"
 );
 
-export const POST = adminRoute(async (req: NextRequest, tenantId: string) => {
+export const POST = adminRoute(async (req: NextRequest, tenantId: string, staff) => {
   const body = await req.json();
   const { id, status } = body;
 
@@ -17,10 +18,15 @@ export const POST = adminRoute(async (req: NextRequest, tenantId: string) => {
   }
 
   const updated = await getRepository(tenantId).updateLeadStatus(id, status);
+  if (updated) {
+    await writeAudit(req, tenantId, staff, "lead.status", "lead", String(id), {
+      status: String(status),
+    });
+  }
   return NextResponse.json({ success: updated });
 }, "Failed to update lead status");
 
-export const DELETE = adminRoute(async (req: NextRequest, tenantId: string) => {
+export const DELETE = adminRoute(async (req: NextRequest, tenantId: string, staff) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
@@ -29,5 +35,8 @@ export const DELETE = adminRoute(async (req: NextRequest, tenantId: string) => {
   }
 
   const deleted = await getRepository(tenantId).deleteLead(id);
+  if (deleted) {
+    await writeAudit(req, tenantId, staff, "lead.delete", "lead", id);
+  }
   return NextResponse.json({ success: deleted });
 }, "Failed to delete lead");

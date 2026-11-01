@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
 import { adminRoute } from "@/lib/api";
+import { writeAudit } from "@/lib/audit";
 
 export const GET = adminRoute(
   async (req, tenantId) => {
@@ -9,11 +10,19 @@ export const GET = adminRoute(
     const id = req.nextUrl.searchParams.get("id");
 
     if (id) {
-      const detail = await getRepository(tenantId).exportMember(id);
+      const repo = getRepository(tenantId);
+      const detail = await repo.exportMember(id);
       if (!detail.member) {
         return NextResponse.json({ success: false, error: "Member not found" }, { status: 404 });
       }
-      return NextResponse.json({ success: true, member: detail.member, plans: detail.plans });
+      await repo.closeIdleVisits();
+      const visits = await repo.getMemberVisits(id, 10);
+      return NextResponse.json({
+        success: true,
+        member: detail.member,
+        plans: detail.plans,
+        visits,
+      });
     }
 
     return NextResponse.json({
@@ -24,7 +33,7 @@ export const GET = adminRoute(
   "Failed to fetch members"
 );
 
-export const POST = adminRoute(async (req: NextRequest, tenantId: string) => {
+export const POST = adminRoute(async (req: NextRequest, tenantId: string, staff) => {
   const body = await req.json();
   const { member } = body;
 
@@ -33,10 +42,21 @@ export const POST = adminRoute(async (req: NextRequest, tenantId: string) => {
   }
 
   const saved = await getRepository(tenantId).saveMember(member);
+  if (saved) {
+    await writeAudit(
+      req,
+      tenantId,
+      staff,
+      "member.save",
+      "member",
+      typeof member.id === "string" ? member.id : null,
+      { hasAIAccess: Boolean(member.hasAIAccess) }
+    );
+  }
   return NextResponse.json({ success: saved });
 }, "Failed to save member");
 
-export const DELETE = adminRoute(async (req: NextRequest, tenantId: string) => {
+export const DELETE = adminRoute(async (req: NextRequest, tenantId: string, staff) => {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
@@ -44,6 +64,11 @@ export const DELETE = adminRoute(async (req: NextRequest, tenantId: string) => {
     return NextResponse.json({ success: false, error: "Missing member ID" }, { status: 400 });
   }
 
-  const deleted = await getRepository(tenantId).deleteMember(id);
+  // Admin deletion is the GDPR erasure path too: member, plans, visits
+  // (cascade) and lead inquiries sharing the same email.
+  const deleted = await getRepository(tenantId).eraseMember(id);
+  if (deleted) {
+    await writeAudit(req, tenantId, staff, "member.erase", "member", id);
+  }
   return NextResponse.json({ success: deleted });
 }, "Failed to delete member");

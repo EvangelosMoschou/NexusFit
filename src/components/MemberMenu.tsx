@@ -1,9 +1,18 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { MemberUser } from "@/lib/auth";
-import { CalendarDays, ChevronDown, Dumbbell, LineChart, LogOut, User } from "lucide-react";
+import {
+  Bell,
+  CalendarDays,
+  ChevronDown,
+  Dumbbell,
+  LineChart,
+  LogOut,
+  User,
+} from "lucide-react";
+import { MemberNotificationsModal } from "@/components/MemberNotificationsModal";
 
 export type PortalTab = "overview" | "plans" | "logs" | "schedule";
 
@@ -32,9 +41,35 @@ function initials(fullName: string): string {
 // It replaces the separate member screen as the entry point to the portal.
 export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onLogout }) => {
   const [open, setOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEscapeKey(open, () => setOpen(false));
+
+  const loadUnread = useCallback(async () => {
+    try {
+      const res = await fetch("/api/member/notifications", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.success && typeof data.unreadCount === "number") {
+        setUnreadCount(data.unreadCount);
+      }
+    } catch {
+      // The menu still works without the badge.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUnread();
+    const timer = setInterval(loadUnread, 60_000);
+    const onChanged = () => void loadUnread();
+    window.addEventListener("nexusfit:notifications-updated", onChanged);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("nexusfit:notifications-updated", onChanged);
+    };
+  }, [loadUnread]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,7 +91,10 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setOpen((value) => !value);
+          if (!open) void loadUnread();
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Μενού μέλους"
@@ -97,6 +135,24 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
                 </button>
               );
             })}
+
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setNotificationsOpen(true);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-secondary hover:text-primary hover:bg-surface-elevated transition-colors text-left"
+            >
+              <Bell className="w-4 h-4 shrink-0" />
+              <span>Ειδοποιήσεις</span>
+              {unreadCount > 0 && (
+                <span className="ml-auto min-w-5 h-5 px-1 rounded-full bg-accent text-accent-ink text-[10px] font-bold flex items-center justify-center">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
           </div>
 
           <div className="border-t border-border p-1.5">
@@ -115,6 +171,11 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
           </div>
         </div>
       )}
+
+      <MemberNotificationsModal
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+      />
     </div>
   );
 };

@@ -21,6 +21,7 @@ interface MembersTabProps {
   members: MemberItem[];
   onRefresh: () => void;
   onDelete: (id: string) => void;
+  flaggedMemberIds?: string[];
 }
 
 const emptyMemberForm = () => ({
@@ -35,7 +36,12 @@ const emptyMemberForm = () => ({
 });
 
 // TAB 2: MEMBERS & AI PASSES
-export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDelete }) => {
+export const MembersTab: React.FC<MembersTabProps> = ({
+  members,
+  onRefresh,
+  onDelete,
+  flaggedMemberIds = [],
+}) => {
   const [newMember, setNewMember] = useState(emptyMemberForm);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -206,6 +212,11 @@ export const MembersTab: React.FC<MembersTabProps> = ({ members, onRefresh, onDe
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-bold text-accent text-sm">{m.member_code}</span>
                     <span className="font-bold text-primary">{m.full_name}</span>
+                    {flaggedMemberIds.includes(m.id) && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-950/60 text-amber-300 border border-amber-800">
+                        Προσοχή
+                      </span>
+                    )}
                   </div>
                   <div className="text-secondary truncate">
                     {m.email} • Λήξη: <strong className="text-primary font-mono">{m.expires_at}</strong>

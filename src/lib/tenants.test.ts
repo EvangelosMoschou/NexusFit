@@ -8,12 +8,14 @@ process.env.SQLITE_DATA_DIR = tempDir;
 process.env.ADMIN_PASSWORD = "default-admin-pw";
 
 import { getRepository } from "./db";
+import { adminSessionToken } from "./adminAuth";
 import {
   adminSeedPassword,
   createTenant,
   getTenant,
   listTenants,
   resolveTenantId,
+  trainerSeedPassword,
 } from "./tenants";
 import { DEFAULT_TENANT_ID } from "./sqliteDb";
 
@@ -35,8 +37,17 @@ describe("tenant registry", () => {
         name: "Iron Gym",
         domains: ["iron.example.com"],
         adminPassword: "pw",
+        trainerPassword: "trainer-pw",
       })
     ).toBe(true);
+
+    expect(getTenant("iron")?.trainerPasswordHash.startsWith("scrypt:")).toBe(true);
+    expect(getTenant("iron")?.trainerPasswordHash).not.toBe("trainer-pw");
+
+    // Each gym's admin session is bound to its own password hash.
+    expect(adminSessionToken("default")).toBeTruthy();
+    expect(adminSessionToken("iron")).toBeTruthy();
+    expect(adminSessionToken("default")).not.toBe(adminSessionToken("iron"));
 
     expect(resolveTenantId("iron.example.com")).toBe("iron");
     expect(resolveTenantId("iron.example.com:443")).toBe("iron");
@@ -84,6 +95,13 @@ describe("default tenant admin seed", () => {
     expect(adminSeedPassword("production", undefined, true)).toBe("admin1");
     expect(adminSeedPassword("production", "real-password", true)).toBe("real-password");
     expect(adminSeedPassword("development", undefined, true)).toBe("admin1");
+  });
+
+  it("requires TRAINER_PASSWORD in production unless demo mode is explicit", () => {
+    expect(trainerSeedPassword("production", undefined, false)).toBeNull();
+    expect(trainerSeedPassword("production", undefined, true)).toBe("trainer1");
+    expect(trainerSeedPassword("production", "trainer-secret", false)).toBe("trainer-secret");
+    expect(trainerSeedPassword("development", undefined)).toBe("trainer1");
   });
 });
 

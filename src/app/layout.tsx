@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   },
   keywords: [
     "γυμναστήριο",
-    "γυμναστήριο Αθήνα",
+    `γυμναστήριο ${defaultGymConfig.city}`,
     "προπόνηση",
     "ψηφιακός προπονητής",
     "προπονητής",

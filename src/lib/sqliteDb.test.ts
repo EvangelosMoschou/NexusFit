@@ -1,8 +1,9 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { GeneratedWorkoutPlan } from "@/types";
+import { defaultGymConfig } from "@/config/gymConfig";
 
 // Isolate every test run in its own throwaway data directory
 const tempDir = mkdtempSync(path.join(tmpdir(), "nexusfit-test-"));
@@ -29,10 +30,46 @@ import {
   getMediaWithData,
   saveMediaToDb,
   deleteMediaAdmin,
+  checkInMember,
+  checkOutMember,
+  getMemberVisitStatus,
+  getReentryCooldownSeconds,
+  getMemberVisits,
+  getMemberVisitCount,
+  getInsideMembers,
+  getOccupancy,
+  getMemberAccess,
+  touchMemberVisit,
+  closeIdleVisits,
+  listStaffAccounts,
+  getStaffAccountById,
+  getStaffAccountByEmail,
+  createStaffAccount,
+  updateStaffAccount,
+  deleteStaffAccount,
+  touchStaffLogin,
+  insertAuditEntry,
+  listAuditEntries,
+  anonymizeStaffAudit,
+  purgeAuditLog,
+  ensureMemberNotification,
+  listMemberNotifications,
+  getUnreadNotificationCount,
+  markMemberNotificationRead,
+  markAllMemberNotificationsRead,
+  recordAccessEvent,
+  countAccessEvents,
+  listAccessAlerts,
+  listRecentAccessEvents,
+  purgeAccessEvents,
 } from "./sqliteDb";
 
 afterAll(() => {
   rmSync(tempDir, { recursive: true, force: true });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 const memberCreds = { identifier: "NX-8492", pin: "1234" };
@@ -251,6 +288,274 @@ describe("sqliteDb", () => {
 
     // Erasing an unknown member reports failure rather than throwing.
     expect(eraseMemberCompletely("mem-does-not-exist")).toBe(false);
+  });
+
+  it("tracks check-in, occupancy and check-out", async () => {
+    const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+    expect(member).not.toBeNull();
+
+    expect(getMemberAccess(member!.id)?.subscription_status).toBe("active");
+
+    const first = checkInMember(member!.id);
+    expect(first.status).toBe("in");
+    expect(first.visit?.last_activity_at).toBeTruthy();
+    expect(getMemberVisitStatus(member!.id).inside).toBe(true);
+
+    const second = checkInMember(member!.id);
+    expect(second.status).toBe("already_in");
+
+    expect(touchMemberVisit(member!.id)).toBe(true);
+    expect(getOccupancy().inside).toBeGreaterThanOrEqual(1);
+    expect(getInsideMembers().some((entry) => entry.member_id === member!.id)).toBe(true);
+    expect(getMemberVisitCount(member!.id)).toBeGreaterThanOrEqual(1);
+
+    const out = checkOutMember(member!.id);
+    expect(out.status).toBe("out");
+    expect(getMemberVisitStatus(member!.id).inside).toBe(false);
+    expect(getMemberVisits(member!.id).length).toBeGreaterThanOrEqual(1);
+    expect(checkOutMember(member!.id).status).toBe("not_in");
+
+    expect(getReentryCooldownSeconds(member!.id)).toBe(0);
+  });
+
+  it("closes visits that cross the idle activity window", async () => {
+    const member = await getMemberByCredentials("NX-3109", "1234");
+    expect(member).not.toBeNull();
+
+    expect(checkInMember(member!.id).status).toBe("in");
+    expect(getMemberVisitStatus(member!.id).inside).toBe(true);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.now() + 61 * 60 * 1000));
+
+    expect(closeIdleVisits(60)).toBeGreaterThanOrEqual(1);
+    expect(getMemberVisitStatus(member!.id).inside).toBe(false);
+
+    vi.useRealTimers();
+    checkOutMember(member!.id);
+  });
+
+  it("creates, updates and deletes staff accounts", async () => {
+    const email = "staff-test@example.com";
+    const created = await createStaffAccount({
+      name: "Staff Test",
+      email,
+      role: "trainer",
+      password: "password123",
+      permissions: ["members_view", "occupancy_view", "occupancy_manage"],
+    });
+
+    expect(created).not.toBeNull();
+    expect(created).not.toHaveProperty("password_hash");
+    expect(created?.role).toBe("trainer");
+    expect(created?.active).toBe(true);
+
+    const stored = getStaffAccountByEmail(email.toUpperCase());
+    expect(stored).not.toBeNull();
+    expect(stored?.password_hash.startsWith("scrypt:")).toBe(true);
+
+    touchStaffLogin(stored!.id);
+    expect(getStaffAccountById(stored!.id)?.last_login_at).toBeTruthy();
+
+    const updated = await updateStaffAccount(stored!.id, {
+      permissions: ["members_view"],
+      active: false,
+    });
+    expect(updated?.active).toBe(false);
+    expect(updated?.permissions).toEqual(["members_view"]);
+
+    const duplicate = await createStaffAccount({
+      name: "Duplicate",
+      email,
+      role: "trainer",
+      password: "password123",
+    });
+    expect(duplicate).toBeNull();
+
+    expect(deleteStaffAccount(created!.id)).toBe(true);
+    expect(getStaffAccountById(created!.id)).toBeNull();
+    expect(listStaffAccounts().some((account) => account.id === created!.id)).toBe(false);
+  });
+
+  it("tracks repeated access events and raises an alert above the weekly threshold", async () => {
+    const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+    expect(member).not.toBeNull();
+    const memberId = member!.id;
+
+    expect(recordAccessEvent(memberId, "duplicate_entry", { direction: "in" })).toBe(true);
+    expect(recordAccessEvent(memberId, "quick_reentry", { direction: "in" })).toBe(true);
+    expect(countAccessEvents(memberId, 7)).toBe(2);
+
+    const alerts = listAccessAlerts(1, 7);
+    const alert = alerts.find((item) => item.member_id === memberId);
+    expect(alert).toBeDefined();
+    expect(alert?.event_count).toBe(2);
+    expect(alert?.event_types).toEqual(
+      expect.arrayContaining(["duplicate_entry", "quick_reentry"])
+    );
+
+    const recent = listRecentAccessEvents(10);
+    expect(recent.some((item) => item.member_id === memberId)).toBe(true);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.now() + 366 * 24 * 60 * 60 * 1000));
+    expect(purgeAccessEvents(365)).toBeGreaterThanOrEqual(2);
+    expect(countAccessEvents(memberId, 7)).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it("creates deduplicated member notifications and tracks read state", async () => {
+    const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+    expect(member).not.toBeNull();
+    const memberId = member!.id;
+
+    const input = {
+      type: "announcement",
+      title: "Test notice",
+      body: "Test body",
+      dedupeKey: "test-notification:1",
+    };
+
+    expect(ensureMemberNotification(memberId, input)).toBe(true);
+    expect(ensureMemberNotification(memberId, input)).toBe(false);
+    expect(getUnreadNotificationCount(memberId)).toBe(1);
+
+    const notifications = listMemberNotifications(memberId);
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0].title).toBe("Test notice");
+    expect(notifications[0].read_at).toBeNull();
+
+    expect(markMemberNotificationRead(memberId, notifications[0].id)).toBe(true);
+    expect(getUnreadNotificationCount(memberId)).toBe(0);
+
+    expect(
+      ensureMemberNotification(memberId, {
+        type: "schedule",
+        title: "Schedule",
+        body: "Changed",
+        dedupeKey: "test-notification:2",
+      })
+    ).toBe(true);
+    expect(markAllMemberNotificationsRead(memberId)).toBe(1);
+    expect(getUnreadNotificationCount(memberId)).toBe(0);
+  });
+
+  it("stores, filters, anonymizes and purges audit entries", () => {
+    expect(
+      insertAuditEntry({
+        actorId: "staff-audit-a",
+        actorName: "Audit Actor",
+        actorEmail: "audit@example.com",
+        actorRole: "admin",
+        actorLegacy: false,
+        action: "member.save",
+        entityType: "member",
+        entityId: "mem-audit",
+        details: { hasAIAccess: true },
+        ip: "203.0.113.10",
+      })
+    ).toBe(true);
+    expect(
+      insertAuditEntry({
+        actorId: "staff-audit-b",
+        actorName: "Second Actor",
+        actorRole: "trainer",
+        action: "config.update",
+        entityType: "config",
+        details: { fields: ["announcements"] },
+      })
+    ).toBe(true);
+
+    const all = listAuditEntries({ limit: 10 });
+    expect(all.total).toBeGreaterThanOrEqual(2);
+
+    const filtered = listAuditEntries({ action: "member.save" });
+    expect(filtered.total).toBe(1);
+    expect(filtered.entries[0].details.hasAIAccess).toBe(true);
+    expect(filtered.entries[0].actor_email).toBe("audit@example.com");
+    expect(filtered.entries[0].ip).toBe("203.0.113.10");
+
+    expect(anonymizeStaffAudit("staff-audit-a")).toBeGreaterThanOrEqual(1);
+    const afterAnonymize = listAuditEntries({ action: "member.save" });
+    expect(afterAnonymize.entries[0].actor_id).toBeNull();
+    expect(afterAnonymize.entries[0].actor_name).toBe("Διαγραμμένος λογαριασμός");
+    expect(afterAnonymize.entries[0].actor_email).toBeNull();
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(Date.now() + 366 * 24 * 60 * 60 * 1000));
+    expect(purgeAuditLog(365)).toBeGreaterThanOrEqual(2);
+    expect(listAuditEntries({ limit: 10 }).total).toBe(0);
+    vi.useRealTimers();
+  });
+
+  it("merges mandatory legal disclosures into an older saved config", () => {
+    try {
+      updateSavedGymConfig({
+        legal: {
+          tos: [{ title: "1. Γενικοί Όροι", body: "custom tos" }],
+          privacy: [
+            { title: "1. Υπεύθυνος Επεξεργασίας", body: "custom owner" },
+            { title: "5. Διατήρηση Δεδομένων", body: "OLD RETENTION" },
+            { title: "10. Custom", body: "keep me" },
+          ],
+        },
+      });
+
+      const config = getSavedGymConfig();
+      const privacy = config.legal.privacy;
+      expect(privacy.find((section) => section.title === "5. Διατήρηση Δεδομένων")?.body).toContain(
+        "self-service"
+      );
+      expect(privacy.some((section) => section.title === "8. Λογαριασμοί Προσωπικού")).toBe(true);
+      expect(privacy.some((section) => section.title === "10. Custom")).toBe(true);
+      expect(privacy.some((section) => section.title === "10. Αρχείο Ενεργειών")).toBe(true);
+      expect(privacy.find((section) => section.title === "1. Υπεύθυνος Επεξεργασίας")?.body).toBe(
+        "custom owner"
+      );
+      expect(config.legal.tos.find((section) => section.title === "1. Γενικοί Όροι")?.body).toBe(
+        "custom tos"
+      );
+    } finally {
+      updateSavedGymConfig({ legal: defaultGymConfig.legal });
+    }
+  });
+
+  it("migrates the old template address and hides stale coordinates for custom addresses", () => {
+    try {
+      updateSavedGymConfig({
+        address: "Λεωφόρος Βουλιαγμένης 128, Γλυφάδα",
+        city: "Αθήνα",
+        phone: undefined,
+        latitude: undefined,
+        longitude: undefined,
+      });
+
+      const migrated = getSavedGymConfig();
+      expect(migrated.address).toBe(defaultGymConfig.address);
+      expect(migrated.city).toBe(defaultGymConfig.city);
+      expect(migrated.latitude).toBe(defaultGymConfig.latitude);
+      expect(migrated.longitude).toBe(defaultGymConfig.longitude);
+
+      updateSavedGymConfig({
+        address: "Οδός Παραδείγματος 10",
+        city: "Πάτρα",
+        latitude: undefined,
+        longitude: undefined,
+      });
+
+      const custom = getSavedGymConfig();
+      expect(custom.address).toBe("Οδός Παραδείγματος 10");
+      expect(custom.latitude).toBeUndefined();
+      expect(custom.longitude).toBeUndefined();
+    } finally {
+      updateSavedGymConfig({
+        address: defaultGymConfig.address,
+        city: defaultGymConfig.city,
+        phone: defaultGymConfig.phone,
+        latitude: defaultGymConfig.latitude,
+        longitude: defaultGymConfig.longitude,
+      });
+    }
   });
 
   it("stores, serves and deletes gallery media", () => {

@@ -4,6 +4,9 @@ import React, { useEffect, useState } from "react";
 import { MemberUser, logoutMember, clearMemberSession } from "@/lib/auth";
 import { MemberMenu, PortalTab } from "@/components/MemberMenu";
 import { Barcode } from "@/components/Barcode";
+import { MemberCheckIn } from "@/components/MemberCheckIn";
+import { AccessPass } from "@/components/AccessPass";
+import { OccupancyForecast } from "@/components/OccupancyForecast";
 import { GeneratedWorkoutPlan } from "@/types";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { 
@@ -77,7 +80,13 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
   // GDPR: erasure is irreversible and removes the member plus all saved plans.
   const handleEraseData = async () => {
-    if (!confirm("Η ενέργεια είναι μη αναστρέψιμη. Να διαγραφούν οριστικά ο λογαριασμός και όλα τα προγράμματά σας;")) return;
+    if (
+      !confirm(
+        "Η ενέργεια είναι μη αναστρέψιμη. Να διαγραφούν οριστικά ο λογαριασμός, τα προγράμματα, οι παρουσίες και τα leads με το email σας;"
+      )
+    ) {
+      return;
+    }
     setIsErasing(true);
     try {
       const res = await fetch("/api/member/erase", { method: "DELETE" });
@@ -203,6 +212,12 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             )}
           </div>
         </div>
+
+        {/* Check-in / live occupancy */}
+        <MemberCheckIn />
+
+        {/* Weekly occupancy forecast */}
+        <OccupancyForecast />
 
         {/* 4 Key Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -425,6 +440,9 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Rotating QR access pass */}
+              <AccessPass />
 
               {/* Gym Access Card */}
               <div className="p-5 rounded-xl bg-surface border border-border space-y-3">

@@ -18,7 +18,8 @@ the GDPR retention job.
 git clone <repo> nexusfit && cd nexusfit
 cp deploy/.env.production.example deploy/.env
 # edit deploy/.env: SITE_DOMAIN, NEXT_PUBLIC_SITE_URL, SESSION_SECRET,
-# ADMIN_PASSWORD, CRON_SECRET (and GEMINI_API_KEY if used)
+# ADMIN_PASSWORD, TRAINER_PASSWORD, ACCESS_CONTROL_KEY, GYM_TIMEZONE,
+# CRON_SECRET (and GEMINI_API_KEY if used)
 ```
 
 `SESSION_SECRET` must be at least 16 characters; generate it with
@@ -39,7 +40,11 @@ curl -fsS https://<domain>/api/health
 docker compose --env-file deploy/.env -f deploy/docker-compose.yml logs -f nexusfit_app
 ```
 
-The admin panel is at `https://<domain>/admin` with `ADMIN_PASSWORD`.
+The admin panel is at `https://<domain>/admin` with `ADMIN_PASSWORD` (owner /
+recovery) or with a named staff admin account created from **Admin → Προσωπικό**.
+The staff area is at `https://<domain>/trainer` with a staff trainer account, or
+with the optional legacy `TRAINER_PASSWORD`. The entrance tablet is at
+`https://<domain>/checkin`.
 
 ## 4. Data and backups
 
@@ -96,18 +101,38 @@ off on the final public deployment, then rebuild with `0`.
 - **Healthcheck** hits `/api/health`; Caddy and the cron jobs wait for it.
 - **Demo credentials** are never seeded unless `DEMO_MODE=1` is set. Do not set
   it in `deploy/.env`.
-- **Admin password rotation** — the password is hashed when the default tenant
-  is first seeded. Changing `ADMIN_PASSWORD` later does not update the stored
-  hash; rotate it deliberately or recreate the registry.
+- **Password rotation** — the legacy admin/trainer passwords are hashed when the
+  default tenant is first seeded. Changing the variables in `deploy/.env` later
+  does not update the stored hashes; rotate them explicitly with
+  `npm run tenant:password -- default admin '<new>'` (or `trainer`). Named staff
+  account passwords are changed from **Admin → Προσωπικό**, which invalidates
+  that account's sessions immediately.
+- **Staff offboarding** — deactivate or permanently delete the staff account
+  from **Admin → Προσωπικό**. Deletion removes name, email, password hash,
+  permissions and sessions; the legacy owner credential remains available.
+- **Audit log** — staff/admin logins and writes are retained for 12 months and
+  purged by `POST /api/cron/retention`. Staff deletion anonymizes the actor
+  fields. Back it up with the rest of the tenant databases.
 - **Never run `docker compose down -v`** unless you intend to delete the
   `nexusfit_data` volume, which holds every database.
 
 ## 8. Security checklist
 
-- `chmod 600 deploy/.env` — it holds the admin password and session secret.
-- Use `openssl rand -hex 32` for `SESSION_SECRET` and `CRON_SECRET`; pick a
-  long random `ADMIN_PASSWORD` (16+ characters). The server logs a
-  `[security]` warning at boot when one is missing or short.
+- `chmod 600 deploy/.env` — it holds the legacy admin/trainer passwords and the
+  session secret.
+- Use `openssl rand -hex 32` for `SESSION_SECRET`, `ACCESS_CONTROL_KEY` and
+  `CRON_SECRET`; pick long random `ADMIN_PASSWORD` and `TRAINER_PASSWORD` values
+  (16+ characters). The server logs a `[security]` warning at boot when one is
+  missing or short.
+- The entrance scanner sends QR tokens to `/api/access/scan` with the
+  `x-access-key` header. Set `ACCESS_CONTROL_KEY` before enabling the device;
+  without it QR access is disabled. `reentryCooldownMinutes` defaults to **0**;
+  duplicate/quick re-entry anomalies are shown in **Admin → Πρόσβαση** and raise
+  an alarm above one event per rolling 7 days.
+- The trainer area lives at `/trainer` (permission-based: occupancy, member
+  profiles, plans and visits, desk check-in/out, optional announcements/schedule)
+  and the entrance tablet at `/checkin`. Share those URLs with staff, not with
+  the public site. Permissions are enforced server-side.
 - Copy backups **off the server** and encrypt them (restic, borg, or an
   encrypted Hetzner Storage Box). They contain member data and PIN hashes.
 - Keep the host patched (`unattended-upgrades` or regular `apt upgrade`) and

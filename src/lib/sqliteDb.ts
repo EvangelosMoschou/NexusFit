@@ -2,7 +2,29 @@ import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
-import { DbMedia, MediaInput, MediaWithData } from "./db/types";
+import {
+  DbMedia,
+  DbStaffAccount,
+  DbVisit,
+  InsideMember,
+  MediaInput,
+  MediaWithData,
+  MemberAccess,
+  AuditEntry,
+  AuditFilters,
+  AuditInput,
+  AuditPage,
+  AccessAlert,
+  AccessEvent,
+  AccessEventWithMember,
+  MemberNotification,
+  MemberNotificationInput,
+  StaffAccount,
+  StaffInput,
+  StaffRole,
+  StaffUpdate,
+  VisitWithMember,
+} from "./db/types";
 import { GeneratedWorkoutPlan, GymConfig } from "@/types";
 import { defaultGymConfig } from "@/config/gymConfig";
 import { hashPin, hashPinSync, verifyPin } from "./passwordHash";
@@ -147,6 +169,94 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
       data BLOB NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS visits (
+      id TEXT PRIMARY KEY,
+      member_id TEXT NOT NULL,
+      checked_in_at TEXT NOT NULL,
+      checked_out_at TEXT,
+      last_activity_at TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS staff_accounts (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      role TEXT NOT NULL DEFAULT 'trainer',
+      password_hash TEXT NOT NULL,
+      permissions TEXT NOT NULL DEFAULT '[]',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_login_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_staff_active
+      ON staff_accounts (active);
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id TEXT PRIMARY KEY,
+      actor_id TEXT,
+      actor_name TEXT NOT NULL,
+      actor_email TEXT,
+      actor_role TEXT NOT NULL,
+      actor_legacy INTEGER NOT NULL DEFAULT 0,
+      action TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT,
+      details TEXT NOT NULL DEFAULT '{}',
+      ip TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_created
+      ON audit_log (created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_action
+      ON audit_log (action, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_entity
+      ON audit_log (entity_type, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS member_notifications (
+      id TEXT PRIMARY KEY,
+      member_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      dedupe_key TEXT NOT NULL,
+      read_at TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_dedupe
+      ON member_notifications (member_id, dedupe_key);
+    CREATE INDEX IF NOT EXISTS idx_notifications_member
+      ON member_notifications (member_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS access_events (
+      id TEXT PRIMARY KEY,
+      member_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      details TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_access_events_member
+      ON access_events (member_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_access_events_created
+      ON access_events (created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_visits_open
+      ON visits (checked_out_at, checked_in_at);
+    CREATE INDEX IF NOT EXISTS idx_visits_member
+      ON visits (member_id, checked_in_at);
+    CREATE INDEX IF NOT EXISTS idx_visits_checked_in
+      ON visits (checked_in_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_visits_one_open
+      ON visits (member_id) WHERE checked_out_at IS NULL;
   `);
 
   // One-time migration: hash any legacy plaintext PINs (idempotent)
@@ -160,6 +270,17 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
     }
   } catch (err) {
     console.error("[sqliteDb] pin migration failed:", err);
+  }
+
+  // Upgrade visits created before activity tracking existed.
+  try {
+    const columns = db.prepare("PRAGMA table_info(visits)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "last_activity_at")) {
+      db.exec("ALTER TABLE visits ADD COLUMN last_activity_at TEXT");
+    }
+    db.exec("UPDATE visits SET last_activity_at = checked_in_at WHERE last_activity_at IS NULL");
+  } catch (err) {
+    console.error("[sqliteDb] visit activity migration failed:", err);
   }
 
   // Seed default demo members only for the default tenant and only when it is
@@ -216,6 +337,110 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
     console.warn(
       "[sqliteDb] Demo members were not seeded. Set DEMO_MODE=1 (or SEED_DEMO_MEMBERS=1) on a demo deployment."
     );
+  }
+
+  // Demo-only flagged profile: NX-3109 has two recent access anomalies so the
+  // admin Access tab and the member-list flag are immediately visible in demos.
+  if (tenantId === DEFAULT_TENANT_ID && demoSeedAllowed) {
+    try {
+      const flagged = db
+        .prepare("SELECT id FROM members WHERE id = ?")
+        .get("mem-3109") as { id: string } | undefined;
+      if (flagged) {
+        const insertEvent = db.prepare(
+          `INSERT OR IGNORE INTO access_events
+             (id, member_id, event_type, details, created_at)
+           VALUES (?, ?, ?, ?, ?)`
+        );
+        const now = Date.now();
+        insertEvent.run(
+          "demo-access-event-1",
+          "mem-3109",
+          "duplicate_entry",
+          JSON.stringify({ direction: "in", source: "demo" }),
+          new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString()
+        );
+        insertEvent.run(
+          "demo-access-event-2",
+          "mem-3109",
+          "quick_reentry",
+          JSON.stringify({
+            direction: "in",
+            source: "demo",
+            quickReentryMinutes: 30,
+          }),
+          new Date(now - 24 * 60 * 60 * 1000).toISOString()
+        );
+      }
+    } catch (err) {
+      console.error("[sqliteDb] demo access flags seed failed:", err);
+    }
+  }
+
+  // Demo-only historical visits so the occupancy forecast has visible bars.
+  if (tenantId === DEFAULT_TENANT_ID && demoSeedAllowed) {
+    try {
+      const demoMembers = db
+        .prepare("SELECT id FROM members WHERE id IN ('mem-8492', 'mem-3109')")
+        .all() as Array<{ id: string }>;
+      const available = new Set(demoMembers.map((member) => member.id));
+
+      if (available.size > 0) {
+        const insertVisit = db.prepare(
+          `INSERT OR IGNORE INTO visits
+             (id, member_id, checked_in_at, checked_out_at, last_activity_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        );
+        const now = new Date();
+        const base = new Date(now);
+        base.setUTCHours(0, 0, 0, 0);
+        const mondayOffset = (base.getUTCDay() + 6) % 7;
+        const monday = new Date(base.getTime() - mondayOffset * 86_400_000);
+
+        const patterns: Array<{
+          dayOffset: number;
+          hour: number;
+          minute: number;
+          duration: number;
+          members: string[];
+        }> = [
+          { dayOffset: 0, hour: 16, minute: 0, duration: 60, members: ["mem-8492", "mem-3109"] },
+          { dayOffset: 1, hour: 7, minute: 0, duration: 45, members: ["mem-8492"] },
+          { dayOffset: 2, hour: 17, minute: 30, duration: 75, members: ["mem-8492", "mem-3109"] },
+          { dayOffset: 3, hour: 8, minute: 0, duration: 45, members: ["mem-3109"] },
+          { dayOffset: 4, hour: 16, minute: 0, duration: 90, members: ["mem-8492", "mem-3109"] },
+          { dayOffset: 5, hour: 8, minute: 0, duration: 120, members: ["mem-8492", "mem-3109"] },
+          { dayOffset: 6, hour: 9, minute: 0, duration: 60, members: ["mem-3109"] },
+        ];
+
+        for (let week = 0; week < 8; week += 1) {
+          patterns.forEach((pattern, patternIndex) => {
+            const start = new Date(
+              monday.getTime() -
+                week * 7 * 86_400_000 +
+                pattern.dayOffset * 86_400_000
+            );
+            start.setUTCHours(pattern.hour, pattern.minute, 0, 0);
+            if (start.getTime() >= now.getTime()) return;
+
+            const end = new Date(start.getTime() + pattern.duration * 60_000);
+            for (const memberId of pattern.members) {
+              if (!available.has(memberId)) continue;
+              insertVisit.run(
+                `demo-analytics-${week}-${patternIndex}-${memberId}`,
+                memberId,
+                start.toISOString(),
+                end.toISOString(),
+                end.toISOString(),
+                start.toISOString()
+              );
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[sqliteDb] demo occupancy analytics seed failed:", err);
+    }
   }
 
   // Seed default site config if empty
@@ -374,8 +599,91 @@ export function getSavedGymConfig(tenantId: string = DEFAULT_TENANT_ID): GymConf
       try {
         // Merge over the defaults so a config persisted before a new field
         // existed (e.g. `legal`) still resolves that field for existing installs
-        // instead of dropping it.
-        return { ...defaultGymConfig, ...JSON.parse(row.value) };
+        // instead of dropping it. New mandatory legal sections are appended so
+        // existing tenants receive cookie/staff/deletion disclosures too.
+        const saved = JSON.parse(row.value) as Partial<GymConfig>;
+        const merged: GymConfig = { ...defaultGymConfig, ...saved };
+        const savedPrivacy = saved.legal?.privacy;
+        const savedTos = saved.legal?.tos;
+
+        // Cookie, retention and security disclosures are mandatory: always use
+        // the current default bodies for those titles, preserve custom
+        // sections, and append newly introduced sections.
+        const mandatoryTitles = new Set([
+          "3. Cookies & Τοπική Αποθήκευση",
+          "5. Διατήρηση Δεδομένων",
+          "7. Ασφάλεια",
+        ]);
+        const privacy = Array.isArray(savedPrivacy)
+          ? (() => {
+              const savedByTitle = new Map(
+                savedPrivacy.map((section) => [section.title, section])
+              );
+              const defaultTitles = new Set(
+                defaultGymConfig.legal.privacy.map((section) => section.title)
+              );
+              return [
+                ...defaultGymConfig.legal.privacy.map((section) =>
+                  mandatoryTitles.has(section.title)
+                    ? section
+                    : savedByTitle.get(section.title) ?? section
+                ),
+                ...savedPrivacy.filter((section) => !defaultTitles.has(section.title)),
+              ];
+            })()
+          : defaultGymConfig.legal.privacy;
+
+        const tos = Array.isArray(savedTos)
+          ? (() => {
+              const titles = new Set(savedTos.map((section) => section.title));
+              return [
+                ...savedTos,
+                ...defaultGymConfig.legal.tos.filter(
+                  (section) => !titles.has(section.title)
+                ),
+              ];
+            })()
+          : defaultGymConfig.legal.tos;
+
+        merged.legal = { tos, privacy };
+
+        // Move the previous template's default address (Athens) to the current
+        // White Tower template, but never overwrite a custom address.
+        const previousDefaultAddress = "Λεωφόρος Βουλιαγμένης 128, Γλυφάδα";
+        const migratedTemplateAddress =
+          saved.address === previousDefaultAddress && saved.city === "Αθήνα";
+        if (migratedTemplateAddress) {
+          merged.address = defaultGymConfig.address;
+          merged.city = defaultGymConfig.city;
+          if (!saved.phone) merged.phone = defaultGymConfig.phone;
+          merged.latitude = defaultGymConfig.latitude;
+          merged.longitude = defaultGymConfig.longitude;
+
+          const controller = merged.legal.privacy.find((section) =>
+            section.title.startsWith("1.")
+          );
+          if (controller?.body.includes("Λεωφόρος Βουλιαγμένης 128")) {
+            merged.legal.privacy = merged.legal.privacy.map((section) =>
+              section === controller
+                ? defaultGymConfig.legal.privacy.find((item) =>
+                    item.title.startsWith("1.")
+                  ) ?? section
+                : section
+            );
+          }
+        }
+
+        // Do not point an older custom saved address at the new template coordinates.
+        if (
+          !migratedTemplateAddress &&
+          saved.address &&
+          (saved.latitude === undefined || saved.longitude === undefined)
+        ) {
+          merged.latitude = undefined;
+          merged.longitude = undefined;
+        }
+
+        return merged;
       } catch (err) {
         console.error("[sqliteDb] parseGymConfigJson failed:", err);
       }
@@ -684,6 +992,1047 @@ export function deleteMediaAdmin(id: string, tenantId: string = DEFAULT_TENANT_I
   } catch (err) {
     console.error("[sqliteDb] deleteMediaAdmin failed:", err);
     return false;
+  }
+}
+
+const STALE_VISIT_HOURS = 8;
+
+function staleVisitCutoff(hours: number = STALE_VISIT_HOURS): string {
+  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+}
+
+function idleVisitCutoff(minutes: number): string {
+  return new Date(Date.now() - minutes * 60 * 1000).toISOString();
+}
+
+function parseStaffPermissions(raw: unknown): string[] {
+  try {
+    const parsed = JSON.parse(String(raw ?? "[]"));
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function rowToStaffAccount(row: Record<string, unknown>): DbStaffAccount {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    email: String(row.email),
+    role: (row.role === "admin" ? "admin" : "trainer") as StaffRole,
+    permissions: parseStaffPermissions(row.permissions),
+    active: Number(row.active) === 1,
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+    last_login_at: row.last_login_at ? String(row.last_login_at) : null,
+    password_hash: String(row.password_hash),
+  };
+}
+
+function toPublicStaffAccount(account: DbStaffAccount): StaffAccount {
+  return {
+    id: account.id,
+    name: account.name,
+    email: account.email,
+    role: account.role,
+    permissions: account.permissions,
+    active: account.active,
+    created_at: account.created_at,
+    updated_at: account.updated_at,
+    last_login_at: account.last_login_at,
+  };
+}
+
+export function listStaffAccounts(tenantId: string = DEFAULT_TENANT_ID): StaffAccount[] {
+  try {
+    const db = getDatabase(tenantId);
+    return (db.prepare("SELECT * FROM staff_accounts ORDER BY created_at ASC").all() as
+      Record<string, unknown>[]).map((row) => toPublicStaffAccount(rowToStaffAccount(row)));
+  } catch (err) {
+    console.error("[sqliteDb] listStaffAccounts failed:", err);
+    return [];
+  }
+}
+
+export function getStaffAccountById(
+  id: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): DbStaffAccount | null {
+  try {
+    const db = getDatabase(tenantId);
+    const row = db.prepare("SELECT * FROM staff_accounts WHERE id = ?").get(id) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? rowToStaffAccount(row) : null;
+  } catch (err) {
+    console.error("[sqliteDb] getStaffAccountById failed:", err);
+    return null;
+  }
+}
+
+export function getStaffAccountByEmail(
+  email: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): DbStaffAccount | null {
+  try {
+    const db = getDatabase(tenantId);
+    const normalized = email.trim().toLowerCase();
+    const row = db.prepare("SELECT * FROM staff_accounts WHERE email = ?").get(normalized) as
+      | Record<string, unknown>
+      | undefined;
+    return row ? rowToStaffAccount(row) : null;
+  } catch (err) {
+    console.error("[sqliteDb] getStaffAccountByEmail failed:", err);
+    return null;
+  }
+}
+
+export async function createStaffAccount(
+  input: StaffInput,
+  tenantId: string = DEFAULT_TENANT_ID
+): Promise<StaffAccount | null> {
+  try {
+    const db = getDatabase(tenantId);
+    const id = `staff-${randomUUID()}`;
+    const now = new Date().toISOString();
+    db.prepare(
+      `INSERT INTO staff_accounts
+         (id, name, email, role, password_hash, permissions, active, created_at, updated_at, last_login_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      input.name.trim(),
+      input.email.trim().toLowerCase(),
+      input.role,
+      await hashPin(input.password),
+      JSON.stringify(input.permissions ?? []),
+      1,
+      now,
+      now,
+      null
+    );
+
+    const account = getStaffAccountById(id, tenantId);
+    return account ? toPublicStaffAccount(account) : null;
+  } catch (err) {
+    console.error("[sqliteDb] createStaffAccount failed:", err);
+    return null;
+  }
+}
+
+export async function updateStaffAccount(
+  id: string,
+  patch: StaffUpdate,
+  tenantId: string = DEFAULT_TENANT_ID
+): Promise<StaffAccount | null> {
+  try {
+    const db = getDatabase(tenantId);
+    const current = getStaffAccountById(id, tenantId);
+    if (!current) return null;
+
+    const fields: string[] = [];
+    const values: Array<string | number> = [];
+
+    if (typeof patch.name === "string") {
+      fields.push("name = ?");
+      values.push(patch.name.trim());
+    }
+    if (typeof patch.email === "string") {
+      fields.push("email = ?");
+      values.push(patch.email.trim().toLowerCase());
+    }
+    if (patch.role === "admin" || patch.role === "trainer") {
+      fields.push("role = ?");
+      values.push(patch.role);
+    }
+    if (typeof patch.password === "string") {
+      fields.push("password_hash = ?");
+      values.push(await hashPin(patch.password));
+    }
+    if (Array.isArray(patch.permissions)) {
+      fields.push("permissions = ?");
+      values.push(JSON.stringify(patch.permissions));
+    }
+    if (typeof patch.active === "boolean") {
+      fields.push("active = ?");
+      values.push(patch.active ? 1 : 0);
+    }
+
+    fields.push("updated_at = ?");
+    values.push(new Date().toISOString());
+
+    db.prepare(`UPDATE staff_accounts SET ${fields.join(", ")} WHERE id = ?`).run(
+      ...values,
+      id
+    );
+
+    const account = getStaffAccountById(id, tenantId);
+    return account ? toPublicStaffAccount(account) : null;
+  } catch (err) {
+    console.error("[sqliteDb] updateStaffAccount failed:", err);
+    return null;
+  }
+}
+
+export function deleteStaffAccount(
+  id: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db.prepare("DELETE FROM staff_accounts WHERE id = ?").run(id);
+    return Number(result.changes) > 0;
+  } catch (err) {
+    console.error("[sqliteDb] deleteStaffAccount failed:", err);
+    return false;
+  }
+}
+
+export function touchStaffLogin(
+  id: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): void {
+  try {
+    const db = getDatabase(tenantId);
+    const now = new Date().toISOString();
+    db.prepare("UPDATE staff_accounts SET last_login_at = ?, updated_at = ? WHERE id = ?").run(
+      now,
+      now,
+      id
+    );
+  } catch (err) {
+    console.error("[sqliteDb] touchStaffLogin failed:", err);
+  }
+}
+
+function rowToAuditEntry(row: Record<string, unknown>): AuditEntry {
+  let details: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(String(row.details ?? "{}"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      details = parsed as Record<string, unknown>;
+    }
+  } catch {
+    details = {};
+  }
+
+  return {
+    id: String(row.id),
+    actor_id: row.actor_id ? String(row.actor_id) : null,
+    actor_name: String(row.actor_name),
+    actor_email: row.actor_email ? String(row.actor_email) : null,
+    actor_role: String(row.actor_role),
+    actor_legacy: Number(row.actor_legacy) === 1,
+    action: String(row.action),
+    entity_type: String(row.entity_type),
+    entity_id: row.entity_id ? String(row.entity_id) : null,
+    details,
+    ip: row.ip ? String(row.ip) : null,
+    created_at: String(row.created_at),
+  };
+}
+
+export function insertAuditEntry(
+  input: AuditInput,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    db.prepare(
+      `INSERT INTO audit_log
+         (id, actor_id, actor_name, actor_email, actor_role, actor_legacy,
+          action, entity_type, entity_id, details, ip, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      `audit-${randomUUID()}`,
+      input.actorId ?? null,
+      input.actorName,
+      input.actorEmail ?? null,
+      input.actorRole,
+      input.actorLegacy ? 1 : 0,
+      input.action,
+      input.entityType,
+      input.entityId ?? null,
+      JSON.stringify(input.details ?? {}),
+      input.ip ?? null,
+      new Date().toISOString()
+    );
+    return true;
+  } catch (err) {
+    console.error("[sqliteDb] insertAuditEntry failed:", err);
+    return false;
+  }
+}
+
+export function listAuditEntries(
+  filters: AuditFilters = {},
+  tenantId: string = DEFAULT_TENANT_ID
+): AuditPage {
+  try {
+    const db = getDatabase(tenantId);
+    const limit = Math.min(
+      200,
+      Math.max(1, Number.isFinite(filters.limit) ? Number(filters.limit) : 50)
+    );
+    const offset = Math.max(
+      0,
+      Number.isFinite(filters.offset) ? Number(filters.offset) : 0
+    );
+
+    const clauses: string[] = [];
+    const params: Array<string | number> = [];
+    if (filters.action) {
+      clauses.push("action = ?");
+      params.push(filters.action);
+    }
+    if (filters.entityType) {
+      clauses.push("entity_type = ?");
+      params.push(filters.entityType);
+    }
+    if (filters.actorId) {
+      clauses.push("actor_id = ?");
+      params.push(filters.actorId);
+    }
+    if (filters.from) {
+      clauses.push("created_at >= ?");
+      params.push(filters.from);
+    }
+    if (filters.to) {
+      clauses.push("created_at <= ?");
+      params.push(filters.to);
+    }
+
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+    const totalRow = db
+      .prepare(`SELECT COUNT(*) as c FROM audit_log ${where}`)
+      .get(...params) as { c: number };
+    const rows = db
+      .prepare(
+        `SELECT * FROM audit_log ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+      )
+      .all(...params, limit, offset) as Record<string, unknown>[];
+
+    return {
+      entries: rows.map(rowToAuditEntry),
+      total: totalRow.c,
+      limit,
+      offset,
+    };
+  } catch (err) {
+    console.error("[sqliteDb] listAuditEntries failed:", err);
+    return { entries: [], total: 0, limit: 50, offset: 0 };
+  }
+}
+
+// Audit records are retained for accountability, but the personal identifiers
+// of a deleted staff actor are removed from the history.
+export function anonymizeStaffAudit(
+  staffId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        `UPDATE audit_log
+         SET actor_id = NULL, actor_name = 'Διαγραμμένος λογαριασμός', actor_email = NULL
+         WHERE actor_id = ?`
+      )
+      .run(staffId);
+    return Number(result.changes);
+  } catch (err) {
+    console.error("[sqliteDb] anonymizeStaffAudit failed:", err);
+    return 0;
+  }
+}
+
+export function purgeAuditLog(
+  days: number = 365,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    if (!Number.isFinite(days) || days <= 0) return 0;
+    const db = getDatabase(tenantId);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const result = db.prepare("DELETE FROM audit_log WHERE created_at < ?").run(cutoff);
+    return Number(result.changes);
+  } catch (err) {
+    console.error("[sqliteDb] purgeAuditLog failed:", err);
+    return 0;
+  }
+}
+
+function rowToMemberNotification(row: Record<string, unknown>): MemberNotification {
+  return {
+    id: String(row.id),
+    member_id: String(row.member_id),
+    type: String(row.type),
+    title: String(row.title),
+    body: String(row.body),
+    dedupe_key: String(row.dedupe_key),
+    read_at: row.read_at ? String(row.read_at) : null,
+    created_at: String(row.created_at),
+  };
+}
+
+export function ensureMemberNotification(
+  memberId: string,
+  input: MemberNotificationInput,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        `INSERT OR IGNORE INTO member_notifications
+           (id, member_id, type, title, body, dedupe_key, read_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        `notification-${randomUUID()}`,
+        memberId,
+        input.type,
+        input.title,
+        input.body,
+        input.dedupeKey,
+        null,
+        new Date().toISOString()
+      );
+    return Number(result.changes) > 0;
+  } catch (err) {
+    console.error("[sqliteDb] ensureMemberNotification failed:", err);
+    return false;
+  }
+}
+
+export function listMemberNotifications(
+  memberId: string,
+  limit: number = 50,
+  tenantId: string = DEFAULT_TENANT_ID
+): MemberNotification[] {
+  try {
+    const db = getDatabase(tenantId);
+    const safeLimit = Math.min(100, Math.max(1, Number.isFinite(limit) ? limit : 50));
+    return (
+      db
+        .prepare(
+          `SELECT * FROM member_notifications
+           WHERE member_id = ?
+           ORDER BY created_at DESC LIMIT ?`
+        )
+        .all(memberId, safeLimit) as Record<string, unknown>[]
+    ).map(rowToMemberNotification);
+  } catch (err) {
+    console.error("[sqliteDb] listMemberNotifications failed:", err);
+    return [];
+  }
+}
+
+export function getUnreadNotificationCount(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const row = db
+      .prepare(
+        `SELECT COUNT(*) as c FROM member_notifications
+         WHERE member_id = ? AND read_at IS NULL`
+      )
+      .get(memberId) as { c: number };
+    return row.c;
+  } catch (err) {
+    console.error("[sqliteDb] getUnreadNotificationCount failed:", err);
+    return 0;
+  }
+}
+
+export function markMemberNotificationRead(
+  memberId: string,
+  notificationId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        `UPDATE member_notifications SET read_at = ?
+         WHERE id = ? AND member_id = ? AND read_at IS NULL`
+      )
+      .run(new Date().toISOString(), notificationId, memberId);
+    return Number(result.changes) > 0;
+  } catch (err) {
+    console.error("[sqliteDb] markMemberNotificationRead failed:", err);
+    return false;
+  }
+}
+
+export function markAllMemberNotificationsRead(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        `UPDATE member_notifications SET read_at = ?
+         WHERE member_id = ? AND read_at IS NULL`
+      )
+      .run(new Date().toISOString(), memberId);
+    return Number(result.changes);
+  } catch (err) {
+    console.error("[sqliteDb] markAllMemberNotificationsRead failed:", err);
+    return 0;
+  }
+}
+
+function rowToAccessEvent(row: Record<string, unknown>): AccessEvent {
+  let details: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(String(row.details ?? "{}"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      details = parsed as Record<string, unknown>;
+    }
+  } catch {
+    details = {};
+  }
+
+  return {
+    id: String(row.id),
+    member_id: String(row.member_id),
+    event_type: String(row.event_type),
+    details,
+    created_at: String(row.created_at),
+  };
+}
+
+export function recordAccessEvent(
+  memberId: string,
+  eventType: string,
+  details: Record<string, unknown> = {},
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    db.prepare(
+      `INSERT INTO access_events (id, member_id, event_type, details, created_at)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(
+      `access-event-${randomUUID()}`,
+      memberId,
+      eventType,
+      JSON.stringify(details),
+      new Date().toISOString()
+    );
+    return true;
+  } catch (err) {
+    console.error("[sqliteDb] recordAccessEvent failed:", err);
+    return false;
+  }
+}
+
+export function getLastCheckoutAt(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): string | null {
+  try {
+    const db = getDatabase(tenantId);
+    const row = db
+      .prepare(
+        `SELECT checked_out_at FROM visits
+         WHERE member_id = ? AND checked_out_at IS NOT NULL
+         ORDER BY checked_out_at DESC LIMIT 1`
+      )
+      .get(memberId) as { checked_out_at: string } | undefined;
+    return row?.checked_out_at ?? null;
+  } catch (err) {
+    console.error("[sqliteDb] getLastCheckoutAt failed:", err);
+    return null;
+  }
+}
+
+export function countAccessEvents(
+  memberId: string,
+  days: number = 7,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const row = db
+      .prepare(
+        "SELECT COUNT(*) as c FROM access_events WHERE member_id = ? AND created_at >= ?"
+      )
+      .get(memberId, since) as { c: number };
+    return row.c;
+  } catch (err) {
+    console.error("[sqliteDb] countAccessEvents failed:", err);
+    return 0;
+  }
+}
+
+export function listAccessAlerts(
+  threshold: number = 1,
+  days: number = 7,
+  tenantId: string = DEFAULT_TENANT_ID
+): AccessAlert[] {
+  try {
+    const db = getDatabase(tenantId);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const rows = db
+      .prepare(
+        `SELECT e.member_id, m.member_code, m.full_name,
+                COUNT(*) as event_count,
+                MAX(e.created_at) as last_event_at,
+                GROUP_CONCAT(DISTINCT e.event_type) as event_types
+         FROM access_events e
+         JOIN members m ON m.id = e.member_id
+         WHERE e.created_at >= ?
+         GROUP BY e.member_id
+         HAVING COUNT(*) > ?
+         ORDER BY event_count DESC, last_event_at DESC`
+      )
+      .all(since, threshold) as Array<Record<string, unknown>>;
+
+    return rows.map((row) => ({
+      member_id: String(row.member_id),
+      member_code: String(row.member_code),
+      full_name: String(row.full_name),
+      event_count: Number(row.event_count),
+      last_event_at: String(row.last_event_at),
+      event_types: String(row.event_types ?? "")
+        .split(",")
+        .filter(Boolean),
+    }));
+  } catch (err) {
+    console.error("[sqliteDb] listAccessAlerts failed:", err);
+    return [];
+  }
+}
+
+export function listMemberAccessEvents(
+  memberId: string,
+  limit: number = 1000,
+  tenantId: string = DEFAULT_TENANT_ID
+): AccessEvent[] {
+  try {
+    const db = getDatabase(tenantId);
+    const safeLimit = Math.min(1000, Math.max(1, limit));
+    return (
+      db
+        .prepare(
+          `SELECT * FROM access_events
+           WHERE member_id = ?
+           ORDER BY created_at DESC LIMIT ?`
+        )
+        .all(memberId, safeLimit) as Record<string, unknown>[]
+    ).map(rowToAccessEvent);
+  } catch (err) {
+    console.error("[sqliteDb] listMemberAccessEvents failed:", err);
+    return [];
+  }
+}
+
+export function listRecentAccessEvents(
+  limit: number = 50,
+  tenantId: string = DEFAULT_TENANT_ID
+): AccessEventWithMember[] {
+  try {
+    const db = getDatabase(tenantId);
+    const safeLimit = Math.min(200, Math.max(1, limit));
+    const rows = db
+      .prepare(
+        `SELECT e.*, m.member_code, m.full_name
+         FROM access_events e
+         JOIN members m ON m.id = e.member_id
+         ORDER BY e.created_at DESC LIMIT ?`
+      )
+      .all(safeLimit) as Array<Record<string, unknown>>;
+
+    return rows.map((row) => ({
+      ...rowToAccessEvent(row),
+      member_code: String(row.member_code),
+      full_name: String(row.full_name),
+    }));
+  } catch (err) {
+    console.error("[sqliteDb] listRecentAccessEvents failed:", err);
+    return [];
+  }
+}
+
+export function purgeAccessEvents(
+  days: number = 365,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    if (!Number.isFinite(days) || days <= 0) return 0;
+    const db = getDatabase(tenantId);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const result = db.prepare("DELETE FROM access_events WHERE created_at < ?").run(cutoff);
+    return Number(result.changes);
+  } catch (err) {
+    console.error("[sqliteDb] purgeAccessEvents failed:", err);
+    return 0;
+  }
+}
+
+export function getMemberAccess(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): MemberAccess | null {
+  try {
+    const db = getDatabase(tenantId);
+    const row = db
+      .prepare(
+        `SELECT id, member_code, full_name, subscription_status, expires_at, has_ai_access
+         FROM members WHERE id = ?`
+      )
+      .get(memberId) as MemberAccess | undefined;
+    return row ?? null;
+  } catch (err) {
+    console.error("[sqliteDb] getMemberAccess failed:", err);
+    return null;
+  }
+}
+
+export function getReentryCooldownSeconds(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const minutes = getSavedGymConfig(tenantId).reentryCooldownMinutes || 0;
+    if (minutes <= 0) return 0;
+
+    const last = db
+      .prepare(
+        `SELECT checked_out_at FROM visits
+         WHERE member_id = ? AND checked_out_at IS NOT NULL
+         ORDER BY checked_out_at DESC LIMIT 1`
+      )
+      .get(memberId) as { checked_out_at: string } | undefined;
+
+    if (!last) return 0;
+    const elapsedMs = Date.now() - Date.parse(last.checked_out_at);
+    if (!Number.isFinite(elapsedMs)) return 0;
+    const remainingMs = minutes * 60_000 - elapsedMs;
+    return remainingMs > 0 ? Math.ceil(remainingMs / 1000) : 0;
+  } catch (err) {
+    console.error("[sqliteDb] getReentryCooldownSeconds failed:", err);
+    return 0;
+  }
+}
+
+export function getMemberVisitStatus(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): { inside: boolean; since: string | null } {
+  try {
+    const db = getDatabase(tenantId);
+    const idleMinutes = getSavedGymConfig(tenantId).idleCheckoutMinutes || 0;
+    const activityCutoff = idleMinutes > 0 ? idleVisitCutoff(idleMinutes) : null;
+    const row = db
+      .prepare(
+        `SELECT checked_in_at FROM visits
+         WHERE member_id = ? AND checked_out_at IS NULL AND checked_in_at >= ?
+           AND (? IS NULL OR COALESCE(last_activity_at, checked_in_at) >= ?)
+         ORDER BY checked_in_at DESC LIMIT 1`
+      )
+      .get(memberId, staleVisitCutoff(), activityCutoff, activityCutoff) as
+      | { checked_in_at: string }
+      | undefined;
+
+    return { inside: Boolean(row), since: row?.checked_in_at ?? null };
+  } catch (err) {
+    console.error("[sqliteDb] getMemberVisitStatus failed:", err);
+    return { inside: false, since: null };
+  }
+}
+
+export function checkInMember(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): { status: "in" | "already_in" | "unknown"; visit?: DbVisit } {
+  try {
+    const db = getDatabase(tenantId);
+    const member = db.prepare("SELECT id FROM members WHERE id = ?").get(memberId);
+    if (!member) return { status: "unknown" };
+
+    const now = new Date().toISOString();
+    // A forgotten check-out should not keep someone "inside" forever.
+    db.prepare(
+      `UPDATE visits SET checked_out_at = ?
+       WHERE member_id = ? AND checked_out_at IS NULL AND checked_in_at < ?`
+    ).run(now, memberId, staleVisitCutoff());
+
+    const idleMinutes = getSavedGymConfig(tenantId).idleCheckoutMinutes || 0;
+    if (idleMinutes > 0) {
+      db.prepare(
+        `UPDATE visits SET checked_out_at = ?
+         WHERE member_id = ? AND checked_out_at IS NULL
+           AND COALESCE(last_activity_at, checked_in_at) < ?`
+      ).run(now, memberId, idleVisitCutoff(idleMinutes));
+    }
+
+    const open = db
+      .prepare(
+        `SELECT * FROM visits
+         WHERE member_id = ? AND checked_out_at IS NULL
+         ORDER BY checked_in_at DESC LIMIT 1`
+      )
+      .get(memberId) as DbVisit | undefined;
+
+    if (open) return { status: "already_in", visit: open };
+
+    const visit: DbVisit = {
+      id: `visit-${randomUUID()}`,
+      member_id: memberId,
+      checked_in_at: now,
+      checked_out_at: null,
+      last_activity_at: now,
+      created_at: now,
+    };
+    db.prepare(
+      "INSERT INTO visits (id, member_id, checked_in_at, checked_out_at, last_activity_at, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(
+      visit.id,
+      visit.member_id,
+      visit.checked_in_at,
+      visit.checked_out_at,
+      visit.last_activity_at,
+      visit.created_at
+    );
+
+    return { status: "in", visit };
+  } catch (err) {
+    console.error("[sqliteDb] checkInMember failed:", err);
+    return { status: "unknown" };
+  }
+}
+
+export function checkOutMember(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): { status: "out" | "not_in"; visit?: DbVisit } {
+  try {
+    const db = getDatabase(tenantId);
+    const open = db
+      .prepare(
+        `SELECT * FROM visits
+         WHERE member_id = ? AND checked_out_at IS NULL
+         ORDER BY checked_in_at DESC LIMIT 1`
+      )
+      .get(memberId) as DbVisit | undefined;
+
+    if (!open) return { status: "not_in" };
+
+    const now = new Date().toISOString();
+    db.prepare("UPDATE visits SET checked_out_at = ? WHERE id = ?").run(now, open.id);
+    return { status: "out", visit: { ...open, checked_out_at: now } };
+  } catch (err) {
+    console.error("[sqliteDb] checkOutMember failed:", err);
+    return { status: "not_in" };
+  }
+}
+
+export function getOccupancy(
+  tenantId: string = DEFAULT_TENANT_ID
+): { inside: number; capacity: number } {
+  try {
+    const db = getDatabase(tenantId);
+    const config = getSavedGymConfig(tenantId);
+    const idleMinutes = config.idleCheckoutMinutes || 0;
+    const activityCutoff = idleMinutes > 0 ? idleVisitCutoff(idleMinutes) : null;
+    const row = db
+      .prepare(
+        `SELECT COUNT(*) as c FROM visits
+         WHERE checked_out_at IS NULL AND checked_in_at >= ?
+           AND (? IS NULL OR COALESCE(last_activity_at, checked_in_at) >= ?)`
+      )
+      .get(staleVisitCutoff(), activityCutoff, activityCutoff) as { c: number };
+
+    return {
+      inside: row.c,
+      capacity: config.capacity || 0,
+    };
+  } catch (err) {
+    console.error("[sqliteDb] getOccupancy failed:", err);
+    return { inside: 0, capacity: 0 };
+  }
+}
+
+export function getInsideMembers(tenantId: string = DEFAULT_TENANT_ID): InsideMember[] {
+  try {
+    const db = getDatabase(tenantId);
+    const idleMinutes = getSavedGymConfig(tenantId).idleCheckoutMinutes || 0;
+    const activityCutoff = idleMinutes > 0 ? idleVisitCutoff(idleMinutes) : null;
+    return db
+      .prepare(
+        `SELECT v.member_id, m.member_code, m.full_name, v.checked_in_at
+         FROM visits v JOIN members m ON m.id = v.member_id
+         WHERE v.checked_out_at IS NULL AND v.checked_in_at >= ?
+           AND (? IS NULL OR COALESCE(v.last_activity_at, v.checked_in_at) >= ?)
+         ORDER BY v.checked_in_at ASC`
+      )
+      .all(staleVisitCutoff(), activityCutoff, activityCutoff) as unknown as InsideMember[];
+  } catch (err) {
+    console.error("[sqliteDb] getInsideMembers failed:", err);
+    return [];
+  }
+}
+
+// Any member action (portal heartbeat, weight log, plan save) keeps the open
+// visit alive so idle auto-checkout does not close an active workout.
+export function touchMemberVisit(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    const idleMinutes = getSavedGymConfig(tenantId).idleCheckoutMinutes || 0;
+    const activityCutoff = idleMinutes > 0 ? idleVisitCutoff(idleMinutes) : null;
+
+    // Do not revive a visit that has already crossed the idle threshold.
+    const result = db
+      .prepare(
+        `UPDATE visits SET last_activity_at = ?
+         WHERE id = (
+           SELECT id FROM visits
+           WHERE member_id = ? AND checked_out_at IS NULL
+             AND checked_in_at >= ?
+             AND (? IS NULL OR COALESCE(last_activity_at, checked_in_at) >= ?)
+           ORDER BY checked_in_at DESC LIMIT 1
+         )`
+      )
+      .run(
+        new Date().toISOString(),
+        memberId,
+        staleVisitCutoff(),
+        activityCutoff,
+        activityCutoff
+      );
+    return Number(result.changes) > 0;
+  } catch (err) {
+    console.error("[sqliteDb] touchMemberVisit failed:", err);
+    return false;
+  }
+}
+
+export function closeIdleVisits(
+  minutes: number,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    if (!Number.isFinite(minutes) || minutes <= 0) return 0;
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        `UPDATE visits SET checked_out_at = ?
+         WHERE checked_out_at IS NULL
+           AND COALESCE(last_activity_at, checked_in_at) < ?`
+      )
+      .run(new Date().toISOString(), idleVisitCutoff(minutes));
+    return Number(result.changes);
+  } catch (err) {
+    console.error("[sqliteDb] closeIdleVisits failed:", err);
+    return 0;
+  }
+}
+
+export function getMemberVisitCount(
+  memberId: string,
+  days: number = 30,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const row = db
+      .prepare("SELECT COUNT(*) as c FROM visits WHERE member_id = ? AND checked_in_at >= ?")
+      .get(memberId, cutoff) as { c: number };
+    return row.c;
+  } catch (err) {
+    console.error("[sqliteDb] getMemberVisitCount failed:", err);
+    return 0;
+  }
+}
+
+export function getMemberVisits(
+  memberId: string,
+  limit: number = 20,
+  tenantId: string = DEFAULT_TENANT_ID
+): DbVisit[] {
+  try {
+    const db = getDatabase(tenantId);
+    return db
+      .prepare(
+        "SELECT * FROM visits WHERE member_id = ? ORDER BY checked_in_at DESC LIMIT ?"
+      )
+      .all(memberId, limit) as unknown as DbVisit[];
+  } catch (err) {
+    console.error("[sqliteDb] getMemberVisits failed:", err);
+    return [];
+  }
+}
+
+export function getVisitIntervalsSince(
+  since: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): Array<{ checked_in_at: string; checked_out_at: string | null }> {
+  try {
+    const db = getDatabase(tenantId);
+    return db
+      .prepare(
+        `SELECT checked_in_at, checked_out_at FROM visits
+         WHERE checked_in_at >= ?
+         ORDER BY checked_in_at ASC`
+      )
+      .all(since) as Array<{
+      checked_in_at: string;
+      checked_out_at: string | null;
+    }>;
+  } catch (err) {
+    console.error("[sqliteDb] getVisitIntervalsSince failed:", err);
+    return [];
+  }
+}
+
+export function getRecentVisits(
+  limit: number = 50,
+  tenantId: string = DEFAULT_TENANT_ID
+): VisitWithMember[] {
+  try {
+    const db = getDatabase(tenantId);
+    return db
+      .prepare(
+        `SELECT v.*, m.member_code, m.full_name
+         FROM visits v JOIN members m ON m.id = v.member_id
+         ORDER BY v.checked_in_at DESC LIMIT ?`
+      )
+      .all(limit) as unknown as VisitWithMember[];
+  } catch (err) {
+    console.error("[sqliteDb] getRecentVisits failed:", err);
+    return [];
+  }
+}
+
+export function closeStaleVisits(
+  hours: number = STALE_VISIT_HOURS,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        "UPDATE visits SET checked_out_at = ? WHERE checked_out_at IS NULL AND checked_in_at < ?"
+      )
+      .run(new Date().toISOString(), staleVisitCutoff(hours));
+    return Number(result.changes);
+  } catch (err) {
+    console.error("[sqliteDb] closeStaleVisits failed:", err);
+    return 0;
   }
 }
 

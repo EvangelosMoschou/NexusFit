@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
 import { ADMIN_COOKIE } from "@/lib/adminAuth";
-import { SECURE_COOKIES } from "@/lib/cookies";
+import { STAFF_COOKIE, SECURE_COOKIES } from "@/lib/cookies";
 
-// Clears the admin session cookie, which the client can not do itself
-// (it is HttpOnly).
+// Clears both the legacy admin cookie and the staff-account cookie, which the
+// client cannot do itself (they are HttpOnly).
 export async function POST() {
   const res = NextResponse.json({ success: true });
-  res.cookies.set({
-    name: ADMIN_COOKIE,
-    value: "",
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-    secure: SECURE_COOKIES,
-    maxAge: 0,
-  });
+  for (const name of [ADMIN_COOKIE, STAFF_COOKIE]) {
+    res.cookies.set({
+      name,
+      value: "",
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: SECURE_COOKIES,
+      maxAge: 0,
+    });
+  }
   return res;
 }

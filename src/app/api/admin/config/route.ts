@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
 import { adminRoute } from "@/lib/api";
+import { writeAudit } from "@/lib/audit";
 
 export const GET = adminRoute(
   async (_req, tenantId) =>
@@ -8,7 +9,7 @@ export const GET = adminRoute(
   "Failed to load config"
 );
 
-export const POST = adminRoute(async (req: NextRequest, tenantId: string) => {
+export const POST = adminRoute(async (req: NextRequest, tenantId: string, staff) => {
   const body = await req.json();
   const { config } = body;
 
@@ -17,5 +18,10 @@ export const POST = adminRoute(async (req: NextRequest, tenantId: string) => {
   }
 
   const updated = await getRepository(tenantId).updateGymConfig(config);
+  if (updated) {
+    await writeAudit(req, tenantId, staff, "config.update", "config", null, {
+      fields: Object.keys(config),
+    });
+  }
   return NextResponse.json({ success: updated });
 }, "Failed to update config");

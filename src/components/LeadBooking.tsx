@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { useGymConfig } from "@/lib/useGymConfig";
-import { MapPin, Mail, Clock } from "lucide-react";
+import { MapPin, Mail, Clock, Phone, Navigation } from "lucide-react";
 import { postJson } from "@/lib/apiClient";
+import { openDirections } from "@/lib/maps";
 
 interface LeadBookingProps {
   preselectedPlan?: string;
@@ -53,7 +54,7 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
           <div className="md:col-span-5 space-y-6">
             <div>
               <span className="text-[11px] font-mono uppercase text-accent font-bold">
-                Front Desk & Location
+                Γραμματεία & Τοποθεσία
               </span>
               <h2 className="text-xl sm:text-2xl font-bold text-primary tracking-tight mt-1">
                 Επίσκεψη & Γραμματεία
@@ -68,9 +69,38 @@ export const LeadBooking: React.FC<LeadBookingProps> = ({ preselectedPlan, onOpe
                 <MapPin className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                 <div>
                   <div className="font-semibold text-primary">Διεύθυνση</div>
-                  <div className="text-secondary text-[11px]">{config.address}</div>
+                  <div className="text-secondary text-[11px]">
+                    {config.address}, {config.city}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openDirections(
+                        config.latitude,
+                        config.longitude,
+                        `${config.address}, ${config.city}`
+                      )
+                    }
+                    className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-accent hover:text-primary"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    Πώς θα έρθω
+                  </button>
                 </div>
               </div>
+
+              {config.phone && (
+                <a
+                  href={`tel:${config.phone.replace(/[^\d+]/g, "")}`}
+                  className="flex items-start gap-3 p-3 rounded bg-background border border-border hover:border-border-light transition-colors"
+                >
+                  <Phone className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-primary">Τηλέφωνο</div>
+                    <div className="text-secondary text-[11px]">{config.phone}</div>
+                  </div>
+                </a>
+              )}
 
               <div className="flex items-start gap-3 p-3 rounded bg-background border border-border">
                 <Clock className="w-4 h-4 text-accent shrink-0 mt-0.5" />

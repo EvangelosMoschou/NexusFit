@@ -13,6 +13,7 @@ import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
 import { FAQ } from "@/components/FAQ";
 import { Exercises } from "@/components/Exercises";
+import { GymMap } from "@/components/GymMap";
 import { LeadBooking } from "@/components/LeadBooking";
 import { Footer } from "@/components/Footer";
 import { CookieBanner } from "@/components/CookieBanner";
@@ -303,6 +304,9 @@ export default function Home() {
 
         {/* Exercise library */}
         <Exercises />
+
+        {/* Location & map */}
+        <GymMap />
 
         {/* Contact & Inquiries Form */}
         <LeadBooking 

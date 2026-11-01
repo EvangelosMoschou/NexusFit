@@ -1,9 +1,11 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { clearConsent } from "@/lib/consent";
 import { scrollToSection } from "@/lib/scroll";
+import { openDirections } from "@/lib/maps";
 
 interface FooterProps {
   onOpenLegal: (type: "tos" | "privacy") => void;
@@ -38,7 +40,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
               <li><a href="#pricing" onClick={(e) => { e.preventDefault(); scrollToSection("pricing"); }} className="hover:text-primary transition-colors">Συνδρομές & Ψηφιακό Πρόσθετο</a></li>
               <li><a href="#gallery" onClick={(e) => { e.preventDefault(); scrollToSection("gallery"); }} className="hover:text-primary transition-colors">Φωτογραφίες</a></li>
               <li><a href="#exercises" onClick={(e) => { e.preventDefault(); scrollToSection("exercises"); }} className="hover:text-primary transition-colors">Ασκήσεις & Τεχνική</a></li>
+              <li><a href="#location" onClick={(e) => { e.preventDefault(); scrollToSection("location"); }} className="hover:text-primary transition-colors">Τοποθεσία & Χάρτης</a></li>
               <li><a href="#contact" onClick={(e) => { e.preventDefault(); scrollToSection("contact"); }} className="hover:text-primary transition-colors">Ηλεκτρονική Εγγραφή</a></li>
+              <li><Link href="/checkin" className="hover:text-primary transition-colors">Είσοδος μελών</Link></li>
+              <li><Link href="/trainer" className="hover:text-primary transition-colors">Πρόσβαση προσωπικού</Link></li>
             </ul>
           </div>
 
@@ -49,7 +54,25 @@ export const Footer: React.FC<FooterProps> = ({ onOpenLegal }) => {
               <div>Δευτέρα - Παρασκευή: {config.workingHours.weekdays}</div>
               <div>Σάββατο: {config.workingHours.saturday}</div>
               <div>Κυριακή: {config.workingHours.sunday}</div>
-              <div className="pt-1 text-secondary">{config.address}</div>
+              <div className="pt-1 text-secondary">
+                {config.address}, {config.city}
+                {config.phone ? ` · ${config.phone}` : ""}
+              </div>
+              {config.address ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    openDirections(
+                      config.latitude,
+                      config.longitude,
+                      `${config.address}, ${config.city}`
+                    )
+                  }
+                  className="inline-block pt-1 text-accent hover:text-primary transition-colors text-left"
+                >
+                  Πώς θα έρθω →
+                </button>
+              ) : null}
             </div>
           </div>
 

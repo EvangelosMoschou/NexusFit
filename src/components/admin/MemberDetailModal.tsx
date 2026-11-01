@@ -25,9 +25,17 @@ interface PlanSummary {
   createdAt?: string;
 }
 
+interface VisitSummary {
+  id: string;
+  checked_in_at: string;
+  checked_out_at: string | null;
+}
+
 interface MemberDetailModalProps {
   memberId: string;
   onClose: () => void;
+  // The trainer area reuses this modal with its permission-guarded endpoint.
+  endpoint?: string;
 }
 
 function formatDate(value: string | undefined): string {
@@ -36,9 +44,22 @@ function formatDate(value: string | undefined): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("el-GR");
 }
 
-export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ memberId, onClose }) => {
+function formatTime(value: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleTimeString("el-GR", { hour: "2-digit", minute: "2-digit" });
+}
+
+export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
+  memberId,
+  onClose,
+  endpoint = "/api/admin/members",
+}) => {
   const [member, setMember] = useState<MemberDetail | null>(null);
   const [plans, setPlans] = useState<PlanSummary[]>([]);
+  const [visits, setVisits] = useState<VisitSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,13 +70,14 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ memberId, 
 
     const load = async () => {
       try {
-        const res = await fetch(`/api/admin/members?id=${encodeURIComponent(memberId)}`);
+        const res = await fetch(`${endpoint}?id=${encodeURIComponent(memberId)}`);
         const data = await res.json();
         if (cancelled) return;
 
         if (res.ok && data.success && data.member) {
           setMember(data.member);
           setPlans(Array.isArray(data.plans) ? data.plans : []);
+          setVisits(Array.isArray(data.visits) ? data.visits : []);
         } else {
           setError("Δεν ήταν δυνατή η φόρτωση του μέλους.");
         }
@@ -70,7 +92,7 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ memberId, 
     return () => {
       cancelled = true;
     };
-  }, [memberId]);
+  }, [memberId, endpoint]);
 
   const active = member?.subscription_status === "active";
 
@@ -187,6 +209,38 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ memberId, 
                 Οι καταγραφές βάρους αποθηκεύονται τοπικά στη συσκευή του μέλους και δεν
                 εμφανίζονται εδώ.
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-primary">Πρόσφατες Παρουσίες</h3>
+                <span className="text-[10px] font-mono text-tertiary">
+                  {visits.length} καταγραφές
+                </span>
+              </div>
+
+              {visits.length === 0 ? (
+                <div className="p-4 rounded-lg bg-surface border border-border text-[11px] text-secondary">
+                  Δεν υπάρχουν καταγραφές παρουσίας.
+                </div>
+              ) : (
+                <div className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+                  {visits.map((visit) => (
+                    <div
+                      key={visit.id}
+                      className="p-3 flex items-center justify-between gap-2 text-[11px]"
+                    >
+                      <span className="text-primary font-mono">
+                        {formatDate(visit.checked_in_at)}
+                      </span>
+                      <span className="text-tertiary font-mono">
+                        {formatTime(visit.checked_in_at)} →{" "}
+                        {visit.checked_out_at ? formatTime(visit.checked_out_at) : "μέσα"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}

@@ -14,13 +14,26 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
   }
 
-  const data = await getRepository(tenantId).exportMember(memberId);
+  const repo = getRepository(tenantId);
+  const data = await repo.exportMember(memberId);
   if (!data.member) {
     return NextResponse.json({ success: false, error: "Member not found" }, { status: 404 });
   }
+  const [visits, notifications, accessEvents] = await Promise.all([
+    repo.getMemberVisits(memberId, 1000),
+    repo.listMemberNotifications(memberId, 1000),
+    repo.listMemberAccessEvents(memberId, 1000),
+  ]);
 
   return NextResponse.json(
-    { success: true, exportedAt: new Date().toISOString(), ...data },
+    {
+      success: true,
+      exportedAt: new Date().toISOString(),
+      ...data,
+      visits,
+      notifications,
+      accessEvents,
+    },
     {
       headers: {
         "Content-Disposition": `attachment; filename="nexusfit-data-${memberId}.json"`,

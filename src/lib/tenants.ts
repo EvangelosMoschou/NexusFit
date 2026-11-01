@@ -11,6 +11,8 @@ export interface Tenant {
   name: string;
   domains: string[];
   adminPasswordHash: string;
+  // Read-only staff role (trainer). Empty means trainer login is disabled.
+  trainerPasswordHash: string;
   createdAt: string;
 }
 
@@ -50,6 +52,20 @@ export function adminSeedPassword(
   return nodeEnv === "production" ? null : "admin";
 }
 
+// Legacy shared trainer password. Named staff trainer accounts live in each
+// tenant's staff_accounts table; this fallback is optional in production.
+export const DEMO_TRAINER_PASSWORD = "trainer1";
+
+export function trainerSeedPassword(
+  nodeEnv: string | undefined,
+  trainerPassword: string | undefined,
+  demoMode = false
+): string | null {
+  if (trainerPassword) return trainerPassword;
+  if (demoMode) return DEMO_TRAINER_PASSWORD;
+  return nodeEnv === "production" ? null : DEMO_TRAINER_PASSWORD;
+}
+
 export function getRegistry(): DatabaseSync {
   if (registry) return registry;
 
@@ -63,9 +79,16 @@ export function getRegistry(): DatabaseSync {
       name TEXT NOT NULL,
       domains TEXT NOT NULL,
       admin_password_hash TEXT NOT NULL,
+      trainer_password_hash TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     );
   `);
+
+  // Upgrade registries created before the trainer role existed.
+  const columns = db.prepare("PRAGMA table_info(tenants)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "trainer_password_hash")) {
+    db.exec("ALTER TABLE tenants ADD COLUMN trainer_password_hash TEXT NOT NULL DEFAULT ''");
+  }
 
   // Seed the default tenant when its row is missing — not merely when the table
   // is empty. An operator may have created other tenants first (via
@@ -79,13 +102,19 @@ export function getRegistry(): DatabaseSync {
       isDemoMode()
     );
     if (seedPassword) {
+      const trainerPassword = trainerSeedPassword(
+        process.env.NODE_ENV,
+        process.env.TRAINER_PASSWORD,
+        isDemoMode()
+      );
       db.prepare(
-        "INSERT INTO tenants (id, name, domains, admin_password_hash, created_at) VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
       ).run(
         DEFAULT_TENANT_ID,
         defaultGymConfig.gymName,
         JSON.stringify([]),
         hashPinSync(seedPassword),
+        trainerPassword ? hashPinSync(trainerPassword) : "",
         new Date().toISOString()
       );
     } else {
@@ -113,6 +142,7 @@ function rowToTenant(row: Record<string, unknown>): Tenant {
     name: String(row.name),
     domains,
     adminPasswordHash: String(row.admin_password_hash),
+    trainerPasswordHash: String(row.trainer_password_hash ?? ""),
     createdAt: String(row.created_at),
   };
 }
@@ -173,6 +203,7 @@ export interface CreateTenantInput {
   name: string;
   domains?: string[];
   adminPassword: string;
+  trainerPassword?: string;
 }
 
 // Creates a tenant. Fails if the id or any of its domains is already taken.
@@ -191,9 +222,16 @@ export function createTenant(input: CreateTenantInput): boolean {
   try {
     getRegistry()
       .prepare(
-        "INSERT INTO tenants (id, name, domains, admin_password_hash, created_at) VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
       )
-      .run(id, input.name.trim(), JSON.stringify(domains), hashPinSync(input.adminPassword), new Date().toISOString());
+      .run(
+        id,
+        input.name.trim(),
+        JSON.stringify(domains),
+        hashPinSync(input.adminPassword),
+        input.trainerPassword ? hashPinSync(input.trainerPassword) : "",
+        new Date().toISOString()
+      );
 
     domainCache = null;
     return true;

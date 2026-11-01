@@ -4,6 +4,7 @@ import React from "react";
 import { useGymConfig } from "@/lib/useGymConfig";
 import { MapPin, Dumbbell, Users, Clock, Award } from "lucide-react";
 import { BackgroundDecor } from "@/components/BackgroundDecor";
+import { OccupancyBadge } from "@/components/OccupancyBadge";
 
 interface HeroProps {
   onOpenContact: () => void;
@@ -21,9 +22,12 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
           
           {/* Left Column: Athletic Presentation */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-elevated border border-border text-xs font-semibold text-secondary">
-              <MapPin className="w-3.5 h-3.5 text-accent" />
-              <span>{config.address}, {config.city}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-elevated border border-border text-xs font-semibold text-secondary">
+                <MapPin className="w-3.5 h-3.5 text-accent" />
+                <span>{config.address}, {config.city}</span>
+              </div>
+              <OccupancyBadge />
             </div>
 
             <h1 className="text-3xl sm:text-5xl font-extrabold text-primary tracking-tight leading-[1.2]">

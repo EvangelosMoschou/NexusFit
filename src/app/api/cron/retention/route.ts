@@ -28,9 +28,26 @@ export async function POST(req: NextRequest) {
   // Retention applies to every tenant, not just the default one.
   const tenants = listTenants();
   let removed = 0;
+  let visitsClosed = 0;
+  let idleVisitsClosed = 0;
+  let auditPurged = 0;
+  let accessEventsPurged = 0;
   for (const tenant of tenants) {
-    removed += await getRepository(tenant.id).purgeExpiredLeads();
+    const repo = getRepository(tenant.id);
+    removed += await repo.purgeExpiredLeads();
+    idleVisitsClosed += await repo.closeIdleVisits();
+    visitsClosed += await repo.closeStaleVisits();
+    auditPurged += await repo.purgeAudit(365);
+    accessEventsPurged += await repo.purgeAccessEvents(365);
   }
 
-  return NextResponse.json({ success: true, removed, tenants: tenants.length });
+  return NextResponse.json({
+    success: true,
+    removed,
+    visitsClosed,
+    idleVisitsClosed,
+    auditPurged,
+    accessEventsPurged,
+    tenants: tenants.length,
+  });
 }

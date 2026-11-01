@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
 import { adminRoute } from "@/lib/api";
+import { writeAudit } from "@/lib/audit";
 
 const MAX_BYTES = 4 * 1024 * 1024;
 
@@ -36,7 +37,7 @@ export const GET = adminRoute(async (_req, tenantId) => {
   });
 }, "Failed to fetch media");
 
-export const POST = adminRoute(async (req: NextRequest, tenantId: string) => {
+export const POST = adminRoute(async (req: NextRequest, tenantId: string, staff) => {
   const form = await req.formData();
   const file = form.get("file");
 
@@ -86,18 +87,26 @@ export const POST = adminRoute(async (req: NextRequest, tenantId: string) => {
     );
   }
 
+  await writeAudit(req, tenantId, staff, "media.upload", "media", saved.id, {
+    mime: saved.mime,
+    size: saved.size,
+  });
+
   return NextResponse.json(
     { success: true, media: { ...saved, url: `/api/media/${saved.id}` } },
     { status: 201 }
   );
 }, "Failed to upload media");
 
-export const DELETE = adminRoute(async (req: NextRequest, tenantId: string) => {
+export const DELETE = adminRoute(async (req: NextRequest, tenantId: string, staff) => {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) {
     return NextResponse.json({ success: false, error: "Missing media ID" }, { status: 400 });
   }
 
   const deleted = await getRepository(tenantId).deleteMedia(id);
+  if (deleted) {
+    await writeAudit(req, tenantId, staff, "media.delete", "media", id);
+  }
   return NextResponse.json({ success: deleted });
 }, "Failed to delete media");

@@ -48,6 +48,10 @@ export function verifyMemberSession(value: string | undefined, tenantId: string)
   if (!timingSafeEqual(provided, expected)) return null;
 
   const payload = Buffer.from(encoded, "base64url").toString("utf8");
+  // Tenant ids never contain "@", so this can never be a member payload. It
+  // stops staff/trainer tokens from being interpreted as a member session.
+  if (payload.startsWith("@")) return null;
+
   const colon = payload.indexOf(":");
   if (colon <= 0) return null;
 
@@ -56,4 +60,117 @@ export function verifyMemberSession(value: string | undefined, tenantId: string)
   if (tokenTenant !== tenantId || !memberId) return null;
 
   return memberId;
+}
+
+// Trainer sessions are a separate, tenant-bound role. They use the same secret
+// but a distinct payload prefix, so a member cookie can never act as a trainer.
+const TRAINER_ROLE = "@trainer";
+
+// Binding the signature to the current trainer password hash means rotating the
+// password invalidates every outstanding trainer cookie immediately.
+function trainerSessionKey(passwordHash: string): string | null {
+  const secret = memberSessionSecret();
+  if (!secret || !passwordHash) return null;
+  return `${secret}:${passwordHash}`;
+}
+
+export function signTrainerSession(
+  tenantId: string,
+  passwordHash: string
+): string | null {
+  const key = trainerSessionKey(passwordHash);
+  if (!key) return null;
+
+  const encoded = Buffer.from(`${TRAINER_ROLE}:${tenantId}`, "utf8").toString("base64url");
+  return `${encoded}.${sign(encoded, key)}`;
+}
+
+export function verifyTrainerSession(
+  value: string | undefined,
+  tenantId: string,
+  passwordHash: string
+): boolean {
+  const key = trainerSessionKey(passwordHash);
+  if (!key || !value) return false;
+
+  const separator = value.lastIndexOf(".");
+  if (separator <= 0) return false;
+
+  const encoded = value.slice(0, separator);
+  const provided = Buffer.from(value.slice(separator + 1), "hex");
+  const expected = Buffer.from(sign(encoded, key), "hex");
+
+  if (provided.length !== expected.length) return false;
+  if (!timingSafeEqual(provided, expected)) return false;
+
+  const payload = Buffer.from(encoded, "base64url").toString("utf8");
+  return payload === `${TRAINER_ROLE}:${tenantId}`;
+}
+
+// Staff sessions are per-account and bound to the account's current password
+// hash. The account id is embedded so the server can load the row, re-check
+// active/role/permissions, and verify the signature with the current hash.
+const STAFF_ROLE = "@staff";
+
+function staffSessionKey(passwordHash: string): string | null {
+  const secret = memberSessionSecret();
+  if (!secret || !passwordHash) return null;
+  return `${secret}:${passwordHash}`;
+}
+
+export function signStaffSession(
+  tenantId: string,
+  staffId: string,
+  passwordHash: string
+): string | null {
+  const key = staffSessionKey(passwordHash);
+  if (!key) return null;
+
+  const encoded = Buffer.from(
+    `${STAFF_ROLE}:${tenantId}:${staffId}`,
+    "utf8"
+  ).toString("base64url");
+  return `${encoded}.${sign(encoded, key)}`;
+}
+
+export function parseStaffSession(
+  value: string | undefined
+): { tenantId: string; staffId: string } | null {
+  if (!value) return null;
+  const separator = value.lastIndexOf(".");
+  if (separator <= 0) return null;
+
+  try {
+    const payload = Buffer.from(value.slice(0, separator), "base64url").toString("utf8");
+    const parts = payload.split(":");
+    if (parts.length !== 3 || parts[0] !== STAFF_ROLE) return null;
+    const [, tenantId, staffId] = parts;
+    if (!tenantId || !staffId) return null;
+    return { tenantId, staffId };
+  } catch {
+    return null;
+  }
+}
+
+export function verifyStaffSession(
+  value: string | undefined,
+  tenantId: string,
+  staffId: string,
+  passwordHash: string
+): boolean {
+  const key = staffSessionKey(passwordHash);
+  if (!key || !value) return false;
+
+  const separator = value.lastIndexOf(".");
+  if (separator <= 0) return false;
+
+  const encoded = value.slice(0, separator);
+  const provided = Buffer.from(value.slice(separator + 1), "hex");
+  const expected = Buffer.from(sign(encoded, key), "hex");
+
+  if (provided.length !== expected.length) return false;
+  if (!timingSafeEqual(provided, expected)) return false;
+
+  const payload = Buffer.from(encoded, "base64url").toString("utf8");
+  return payload === `${STAFF_ROLE}:${tenantId}:${staffId}`;
 }
