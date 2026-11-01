@@ -2,7 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
 import { defaultGymConfig } from "@/config/gymConfig";
-import { hashPin } from "./passwordHash";
+import { hashPinSync } from "./passwordHash";
 import { DEFAULT_TENANT_ID, getDataDir } from "./sqliteDb";
 import { isDemoMode } from "./flags";
 
@@ -85,7 +85,7 @@ export function getRegistry(): DatabaseSync {
         DEFAULT_TENANT_ID,
         defaultGymConfig.gymName,
         JSON.stringify([]),
-        hashPin(seedPassword),
+        hashPinSync(seedPassword),
         new Date().toISOString()
       );
     } else {
@@ -193,7 +193,7 @@ export function createTenant(input: CreateTenantInput): boolean {
       .prepare(
         "INSERT INTO tenants (id, name, domains, admin_password_hash, created_at) VALUES (?, ?, ?, ?, ?)"
       )
-      .run(id, input.name.trim(), JSON.stringify(domains), hashPin(input.adminPassword), new Date().toISOString());
+      .run(id, input.name.trim(), JSON.stringify(domains), hashPinSync(input.adminPassword), new Date().toISOString());
 
     domainCache = null;
     return true;

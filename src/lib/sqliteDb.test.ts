@@ -56,30 +56,30 @@ describe("sqliteDb", () => {
     expect(row.count).toBeGreaterThanOrEqual(2);
   });
 
-  it("authenticates a seeded demo member with its PIN", () => {
-    const member = getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+  it("authenticates a seeded demo member with its PIN", async () => {
+    const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
     expect(member?.memberCode).toBe("NX-8492");
     expect(member?.subscription.hasAIAccess).toBe(true);
   });
 
-  it("rejects an invalid PIN", () => {
-    expect(getMemberByCredentials("NX-8492", "0000")).toBeNull();
-    expect(getMemberByCredentials("unknown@example.com", "1234")).toBeNull();
+  it("rejects an invalid PIN", async () => {
+    expect(await getMemberByCredentials("NX-8492", "0000")).toBeNull();
+    expect(await getMemberByCredentials("unknown@example.com", "1234")).toBeNull();
   });
 
-  it("persists a workout plan and returns it on the next login", () => {
-    const member = getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+  it("persists a workout plan and returns it on the next login", async () => {
+    const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
     expect(member).not.toBeNull();
 
     const planId = `plan-test-${Date.now()}`;
     expect(saveWorkoutPlanToDb(member!.id, samplePlan(planId))).toBe(true);
 
-    const refreshed = getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+    const refreshed = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
     expect(refreshed?.savedPlans.some((p) => p.id === planId)).toBe(true);
   });
 
-  it("rejects invalid plan payloads", () => {
-    const member = getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+  it("rejects invalid plan payloads", async () => {
+    const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
     expect(saveWorkoutPlanToDb(member!.id, { ...samplePlan(""), splitName: "" } as GeneratedWorkoutPlan)).toBe(false);
   });
 
@@ -91,11 +91,11 @@ describe("sqliteDb", () => {
     }
   });
 
-  it("upserts a new member (loginable) and deletes it again", () => {
+  it("upserts a new member (loginable) and deletes it again", async () => {
     const code = `NX-T${Date.now()}`;
     const email = `test-${Date.now()}@example.com`;
     expect(
-      upsertMemberAdmin({
+      await upsertMemberAdmin({
         memberCode: code,
         fullName: "Test Member",
         email,
@@ -109,15 +109,15 @@ describe("sqliteDb", () => {
 
     const created = getAllMembersAdmin().find((m) => m.member_code === code);
     expect(created?.full_name).toBe("Test Member");
-    expect(getMemberByCredentials(code, "4321")).not.toBeNull();
+    expect(await getMemberByCredentials(code, "4321")).not.toBeNull();
 
     expect(deleteMemberAdmin(created!.id)).toBe(true);
     expect(getAllMembersAdmin().some((m) => m.member_code === code)).toBe(false);
   });
 
-  it("rejects invalid member payloads", () => {
+  it("rejects invalid member payloads", async () => {
     expect(
-      upsertMemberAdmin({
+      await upsertMemberAdmin({
         memberCode: "NX-BAD",
         fullName: "X",
         email: "not-an-email",
@@ -157,8 +157,8 @@ describe("sqliteDb", () => {
     expect(getSavedGymConfig().gymName).toBe(initial.gymName);
   });
 
-  it("exports a member's data without exposing the pin hash", () => {
-    const member = getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+  it("exports a member's data without exposing the pin hash", async () => {
+    const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
     expect(member).not.toBeNull();
 
     const exported = exportMemberData(member!.id);
@@ -214,12 +214,12 @@ describe("sqliteDb", () => {
     expect(deleteLeadsByEmail("nobody@example.com")).toBe(0);
   });
 
-  it("erases a member together with their plans and lead inquiries", () => {
+  it("erases a member together with their plans and lead inquiries", async () => {
     const code = `NX-ERA-${Date.now()}`;
     const email = `erase-${Date.now()}@example.com`;
 
     expect(
-      upsertMemberAdmin({
+      await upsertMemberAdmin({
         memberCode: code,
         fullName: "Erase Test",
         email,

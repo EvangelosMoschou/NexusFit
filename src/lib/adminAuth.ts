@@ -22,7 +22,10 @@ export function adminCredentialsConfigured(tenantId: string): boolean {
   return getTenant(tenantId) !== null;
 }
 
-export function verifyAdminPassword(tenantId: string, password: string): boolean {
+export async function verifyAdminPassword(
+  tenantId: string,
+  password: string
+): Promise<boolean> {
   const tenant = getTenant(tenantId);
   if (!tenant) return false;
   return verifyPin(password, tenant.adminPasswordHash);

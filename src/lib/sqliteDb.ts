@@ -3,7 +3,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { GeneratedWorkoutPlan, GymConfig } from "@/types";
 import { defaultGymConfig } from "@/config/gymConfig";
-import { hashPin, verifyPin } from "./passwordHash";
+import { hashPin, hashPinSync, verifyPin } from "./passwordHash";
 import { envFlag, isDemoMode } from "./flags";
 
 export interface DbMember {
@@ -143,7 +143,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
     const updateStmt = db.prepare("UPDATE members SET pin_code = ? WHERE id = ?");
     for (const row of rows) {
       if (typeof row.pin_code === "string" && !row.pin_code.startsWith("scrypt:")) {
-        updateStmt.run(hashPin(row.pin_code), row.id);
+        updateStmt.run(hashPinSync(row.pin_code), row.id);
       }
     }
   } catch (err) {
@@ -177,7 +177,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
       "NX-8492",
       "Γεώργιος Παπαδόπουλος",
       "george@nexusathletics.gr",
-      hashPin("1234"),
+      hashPinSync("1234"),
       "Πλήρης Πρόσβαση & Ψηφιακός Βοηθός (59€/μήνα)",
       1,
       "active",
@@ -190,7 +190,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
       "NX-3109",
       "Μαρία Κωνσταντίνου",
       "maria@nexusathletics.gr",
-      hashPin("1234"),
+      hashPinSync("1234"),
       "Συνδρομή Πλήρους Πρόσβασης (45€/μήνα)",
       0,
       "active",
@@ -219,7 +219,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
 }
 
 // 1. Authenticate Member
-export function getMemberByCredentials(
+export async function getMemberByCredentials(
   identifier: string,
   pin: string,
   tenantId: string = DEFAULT_TENANT_ID
@@ -234,7 +234,7 @@ export function getMemberByCredentials(
   `);
 
   const member = stmt.get(cleanId, cleanId) as DbMember | undefined;
-  if (!member || !verifyPin(cleanPin, member.pin_code)) return null;
+  if (!member || !(await verifyPin(cleanPin, member.pin_code))) return null;
 
   // Retrieve Saved Plans
   const plansStmt = db.prepare(`
@@ -413,7 +413,7 @@ export function getAllMembersAdmin(tenantId: string = DEFAULT_TENANT_ID): DbAdmi
 }
 
 // 4C. Create or Update Member
-export function upsertMemberAdmin(member: {
+export async function upsertMemberAdmin(member: {
   id?: string;
   memberCode: string;
   fullName: string;
@@ -425,7 +425,7 @@ export function upsertMemberAdmin(member: {
   expiresAt: string;
 },
   tenantId: string = DEFAULT_TENANT_ID
-): boolean {
+): Promise<boolean> {
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const fullName = typeof member.fullName === "string" ? member.fullName.trim() : "";
   const memberCode = typeof member.memberCode === "string" ? member.memberCode.trim() : "";
@@ -462,7 +462,7 @@ export function upsertMemberAdmin(member: {
       member.memberCode.toUpperCase().trim(),
       member.fullName.trim(),
       member.email.toLowerCase().trim(),
-      hashPin(member.pinCode.trim()),
+      await hashPin(member.pinCode.trim()),
       member.tierName.trim(),
       member.hasAIAccess ? 1 : 0,
       member.subscriptionStatus,

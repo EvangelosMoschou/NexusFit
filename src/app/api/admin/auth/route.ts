@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { password } = body;
 
-    if (!password || !verifyAdminPassword(tenantId, password)) {
+    if (!password || !(await verifyAdminPassword(tenantId, password))) {
       return NextResponse.json(
         { success: false, error: "Λανθασμένος κωδικός διαχειριστή." },
         { status: 401 }

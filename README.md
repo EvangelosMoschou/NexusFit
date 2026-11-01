@@ -239,7 +239,7 @@ NexusFit/
 | `apiClient.ts` | Browser fetch wrapper that normalises the `{ success, error, message }` envelope. |
 | `format.ts` | Small shared formatting helpers. |
 | `useEscapeKey.ts` | Escape-key dismissal hook used by modals. |
-| `passwordHash.ts` | scrypt hash/verify with `timingSafeEqual`. |
+| `passwordHash.ts` | Async scrypt hash/verify with `timingSafeEqual` (sync variants only for seeding). |
 | `rateLimit.ts` | In-memory fixed-window rate limiter + `getClientIp()`. |
 | `auth.ts` | Client member session model (localStorage + cookie). |
 | `storage.ts` | Client localStorage: saved plans and progressive-overload exercise logs. |
@@ -337,7 +337,7 @@ schema and seeds defaults on first use.
 | `site_config` | `key` (PK), `value`, `updated_at` | The white-label config, stored under key `gym_config`. |
 
 **Guarantees**
-- **PIN hashing** — `passwordHash.ts` uses `scrypt` with a per-hash salt and compares
+- **PIN hashing** — `passwordHash.ts` uses async `scrypt` with a per-hash salt and compares
   with `timingSafeEqual`. A one-time idempotent migration re-hashes any legacy
   plaintext PINs found in the table.
 - **PINs never leave the server** — `getAllMembersAdmin()` selects an explicit column
@@ -636,9 +636,9 @@ persists data in `localStorage`; it deliberately has no server-side functionalit
   than a shared schema with row-level security. Simple and safe, but it does not
   support cross-gym reporting; a shared Postgres schema with RLS would be the
   path for that.
-- **Synchronous `scrypt`** — PIN/admin-password hashing blocks the event loop, so
-  in a shared process one gym's login burst briefly stalls the others. Async
-  `scrypt` behind the `Repository` boundary is the remaining task.
+- **One-time synchronous hashing** — login verification and member creation use
+  async `scrypt`; the initial demo/tenant seed and the legacy-PIN migration still
+  hash synchronously because they run before requests are served.
 - **In-memory rate limiting** — resets on restart and is per-process, so it does
   not hold under a PM2 cluster or multiple containers. The Docker setup is
   single-instance by design.
