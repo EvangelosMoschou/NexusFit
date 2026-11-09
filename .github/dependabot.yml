@@ -42,6 +42,26 @@ updates:
       semver-major-days: 14
       semver-minor-days: 7
       semver-patch-days: 3
+    # Major bumps the toolchain cannot take yet. Each one makes `npm install`
+    # fail (or resolve a tree the linter cannot use), which turns every preview
+    # deployment on the branch red. Remove an entry as soon as the blocker
+    # clears; minor and patch updates are unaffected.
+    ignore:
+      # eslint 10: eslint-plugin-jsx-a11y is the blocker. Its latest release
+      # (6.10.2 — the version we and eslint-config-next both depend on) still
+      # declares peerDependencies.eslint "^3 || ... || ^9", so installing
+      # eslint 10 fails with ERESOLVE. Re-enable when jsx-a11y ships 10.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # typescript 7: typescript-eslint (pulled in by eslint-config-next)
+      # declares peerDependencies.typescript ">=4.8.4 <6.1.0", so TS 7 is
+      # outside the range the lint stack supports.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # @types/node must track the runtime, and `engines` pins node 22.x.
+      # @types/node 26 would describe APIs Node 22 does not have.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       # These move as a unit: a Next.js bump frequently requires matching React
       # and @types versions, and eslint-config-next must track Next.js exactly.
