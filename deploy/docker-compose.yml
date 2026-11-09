@@ -78,7 +78,11 @@ services:
 
   # GDPR data-retention job: deletes lead inquiries older than the policy window
   retention_cron:
-    image: alpine:3.20
+    # Pinned to a supported Alpine line: 3.20 reached end-of-life on 2026-04-01,
+    # so its package repos are frozen and `apk add curl` below would never pick
+    # up a security fix. Bump this with the other images; see
+    # https://endoflife.date/alpine-linux
+    image: alpine:3.24
     container_name: nexusfit_retention
     restart: unless-stopped
     depends_on:
