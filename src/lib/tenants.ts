@@ -66,6 +66,81 @@ export function trainerSeedPassword(
   return nodeEnv === "production" ? null : DEMO_TRAINER_PASSWORD;
 }
 
+// How long the registry waits for a competing writer before failing. Matches the
+// tenant databases (getDatabase()); without it, workers that boot together fail
+// immediately with "database is locked" on the very first statement.
+const REGISTRY_BUSY_TIMEOUT_MS = 5000;
+
+// Adds the trainer_password_hash column to a registry created before the trainer
+// role existed. Two workers can both see the column missing and both ALTER, and
+// the second gets "duplicate column name" — which means the upgrade succeeded.
+// Any other error must still propagate.
+export function ensureTrainerPasswordColumn(db: DatabaseSync): void {
+  const hasColumn = (): boolean =>
+    (db.prepare("PRAGMA table_info(tenants)").all() as Array<{ name: string }>).some(
+      (column) => column.name === "trainer_password_hash"
+    );
+
+  if (hasColumn()) return;
+
+  try {
+    db.exec("ALTER TABLE tenants ADD COLUMN trainer_password_hash TEXT NOT NULL DEFAULT ''");
+  } catch (err) {
+    // Another process added it between the check and the ALTER.
+    if (!hasColumn()) throw err;
+  }
+}
+
+// Seeds the default tenant when its row is missing — not merely when the table
+// is empty. An operator may have created other tenants first (via
+// scripts/create-tenant.mjs), which would otherwise leave unmatched hosts
+// (localhost, the current single-gym deployment) with no tenant at all.
+//
+// Exported so its race-safety can be tested without real process concurrency:
+// PM2 cluster mode starts several workers that all run this at once.
+export function seedDefaultTenant(db: DatabaseSync): void {
+  const exists = (): boolean =>
+    Boolean(db.prepare("SELECT id FROM tenants WHERE id = ?").get(DEFAULT_TENANT_ID));
+
+  if (exists()) return;
+
+  const seedPassword = adminSeedPassword(
+    process.env.NODE_ENV,
+    process.env.ADMIN_PASSWORD,
+    isDemoMode()
+  );
+  if (!seedPassword) {
+    console.warn(
+      "[tenants] ADMIN_PASSWORD is not set; refusing to seed the default tenant. Set ADMIN_PASSWORD, or DEMO_MODE=1 for a demo deployment."
+    );
+    return;
+  }
+
+  const trainerPassword = trainerSeedPassword(
+    process.env.NODE_ENV,
+    process.env.TRAINER_PASSWORD,
+    isDemoMode()
+  );
+
+  try {
+    db.prepare(
+      "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(
+      DEFAULT_TENANT_ID,
+      defaultGymConfig.gymName,
+      JSON.stringify([]),
+      hashPinSync(seedPassword),
+      trainerPassword ? hashPinSync(trainerPassword) : "",
+      new Date().toISOString()
+    );
+  } catch (err) {
+    // A concurrent worker may have inserted the row between our check and this
+    // INSERT. That is success: the tenant exists. Anything else (a full disk, an
+    // unexpected constraint) must not be swallowed.
+    if (!exists()) throw err;
+  }
+}
+
 export function getRegistry(): DatabaseSync {
   if (registry) return registry;
 
@@ -73,6 +148,9 @@ export function getRegistry(): DatabaseSync {
   fs.mkdirSync(dir, { recursive: true });
 
   const db = new DatabaseSync(path.join(dir, "registry.db"));
+  // Wait for a competing writer instead of failing fast: PM2 cluster mode starts
+  // every worker at once against the same data directory.
+  db.exec(`PRAGMA busy_timeout = ${REGISTRY_BUSY_TIMEOUT_MS};`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS tenants (
       id TEXT PRIMARY KEY,
@@ -84,45 +162,8 @@ export function getRegistry(): DatabaseSync {
     );
   `);
 
-  // Upgrade registries created before the trainer role existed.
-  const columns = db.prepare("PRAGMA table_info(tenants)").all() as Array<{ name: string }>;
-  if (!columns.some((column) => column.name === "trainer_password_hash")) {
-    db.exec("ALTER TABLE tenants ADD COLUMN trainer_password_hash TEXT NOT NULL DEFAULT ''");
-  }
-
-  // Seed the default tenant when its row is missing — not merely when the table
-  // is empty. An operator may have created other tenants first (via
-  // scripts/create-tenant.mjs), which would otherwise leave unmatched hosts
-  // (localhost, the current single-gym deployment) with no tenant at all.
-  const existing = db.prepare("SELECT id FROM tenants WHERE id = ?").get(DEFAULT_TENANT_ID);
-  if (!existing) {
-    const seedPassword = adminSeedPassword(
-      process.env.NODE_ENV,
-      process.env.ADMIN_PASSWORD,
-      isDemoMode()
-    );
-    if (seedPassword) {
-      const trainerPassword = trainerSeedPassword(
-        process.env.NODE_ENV,
-        process.env.TRAINER_PASSWORD,
-        isDemoMode()
-      );
-      db.prepare(
-        "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-      ).run(
-        DEFAULT_TENANT_ID,
-        defaultGymConfig.gymName,
-        JSON.stringify([]),
-        hashPinSync(seedPassword),
-        trainerPassword ? hashPinSync(trainerPassword) : "",
-        new Date().toISOString()
-      );
-    } else {
-      console.warn(
-        "[tenants] ADMIN_PASSWORD is not set; refusing to seed the default tenant. Set ADMIN_PASSWORD, or DEMO_MODE=1 for a demo deployment."
-      );
-    }
-  }
+  ensureTrainerPasswordColumn(db);
+  seedDefaultTenant(db);
 
   registry = db;
   return registry;

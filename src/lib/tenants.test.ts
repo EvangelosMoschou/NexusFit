@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -12,9 +13,12 @@ import { adminSessionToken } from "./adminAuth";
 import {
   adminSeedPassword,
   createTenant,
+  ensureTrainerPasswordColumn,
+  getRegistry,
   getTenant,
   listTenants,
   resolveTenantId,
+  seedDefaultTenant,
   trainerSeedPassword,
 } from "./tenants";
 import { DEFAULT_TENANT_ID } from "./sqliteDb";
@@ -108,7 +112,12 @@ describe("default tenant admin seed", () => {
 describe("tenant data isolation", () => {
   const secondTenant = "isolation-gym";
 
-  it("keeps leads separate per tenant", async () => {
+  // This is the first test that opens a tenant database, so it pays the whole
+  // one-time boot cost for BOTH the default tenant and the second tenant
+  // (schema DDL, the two legacy migrations, demo seeding and the gym-config
+  // seed) — ~4.5s on a warm machine. That is close enough to the 5s default
+  // that a loaded CI box tips it over, so the budget is explicit here.
+  it("keeps leads separate per tenant", { timeout: 20_000 }, async () => {
     createTenant({ id: secondTenant, name: "Isolation Gym", adminPassword: "pw-iso" });
 
     const email = `iso-lead-${Date.now()}@example.com`;
@@ -148,5 +157,148 @@ describe("tenant data isolation", () => {
     // The seeded demo member exists only in the default tenant's database.
     expect(await getRepository(DEFAULT_TENANT_ID).authenticateMember("NX-8492", "1234")).not.toBeNull();
     expect(await getRepository(secondTenant).authenticateMember("NX-8492", "1234")).toBeNull();
+  });
+});
+
+// Regression tests for the PM2-cluster boot race. deploy/ecosystem.config.js runs
+// `instances: "max"` with `exec_mode: "cluster"`, so N workers open the registry
+// at the same moment. These tests simulate the losing worker deterministically
+// instead of depending on real process concurrency.
+describe("registry boot race", () => {
+  // Mirrors the tenants DDL in getRegistry(); kept separate so each test gets an
+  // isolated database instead of the shared registry singleton.
+  const TENANTS_DDL = `
+    CREATE TABLE IF NOT EXISTS tenants (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      domains TEXT NOT NULL,
+      admin_password_hash TEXT NOT NULL,
+      trainer_password_hash TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+  `;
+
+  const dirs: string[] = [];
+
+  function freshDb(): DatabaseSync {
+    const dir = mkdtempSync(path.join(tmpdir(), "nexusfit-registry-"));
+    dirs.push(dir);
+    return new DatabaseSync(path.join(dir, "registry.db"));
+  }
+
+  function seededDb(): DatabaseSync {
+    const db = freshDb();
+    db.exec(TENANTS_DDL);
+    return db;
+  }
+
+  function countDefaultRows(db: DatabaseSync | { prepare(sql: string): unknown }): number {
+    const row = (db as DatabaseSync)
+      .prepare("SELECT COUNT(*) AS n FROM tenants WHERE id = ?")
+      .get(DEFAULT_TENANT_ID) as { n: number };
+    return row.n;
+  }
+
+  // A view of the same database whose existence check ran before the winning
+  // worker committed, so it sees "no row" exactly once and then collides.
+  function staleExistenceCheck(db: DatabaseSync): DatabaseSync {
+    let lied = false;
+    return {
+      prepare(sql: string) {
+        if (!lied && sql.includes("SELECT id FROM tenants")) {
+          lied = true;
+          return { get: () => undefined };
+        }
+        return db.prepare(sql);
+      },
+    } as unknown as DatabaseSync;
+  }
+
+  afterAll(() => {
+    for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("waits for a competing writer instead of failing fast on the registry", () => {
+    // getDatabase() sets this; the registry used to open without it, so two
+    // workers booting together failed immediately with "database is locked".
+    expect(getRegistry().prepare("PRAGMA busy_timeout").get()).toEqual({ timeout: 5000 });
+  });
+
+  it("seeds the default tenant idempotently", () => {
+    const db = seededDb();
+
+    expect(() => seedDefaultTenant(db)).not.toThrow();
+    expect(() => seedDefaultTenant(db)).not.toThrow();
+
+    expect(countDefaultRows(db)).toBe(1);
+  });
+
+  it("leaves an existing default tenant untouched", () => {
+    const db = seededDb();
+    db.prepare(
+      "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(DEFAULT_TENANT_ID, "Custom Gym", "[]", "custom-hash", "", "2020-01-01T00:00:00.000Z");
+
+    seedDefaultTenant(db);
+
+    const row = db.prepare("SELECT name, admin_password_hash FROM tenants WHERE id = ?").get(
+      DEFAULT_TENANT_ID
+    ) as { name: string; admin_password_hash: string };
+    expect(row.name).toBe("Custom Gym");
+    expect(row.admin_password_hash).toBe("custom-hash");
+    expect(countDefaultRows(db)).toBe(1);
+  });
+
+  it("treats a lost seed race as success instead of throwing", () => {
+    // The winner committed between the loser's existence check and its INSERT.
+    const db = seededDb();
+    db.prepare(
+      "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(DEFAULT_TENANT_ID, "Winner Gym", "[]", "winner-hash", "", "2020-01-01T00:00:00.000Z");
+
+    expect(() => seedDefaultTenant(staleExistenceCheck(db))).not.toThrow();
+    expect(countDefaultRows(db)).toBe(1);
+  });
+
+  it("adds the trainer password column to a legacy registry and is idempotent", () => {
+    const db = freshDb();
+    db.exec(`
+      CREATE TABLE tenants (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        domains TEXT NOT NULL,
+        admin_password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+
+    ensureTrainerPasswordColumn(db);
+    expect(() => ensureTrainerPasswordColumn(db)).not.toThrow();
+
+    const columns = (db.prepare("PRAGMA table_info(tenants)").all() as Array<{ name: string }>).map(
+      (column) => column.name
+    );
+    expect(columns).toContain("trainer_password_hash");
+    expect(columns.filter((name) => name === "trainer_password_hash")).toHaveLength(1);
+  });
+
+  it("treats a lost column-upgrade race as success instead of throwing", () => {
+    // Both workers saw the column missing; the winner added it first.
+    const db = seededDb();
+    let lied = false;
+    const staleColumnCheck = {
+      prepare(sql: string) {
+        if (!lied && sql.includes("PRAGMA table_info")) {
+          lied = true;
+          return { all: () => [] };
+        }
+        return db.prepare(sql);
+      },
+      exec(sql: string) {
+        return db.exec(sql);
+      },
+    } as unknown as DatabaseSync;
+
+    expect(() => ensureTrainerPasswordColumn(staleColumnCheck)).not.toThrow();
   });
 });
