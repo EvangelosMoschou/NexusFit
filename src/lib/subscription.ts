@@ -13,10 +13,12 @@ export function isSubscriptionActive(
 
 // Occupancy and its forecast are premium features. In this template the
 // premium tier is the digital/AI-inclusive tier (`has_ai_access = 1`).
+// The column comes back from SQLite as 0/1 but callers that already mapped it
+// pass a boolean, so both forms mean "premium".
 export function isPremiumSubscriptionActive(
   status: string | null | undefined,
   expiresAt: string | null | undefined,
   hasAIAccess: number | boolean | null | undefined
 ): boolean {
-  return isSubscriptionActive(status, expiresAt) && hasAIAccess === 1;
+  return isSubscriptionActive(status, expiresAt) && (hasAIAccess === 1 || hasAIAccess === true);
 }

@@ -11,12 +11,37 @@ export interface HarnessAnalysis {
   scopeRefusalMessage?: string;
 }
 
+// Greek is normally written with accents (τονισμός), but the rules below are
+// authored without them. Matching the raw query against them silently missed
+// every accented spelling — "σπάσιμο" did not match "σπασιμο" — so a member who
+// typed correct Greek bypassed the medical, jailbreak and grounding guards.
+//
+// Two normalisations are needed for a keyword to match real Greek input:
+//   * drop the diacritics (NFD, then the combining marks), so "σπάσιμο" and
+//     "σπασιμο" compare equal;
+//   * fold the final sigma (ς) onto σ, because a keyword written with a plain
+//     sigma at the end of a word ("στηθοσ") can never match real text, which
+//     always uses the final form ("στήθος").
+export function normalizeGreekText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/ς/g, "σ");
+}
+
+// Compiles a rule so it matches accented and unaccented input alike.
+// Normalising the source (not only the query) keeps an accented literal added
+// later working instead of silently regressing.
+function accentInsensitive(pattern: RegExp): RegExp {
+  return new RegExp(normalizeGreekText(pattern.source), pattern.flags);
+}
+
 // 1. DANGEROUS INTENTS & MEDICAL RED FLAGS (Hard Safety Guardrails)
 const MEDICAL_RED_FLAGS = [
   { pattern: /(στεροειδ|αναβολικ|τεστοστερον|κλενβουτερολ|stanozolol|tren|dianabol|sarms|πεπτιδι)/i, warning: "Το σύστημα απαγορεύει αυστηρά την παροχή συμβουλών για αναβολικές ουσίες ή φαρμακευτικά σκευάσματα." },
   { pattern: /(σπασιμο|καταγμα|αιμορραγ|λιποθυμ|οξυς πονος στο στηθος|μουδιασμα στο αριστερο)/i, warning: "ΠΡΟΣΟΧΗ: Τα συμπτώματα αυτά απαιτούν άμεση ιατρική εκτίμηση και διακοπή οποιασδήποτε άσκησης." },
   { pattern: /(ανορεξι|βουλιμι|0 θερμιδες|δεν τρωω τιποτα|λιμοκτον)/i, warning: "Ακραία διατροφική συμπεριφορά. Συστήνεται καθοδήγηση από πιστοποιημένο διατροφολόγο." },
-];
+].map((flag) => ({ ...flag, pattern: accentInsensitive(flag.pattern) }));
 
 // 2. OUT-OF-SCOPE INTENTS (Persona Lock & Jailbreak Protection)
 // Pre-flight blocks coding, general homework, hacking, general chat before consuming LLM tokens
@@ -27,7 +52,7 @@ const OUT_OF_SCOPE_PATTERNS = [
   /(γράψε μου έκθεση|γράψε ποίημα|λύσε την εξίσωση|ποιος είναι ο πρόεδρος|μετάφρασε αυτό το κείμενο|πες μου ένα ανέκδοτο|who is president|write me an essay)/i,
   // Jailbreak / Prompt Injection attempts
   /(ignore previous instructions|disregard your prompt|you are now DAN|jailbreak|ξεχνα ολες τις οδηγιες)/i,
-];
+].map(accentInsensitive);
 
 // 3. TRUSTED SOURCES FOR WEB SEARCH GROUNDING
 export const TRUSTED_FITNESS_DOMAINS = [
@@ -76,9 +101,13 @@ export function analyzeQuerySafety(query: string): HarnessAnalysis {
   let isMedicalRedFlag = false;
   let isOutOfScope = false;
 
+  // Every rule below is accent-insensitive, so the query is normalised once and
+  // compared in that form. The original `query` is still what reaches the LLM.
+  const normalizedQuery = normalizeGreekText(query);
+
   // 1. Check Out of Scope (Coding, Math, Essay, Jailbreaks)
   for (const pattern of OUT_OF_SCOPE_PATTERNS) {
-    if (pattern.test(query)) {
+    if (pattern.test(normalizedQuery)) {
       isOutOfScope = true;
       break;
     }
@@ -86,15 +115,17 @@ export function analyzeQuerySafety(query: string): HarnessAnalysis {
 
   // 2. Check Red Flags
   for (const flag of MEDICAL_RED_FLAGS) {
-    if (flag.pattern.test(query)) {
+    if (flag.pattern.test(normalizedQuery)) {
       isMedicalRedFlag = true;
       warnings.push(flag.warning);
     }
   }
 
   // 3. Determine if Web Search is needed (e.g. queries about scientific studies, supplements, creatine, nutrition, rare techniques)
-  const webSearchTriggers = /(ερευνα|μελετη|κρεατιν|πρωτειν|bcaa|ηλεκτρολυτ|καφειν|δοσολογι|fat burner|βιταμιν|pubmed|επιστημονικ)/i;
-  const requiresWebSearch = webSearchTriggers.test(query);
+  const webSearchTriggers = accentInsensitive(
+    /(ερευνα|μελετη|κρεατιν|πρωτειν|bcaa|ηλεκτρολυτ|καφειν|δοσολογι|fat burner|βιταμιν|pubmed|επιστημονικ)/i
+  );
+  const requiresWebSearch = webSearchTriggers.test(normalizedQuery);
 
   // 4. Search local gym DB
   const cleanQ = query.toLowerCase();

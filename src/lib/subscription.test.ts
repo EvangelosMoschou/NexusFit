@@ -30,4 +30,11 @@ describe("subscription gating", () => {
     expect(isPremiumSubscriptionActive("expired", future, 1)).toBe(false);
     expect(isPremiumSubscriptionActive("active", past, 1)).toBe(false);
   });
+
+  // The signature accepts `number | boolean`, so a caller that already mapped
+  // the SQLite flag to a boolean must not be silently downgraded to non-premium.
+  it("accepts the boolean form of the premium flag", () => {
+    expect(isPremiumSubscriptionActive("active", future, true)).toBe(true);
+    expect(isPremiumSubscriptionActive("active", future, false)).toBe(false);
+  });
 });

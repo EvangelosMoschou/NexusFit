@@ -78,11 +78,21 @@ export function addPlanToMemberHistory(plan: GeneratedWorkoutPlan): MemberUser |
   const member = getCurrentMember();
   if (!member) return null;
 
-  const updatedPlans = [plan, ...member.savedPlans.filter((p) => p.id !== plan.id)];
+  // A profile written by an older build (or edited by hand) may not carry
+  // savedPlans; treat that as an empty history instead of crashing the caller.
+  const savedPlans = Array.isArray(member.savedPlans) ? member.savedPlans : [];
+  const updatedPlans = [plan, ...savedPlans.filter((p) => p.id !== plan.id)];
   const updatedMember: MemberUser = { ...member, savedPlans: updatedPlans };
 
+  // Persisting is best effort: a full quota or Safari private mode throws, and
+  // that must not stop the plan from reaching the caller (which keeps the UI
+  // working for this session).
   if (typeof window !== "undefined") {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedMember));
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(updatedMember));
+    } catch {
+      // Not persisted; the in-memory copy returned below is still correct.
+    }
   }
   return updatedMember;
 }
