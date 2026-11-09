@@ -80,7 +80,9 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
       link.download = match?.[1] ?? "nexusfit-member-export.json";
       link.click();
       URL.revokeObjectURL(url);
-    } catch {}
+    } catch (err) {
+      console.error("[member-portal] export member data failed:", err);
+    }
   };
 
   // GDPR: erasure is irreversible and removes the member plus all saved plans.
@@ -99,7 +101,8 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
         clearMemberSession();
         onLogout();
       }
-    } catch {
+    } catch (err) {
+      console.error("[member-portal] erase member data failed:", err);
     } finally {
       setIsErasing(false);
     }

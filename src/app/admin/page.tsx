@@ -99,7 +99,9 @@ export default function AdminPortalPage() {
           accessData.alerts.map((alert: { member_id: string }) => alert.member_id)
         );
       }
-    } catch {}
+    } catch (err) {
+      console.error("[admin] fetchAdminData failed:", err);
+    }
   };
 
   // Verify the HttpOnly session with the server. This also logs out a staff
@@ -156,7 +158,9 @@ export default function AdminPortalPage() {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       }
-    } catch {} finally {
+    } catch (err) {
+      console.error("[admin] save config failed:", err);
+    } finally {
       setIsSaving(false);
     }
   };
@@ -169,7 +173,9 @@ export default function AdminPortalPage() {
         body: JSON.stringify({ id, status }),
       });
       setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
-    } catch {}
+    } catch (err) {
+      console.error("[admin] update lead status failed:", err);
+    }
   };
 
   const handleDeleteLead = async (id: string) => {
@@ -179,7 +185,9 @@ export default function AdminPortalPage() {
       if (res.ok) {
         setLeads((prev) => prev.filter((l) => l.id !== id));
       }
-    } catch {}
+    } catch (err) {
+      console.error("[admin] delete lead failed:", err);
+    }
   };
 
   const handleDeleteMember = async (id: string) => {
@@ -195,7 +203,9 @@ export default function AdminPortalPage() {
       if (res.ok) {
         setMembers((prev) => prev.filter((m) => m.id !== id));
       }
-    } catch {}
+    } catch (err) {
+      console.error("[admin] delete member failed:", err);
+    }
   };
 
   // 1. If NOT authenticated -> Show Admin Login
@@ -366,7 +376,9 @@ export default function AdminPortalPage() {
               onClick={async () => {
                 try {
                   await fetch("/api/admin/logout", { method: "POST" });
-                } catch {}
+                } catch (err) {
+                  console.error("[admin] logout failed:", err);
+                }
                 sessionStorage.removeItem("nexus_admin_auth");
                 setIsAuthenticated(false);
               }}
