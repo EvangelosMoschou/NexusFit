@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processAgentQuery } from "@/lib/aiAgentChat";
 import { analyzeQuerySafety, buildSafetySystemPrompt } from "@/lib/aiSafetyHarness";
+import { geminiEndpoint, resolveGeminiModel } from "@/lib/geminiModel";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
 
@@ -49,13 +50,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. SINGLE DEFAULT MODEL: Google Gemini 2.0 Flash-Lite
+    // 2. SINGLE DEFAULT MODEL: Google Gemini 2.0 Flash-Lite, overridable with
+    // GEMINI_MODEL. resolveGeminiModel() validates the id because it becomes a
+    // URL path segment; a malformed value falls back to the default.
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (apiKey) {
       try {
         const systemPrompt = buildSafetySystemPrompt(harness.matchedLocalExercises);
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`;
+        const endpoint = geminiEndpoint(resolveGeminiModel(), apiKey);
 
         const payload: {
           contents: Array<{ role: string; parts: Array<{ text: string }> }>;
