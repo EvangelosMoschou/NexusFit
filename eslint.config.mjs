@@ -24,13 +24,16 @@ const eslintConfig = defineConfig([
       "jsx-a11y/no-static-element-interactions": "warn",
     },
   },
-  globalIgnores([
-    ".next/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts",
-    "site/**",
-  ]),
+  {
+    // CLI tools and the backup sidecar report their result on stdout — that is
+    // their user interface, not a stray debug log, so `no-console` does not
+    // apply. App code keeps the rule.
+    files: ["scripts/**/*.mjs", "deploy/**/*.mjs"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "site/**"]),
 ]);
 
 export default eslintConfig;

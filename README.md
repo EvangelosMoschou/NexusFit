@@ -19,8 +19,32 @@ another gym without touching components.
 
 ---
 
+## Quick start
+
+Requires **Node.js 22+** (the app uses the built-in `node:sqlite`).
+
+```bash
+npm ci
+npm run dev            # http://localhost:3000 — demo members are seeded in dev
+```
+
+Log in with member code `NX-8492` / PIN `1234`, or open `/admin` with the
+`ADMIN_PASSWORD` you set (dev falls back to `admin`).
+
+```bash
+npm test               # 200+ unit tests
+npm run check:docs     # docs-vs-code drift
+npm run docker:up      # production stack (needs deploy/.env — see Deployment)
+```
+
+Everything below is the full reference: features, architecture, env vars, API,
+security and deployment.
+
+---
+
 ## Table of Contents
 
+- [Quick start](#quick-start)
 - [Feature Highlights](#feature-highlights)
 - [Tech Stack](#tech-stack)
 - [Architecture Overview](#architecture-overview)
@@ -211,46 +235,58 @@ NexusFit/
 ├── README.md                     ← you are here
 ├── LICENSE                       GNU AGPL-3.0
 ├── NOTICE                        Commercial licensing & trademark notice
-├── package.json                  Scripts & the four runtime deps
+├── SECURITY.md                   Vulnerability disclosure + response policy
+├── package.json                  Scripts & the five runtime deps
 ├── next.config.ts                Standalone output, security headers, lucide tree-shaking
-├── tailwind.config.ts            "Soft Slate & Graphite" theme, sky-cyan accent
+├── tailwind.config.ts            CSS-variable theme tokens (charcoal / sky-cyan default)
 ├── vitest.config.ts              Node env, "@" → src alias
+├── eslint.config.mjs             eslint-config-next + jsx-a11y + prettier
 ├── tsconfig.json
-│
-├── data/                         SQLite database lives here (gitignored)
-│   └── nexusfit.db
+├── .gitleaks.toml                Secret-scanning rules and allowlists
+├──
+├── data/                         SQLite databases live here (gitignored)
+│   ├── nexusfit.db               Default tenant
+│   └── registry.db               Tenant registry (host → tenant)
 │
 ├── public/
 │   ├── manifest.webmanifest      PWA manifest
-│   └── icons/icon.svg
+│   ├── icons/icon.svg
+│   └── .well-known/security.txt  RFC 9116 contact (replace the placeholders)
 │
 ├── deploy/                       Production assets (see Deployment)
 │   ├── Dockerfile                Multi-stage node:22-alpine → standalone runner
-│   ├── docker-compose.yml        app + Caddy TLS + daily db-backup sidecar
+│   ├── docker-compose.yml        app + Caddy TLS + db-backup + retention sidecars
 │   ├── Caddyfile                 TLS reverse proxy
 │   ├── ecosystem.config.js       PM2 cluster config
-│   ├── backup-db.sh
+│   ├── backup.mjs                VACUUM INTO snapshots (runs in the backup sidecar)
+│   ├── backup-db.sh              Cron alternative for non-Docker hosts
 │   ├── start.sh
 │   ├── .env.production.example
 │   ├── DEPLOYMENT_GUIDE.md
+│   ├── HETZNER.md                Step-by-step VPS notes
 │   └── PROJECT_FILES_CHECKLIST.txt
 │
 ├── docs/
 │   ├── README.md                 Docs index
 │   ├── CI.md                     Gitea/Forgejo Actions pipeline + runner setup
 │   ├── MONITORING.md             Uptime / 401-probe / log rotation / backups
+│   ├── security/                 Disclosure policy + supply-chain gates
+│   │   ├── README.md             Standards map and pre-deploy checklist
+│   │   └── supply-chain.md       Gitleaks · Semgrep · CodeQL · Trivy · SBOM
 │   └── 50_RULES_WEBSITE_CHECKLIST.txt  30 anti-patterns + 20 essential features
 │
 ├── scripts/
 │   ├── create-tenant.mjs         Tenant provisioning CLI (npm run tenant:create)
-│   └── set-tenant-password.mjs   Rotate admin/trainer passwords (npm run tenant:password)
+│   ├── set-tenant-password.mjs   Rotate admin/trainer passwords (npm run tenant:password)
+│   └── check-docs-drift.mjs      Docs-vs-code drift check (npm run check:docs)
 │
 ├── site/                         Static interactive demo (Vite → GitHub Pages)
-│   ├── src/                      Demo shell, in-browser mock API, test
+│   ├── src/                      Demo shell + in-browser mock API
 │   ├── vite.config.mts
 │   └── index.html
 │
-├── .github/workflows/pages.yml   Builds the demo and deploys it to GitHub Pages
+├── .github/workflows/            pages.yml (demo → Pages), codeql.yml, security.yml
+├── .gitea/workflows/ci.yml       Primary CI: audit · lint · typecheck · test · demo · build
 │
 └── src/
     ├── app/
@@ -259,7 +295,9 @@ NexusFit/
     │   ├── admin/page.tsx        Admin console (login + 11 tabs)
     │   ├── checkin/page.tsx      Entrance tablet (PIN check-in/out)
     │   ├── trainer/page.tsx      Permission-based staff area
+    │   ├── error.tsx loading.tsx App Router error and loading boundaries
     │   ├── not-found.tsx         404
+    │   ├── 401/ 403/ 404/        Status pages
     │   ├── globals.css
     │   └── api/**/route.ts       REST handlers (see API Reference)
     │
@@ -268,15 +306,21 @@ NexusFit/
     │   ├── Footer CookieBanner LegalModal SearchModal
     │   ├── ScrollTopButton ScrollProgressBar FloatingContact PWAInstallPrompt
     │   ├── WeightLoggerInput.tsx
-    │   ├── admin/      LeadsTab · MembersTab · PricingTab · ScheduleTab · InfoTab
+    │   ├── admin/      LeadsTab · MembersTab · MemberDetailModal · OccupancyTab ·
+    │   │               AccessTab · StaffTab · AuditTab · AnnouncementsTab ·
+    │   │               MediaTab · PricingTab · ScheduleTab · InfoTab
     │   ├── ai/         WorkoutWizard · WorkoutDisplay · AICoachChatModal
     │   ├── auth/       LoginModal
     │   ├── dashboard/  MemberPortalPage · GymFloorLiteMode
+    │   ├── member/     MemberSessionsCard (active devices / revoke)
+    │   ├── status/     StatusPage (401 / 403 / 404 shell)
+    │   ├── trainer/    TrainerDashboard · TrainerMemberList
     │   └── workout/    ManualWorkoutBuilderModal
     │
     ├── config/gymConfig.ts       defaultGymConfig — the white-label source of truth
     ├── data/exercisesData.ts     23 exercises (GR/EN names, muscle group, injury risks)
     ├── lib/                      Business logic & data access (see below)
+    ├── proxy.ts                  CSRF guard for mutating /api/* requests
     └── types/
         ├── index.ts              All shared TypeScript types
         └── sqlite.d.ts           Module declaration for node:sqlite
@@ -287,8 +331,13 @@ NexusFit/
 | File | Responsibility |
 |---|---|
 | `sqliteDb.ts` | All data access: schema creation, seeding, PIN migration, member/plan/lead/config CRUD, input validation. Each function takes a `tenantId` (defaults to the default tenant). |
-| `db/` | The storage seam: `repository.ts` (async `Repository` interface), `sqliteRepository.ts` (per-tenant SQLite implementation), `index.ts` (`getRepository(tenantId)`), `types.ts`. Swapping to Postgres means one new implementation here. |
+| `db/` | The storage seam: `repository.ts` (async `Repository` interface), `sqliteRepository.ts` (per-tenant SQLite implementation), `index.ts` (`getRepository(tenantId)`), `types.ts`, plus the per-entity query modules (`members`, `staff`, `leads`, `media`, `visits`, `gymConfig`, `notifications`, `accessEvents`, `audit`, `memberSessions`, `schema`, `connection`, `tenant`). Swapping to Postgres means one new implementation here. |
 | `tenants.ts` | Tenant registry (`data/registry.db`), host → tenant resolution with caching, tenant creation. |
+| `subscription.ts` | Subscription/tier gating: active flag plus a date comparison, so an expired plan loses premium features. |
+| `memberNotifications.ts` | Idempotent in-app notification generation (expiry, announcements, schedule) with `dedupe_key` hashing. |
+| `accessEvents.ts` | Duplicate-entry and quick-re-entry anomaly detection for the weekly access alarm. |
+| `visitActivity.ts` | Heartbeat that keeps a member's open visit alive; ignored when the member is not checked in. |
+| `occupancyAnalytics.ts` | Weekday/hour bucketing of visits into the occupancy forecast (averages, quietest/busiest hours). |
 | `aiWorkoutEngine.ts` | Deterministic plan generator: split-by-frequency, goal-driven sets/reps/RPE/rest, injury-safe exercise selection. |
 | `aiAgentChat.ts` | Zero-cost local chat engine (injury/alternative/nutrition/sets-reps intents). |
 | `aiSafetyHarness.ts` | Pre-flight persona-lock, out-of-scope & medical/steroid red-flag filters, trusted-domain list, system-prompt builder. |
@@ -296,13 +345,22 @@ NexusFit/
 | `audit.ts` / `auditActions.ts` | Best-effort audit writer, actor normalization, action/entity labels. |
 | `session.ts` | HMAC-SHA256 signing/verification of member, legacy trainer and staff session cookies (`SESSION_SECRET`). Member tokens carry a session id and absolute expiry. |
 | `memberSessions.ts` | Server-side member sessions: SHA-256 session-id storage, idle/absolute timeout, touch throttling, per-session revocation and logout-all. |
+| `sameOrigin.ts` | CSRF helper behind `src/proxy.ts`: mutating-method detection and `Origin`-vs-host comparison for `/api/*`. |
+| `geminiModel.ts` | Resolves and validates the `GEMINI_MODEL` id (it becomes a URL path segment) and builds the Gemini `generateContent` endpoint. |
 | `adminAuth.ts` | Legacy SHA-256 admin session cookie (`ADMIN_PASSWORD`-derived). |
 | `staffAuth.ts` | Named staff accounts: DB-checked sessions, login, permissions, password-hash binding. |
+| `trainerAuth.ts` | Legacy shared trainer login and the restricted trainer role (view members/occupancy, desk check-in). |
 | `staffPermissions.ts` | Permission keys, defaults, normalization and role checks. |
 | `cookies.ts` | Cookie names (`nexusfit_*`; `__Host-` prefixed in production), `Secure`/`HttpOnly`/`SameSite` attributes and the shared `buildSessionCookie()` helper. |
+| `accessToken.ts` | Rotating HMAC-signed QR access tokens (90 s TTL) for the entrance scanner. |
+| `occupancyAccess.ts` | Who may see live/historical occupancy: premium members, or staff with the right permission. |
 | `consent.ts` | Cookie-consent preferences persisted on the client. |
 | `apiClient.ts` | Browser fetch wrapper that normalises the `{ success, error, message }` envelope. |
+| `memberFetch.ts` | Member-only fetch wrapper: a `401` means the server session was revoked/expired, so it clears local state instead of showing a PIN error. |
 | `format.ts` | Small shared formatting helpers. |
+| `flags.ts` | Boolean-ish environment flags (`1`/`true`/`yes`) such as `DEMO_MODE`. |
+| `maps.ts` | Directions URL builder (Google Maps on Android/desktop, Apple Maps on Apple mobile). |
+| `scroll.ts` | In-page navigation that keeps the URL clean (no hash spam on section links). |
 | `useEscapeKey.ts` | Escape-key dismissal hook used by modals. |
 | `passwordHash.ts` | Async scrypt hash/verify with `timingSafeEqual` (sync variants only for seeding). |
 | `rateLimit.ts` | In-memory fixed-window rate limiter + `getClientIp()`. |
@@ -312,6 +370,7 @@ NexusFit/
 | `useNetworkStatus.ts` | Connection quality + manual Lite Mode toggle. |
 | `useLocalAgentChat.ts` | Shared offline chat hook used by the chat modal and lite mode. |
 | `useUTM.ts` | Captures UTM params into `sessionStorage`. |
+| `testUtils/` | Test-only helpers — `browserStorage.ts` installs a `localStorage`/`window` shim so browser-storage code runs under the default Node test environment. |
 
 ---
 
@@ -367,11 +426,19 @@ returns `503`.
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | `vitest run` |
-| `npm run format` / `format:check` | Prettier write / check |
+| `npm run format` | Prettier write |
+| `npm run format:check` | Prettier check (no writes) |
+| `npm run check:docs` | Verify the docs still match the code (see [Testing](#testing)) |
+| `npm run audit:prod` | `npm audit --omit=dev --audit-level=high` |
+| `npm run sbom` | Generate a CycloneDX SBOM (`sbom.json`) |
 | `npm run tenant:create -- <id> <name> <domain> <password> [trainerPassword]` | Provision a tenant (see [Multi-tenancy](#multi-tenancy-many-gyms-one-deployment)) |
 | `npm run tenant:password -- <id> <admin\|trainer> <password>` | Set or rotate a tenant's admin/trainer password |
-| `npm run demo:dev` / `demo:build` | Vite interactive demo (dev server / static build in `site/dist`) |
-| `npm run docker:build` / `docker:up` / `docker:down` | Docker workflow (see [Deployment](#deployment)) |
+| `npm run demo:dev` | Vite dev server for the interactive demo (port 5174) |
+| `npm run demo:build` | Static demo build into `site/dist` |
+| `npm run demo:preview` | Serve the built demo locally |
+| `npm run docker:build` | Build the application image |
+| `npm run docker:up` | `docker compose up -d --build` (see [Deployment](#deployment)) |
+| `npm run docker:down` | `docker compose down` |
 
 ---
 
@@ -380,7 +447,7 @@ returns `503`.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `GEMINI_API_KEY` | No | — | Google AI Studio key. When absent, the AI chat uses the local engine. |
-| `GEMINI_MODEL` | No | `gemini-2.0-flash-lite` | Documented in the env example; **currently the route hardcodes the model** (see Known Gaps). |
+| `GEMINI_MODEL` | No | `gemini-2.0-flash-lite` | Gemini model id used by `/api/ai-agent/chat`. Validated as a URL path segment; a malformed value falls back to the default instead of failing the request. |
 | `ADMIN_PASSWORD` | For admin | — | Seeds the **default tenant's** admin password in the registry on first run. In production a missing value does **not** fall back to a default: the tenant is not seeded and admin login returns `503`. Development falls back to `admin` for convenience. Additional tenants get their own password via `npm run tenant:create`. |
 | `SESSION_SECRET` | Production | — | HMAC key used to sign member session cookies. Member login returns `503` in production if unset or shorter than 16 characters. Generate with `openssl rand -hex 32`. |
 | `MEMBER_SESSION_IDLE_SECONDS` | No | `604800` (7 days) | Idle timeout for a member session; minimum 60 seconds. A request after this window revokes the session. |
@@ -388,7 +455,7 @@ returns `503`.
 | `MEMBER_SESSION_TOUCH_SECONDS` | No | `60` | Minimum interval between `last_seen_at` writes; avoids a database write on every polling request. |
 | `MEMBER_SESSION_MAX_ACTIVE` | No | `10` | Maximum active sessions per member (1–100); the oldest sessions are revoked when a new login exceeds the cap. |
 | `CRON_SECRET` | For retention | — | Shared secret required by `POST /api/cron/retention`. The route returns `503` if unset. |
-| `SQLITE_DATA_DIR` | No | `<cwd>/data` | Directory for `nexusfit.db`. Useful on read-only filesystems (e.g. Vercel → `/tmp`). When `VERCEL` is set and this is missing, the app falls back to `/tmp/nexusfit` and logs a warning. |
+| `SQLITE_DATA_DIR` | No | `<cwd>/data` | Directory for the SQLite files: `nexusfit.db` (default tenant), `registry.db` (tenant registry) and one database per additional tenant. Useful on read-only filesystems (e.g. Vercel → `/tmp`). When `VERCEL` is set and this is missing, the app falls back to `/tmp/nexusfit` and logs a warning. |
 | `DEMO_MODE` | No | — | One-variable demo setup: seeds the demo members (`NX-8492` / `NX-3109`, PIN `1234`), the admin password `admin1`, the trainer password `trainer1` and a known demo session secret, even when `NODE_ENV=production`. **Never on a real deployment.** |
 | `SEED_DEMO_MEMBERS` | No | — | Narrower alternative to `DEMO_MODE`: seeds only the demo members (`NX-8492` / `NX-3109`, PIN `1234`) in production. Demo instances only. |
 | `TRAINER_PASSWORD` | No | — | Optional legacy shared trainer password for the default tenant. Staff trainer accounts created in Admin → Προσωπικό do not depend on it. Unset in production disables only the legacy shared login; development/demo fall back to `trainer1`. Rotate with `npm run tenant:password -- default trainer '<new>'`. |
@@ -396,16 +463,25 @@ returns `503`.
 | `GYM_TIMEZONE` | No | `Europe/Athens` | Timezone used to group visits into weekday/hour buckets for the occupancy forecast. |
 | `NEXT_PUBLIC_SITE_URL` | No | — | Canonical site URL used for SEO metadata (`metadataBase`). Build-time: rebuild to change. |
 | `NEXT_PUBLIC_THEME_PREVIEW` | No | shown | Build-time flag. Set to `0` to hide the theme preview control and the `?theme=` override. Unset (e.g. a Vercel preview) shows them; the Docker build defaults to `0`. |
-| `PORT` / `HOSTNAME` | No | `3000` / — | Standalone/Docker server binding. |
+| `PORT` / `HOSTNAME` | No | `3000` / — | Standalone/Docker server binding (read by the Next.js server, not by app code). |
 | `SITE_DOMAIN` | Docker only | `localhost` | Domain Caddy uses for TLS in `docker-compose.yml`. |
+| `DATA_DIR` | Docker only | `/data` | Directory the **backup sidecar** (`deploy/backup.mjs`) snapshots. Set in `docker-compose.yml`; not read by the app. |
+| `BACKUP_DIR` | Docker only | `/backups` | Where the backup sidecar writes its snapshots. Set in `docker-compose.yml`. |
+| `BACKUP_RETENTION_DAYS` | Docker only | `14` | How many days of snapshots the backup sidecar keeps. Set in `docker-compose.yml`. |
+
+> **Model selection:** `GEMINI_MODEL` overrides the default `gemini-2.0-flash-lite`
+> (see the table above). The value is validated as a URL path segment, so a typo
+> falls back to the default rather than breaking the copilot.
 
 ---
 
 ## Data Layer (SQLite)
 
-Access is centralised in `src/lib/sqliteDb.ts` behind a **lazy singleton**
-(`getDatabase()`), which creates the data directory, opens `nexusfit.db`, creates the
-schema and seeds defaults on first use.
+Access goes through `src/lib/sqliteDb.ts`, a stable **re-export facade** over the
+modules in `src/lib/db/` (`connection`, `schema`, then one module per table family).
+Callers keep importing the same names; the split is invisible to them. `getDatabase()`
+in `db/connection.ts` is a lazy per-tenant singleton: it creates the data directory,
+opens the tenant's database, creates the schema and seeds defaults on first use.
 
 **Schema**
 
@@ -473,6 +549,7 @@ standard error message if the handler throws.
 | `POST` | `/api/checkin` | Entrance kiosk: `{ identifier, pin, action: "in" \| "out" }`. Rate-limited; no session is created. Any active subscription may check in/out; occupancy is returned only for Premium. | `200 { success, memberName, status, locked, occupancy }`, `400`, `401`, `403`, `404`, `429` |
 | `GET` | `/api/member/visit` | Signed-in member's visit status; aggregate occupancy only with Premium. | `200`, `401`, `404` |
 | `POST` | `/api/member/visit` | `{ action: "in" \| "out" \| "heartbeat" }`. Check-in requires an active subscription; checkout/heartbeat are always allowed; aggregate occupancy is Premium-only. | `200`, `400`, `401`, `403`, `404` |
+| `POST` | `/api/access/scan` | Entrance turnstile/scanner only (not browsers): `{ token, direction: "in" \| "out" }` with `x-access-key: $ACCESS_CONTROL_KEY`. See [Access control](#access-control-device-authenticated). | `200 { success, allowed, direction, memberName, memberCode, status, occupancy }`, `400`, `401`, `403`, `404`, `409` (not inside), `429`, `503` (not configured) |
 
 ### Access control (device-authenticated)
 
@@ -547,8 +624,9 @@ pipeline:
      consulting a doctor/physiotherapist instead of calling the model.
    - Flags whether the query needs **web search** (scientific/supplement topics) and
      matches relevant local exercises.
-3. **Gemini call** — if `GEMINI_API_KEY` is set, a single request to `gemini-2.0-flash-lite`
-   with the safety system prompt, optionally with **Google Search grounding** enabled.
+3. **Gemini call** — if `GEMINI_API_KEY` is set, a single request to the model named
+   by `GEMINI_MODEL` (default `gemini-2.0-flash-lite`) with the safety system prompt,
+   optionally with **Google Search grounding** enabled.
 4. **Local deterministic fallback** — if there is no key, the call fails, or it returns
    nothing usable, `aiAgentChat.ts` answers locally (injury substitutions, alternatives,
    nutrition, sets/reps). This is what powers the fully offline Lite Mode.
@@ -717,8 +795,11 @@ with an offline AI coach and an exercise checklist that makes **zero network req
   remains a follow-up because Next injects inline RSC/bootstrap scripts.
 - **CSRF defense-in-depth** — `SameSite=Lax` cookies plus `src/proxy.ts`, which
   rejects mutating `/api/*` requests when the browser `Origin` host does not match
-  `x-forwarded-host`/`Host`. Requests without `Origin` (access scanner, cron,
-  server-to-server) pass through and rely on their own credentials.
+  the request `Host`. `Host` is authoritative because it is the authority the server
+  received; `x-forwarded-host` is only a fallback when `Host` is absent, so a proxy
+  that rewrites `Host` must preserve the original one (Caddy does by default).
+  Requests without `Origin` (access scanner, cron, server-to-server) pass through
+  and rely on their own credentials.
 - **Cookie hardening** — production session cookies use the `__Host-` prefix
   (`__Host-nexusfit_member_id`, `__Host-nexusfit_admin`,
   `__Host-nexusfit_trainer`, `__Host-nexusfit_staff`), which requires HTTPS,
@@ -765,23 +846,80 @@ with an offline AI coach and an exercise checklist that makes **zero network req
 
 ## Testing
 
-Vitest runs in a Node environment with the `@` → `src` alias.
+Vitest runs in a Node environment with the `@` → `src` alias. Every database test
+points `SQLITE_DATA_DIR` at its own `mkdtemp` directory, so suites are isolated and
+safe to run in parallel.
 
 ```bash
-npm test        # vitest run
+npm test                          # full suite
+npx vitest run src/lib/session.test.ts   # one file
+npm run check:docs                # docs-vs-code drift check
 ```
 
-CI runs `lint`, `typecheck`, `test` and `build` on every push and pull request via
-Gitea/Forgejo Actions — see `docs/CI.md` for the runner setup. GitHub Actions
-additionally builds and deploys the static demo to Pages on every push to `main`
-(`.github/workflows/pages.yml`).
+CI runs `audit`, `lint`, `typecheck`, `test`, `demo:build`, `check:docs` and `build`
+on every push and pull request via Gitea/Forgejo Actions — see `docs/CI.md` for the
+runner setup. GitHub Actions additionally builds and deploys the static demo to Pages
+on every push to `main` (`.github/workflows/pages.yml`).
+
+**Security & session**
+
+| Test file | Coverage |
+|---|---|
+| `src/lib/session.test.ts` | HMAC signing/verification for member, legacy trainer and staff cookies; tamper and cross-tenant rejection. |
+| `src/lib/memberSessions.test.ts` | Server-side sessions: the raw session id is never stored, idle/absolute expiry, revocation. |
+| `src/lib/sameOrigin.test.ts` | CSRF proxy helper: mutating-method detection, `Host`-first trusted host with an `x-forwarded-host` fallback, spoofed `x-forwarded-host` rejected, `Origin: null` and malformed origins rejected. |
+| `src/lib/geminiModel.test.ts` | `GEMINI_MODEL` resolution: default on unset/blank, well-formed ids accepted, path-escaping values rejected, env read, endpoint construction. |
+| `src/lib/passwordHash.test.ts` | scrypt hash/verify round-trip and `timingSafeEqual` comparison. |
+| `src/lib/rateLimit.test.ts` | Fixed-window limiter behaviour and `getClientIp()` header precedence. |
+| `src/lib/staffPermissions.test.ts` | Permission keys, defaults, normalisation and role checks. |
+| `src/lib/accessToken.test.ts` | Rotating QR access tokens: signing, expiry and tamper rejection. |
+| `src/lib/aiSafetyHarness.test.ts` | Medical/out-of-scope guardrails, including accented Greek spellings that the rule patterns must still match. |
+| `src/lib/consent.test.ts` | Cookie-consent record persistence and versioning. |
+
+**Data layer & tenancy**
+
+| Test file | Coverage |
+|---|---|
+| `src/lib/sqliteDb.test.ts` | Uses an isolated temp `SQLITE_DATA_DIR`; covers seeding, member PIN auth, invalid-PIN rejection, plan persistence/round-trip, invalid payloads, admin member listing (asserts `pin_code` never leaks), member upsert/delete, lead create + status update, gym-config get/update. Cleans up in `afterAll`. |
+| `src/lib/db/connection.test.ts` | `getDataDir()` resolution, connection caching and the on-disk file layout. |
+| `src/lib/db/queries.test.ts` | Characterization tests for the per-entity query modules: ordering, limit clamping, joins and cutoff semantics. |
+| `src/lib/db/sqliteRepository.test.ts` | The `Repository` boundary: the SQLite adapter honours the async interface. |
+| `src/lib/tenants.test.ts` | Tenant registry, default-tenant admin seeding and cross-tenant data isolation. |
+| `src/lib/subscription.test.ts` | Subscription/tier gating for premium features. |
+
+**Domain logic**
 
 | Test file | Coverage |
 |---|---|
 | `src/lib/aiWorkoutEngine.test.ts` | Exact day count (3/4/5/6), split per frequency, day renumbering for cycled 5–6 day splits, 4-vs-3 sets by session length, goal-driven reps/rest, shoulder-injury exercise exclusion. |
-| `src/lib/api.test.ts` | `adminRoute` guard: rejects missing/tampered cookies (`401`), passes authenticated requests, wraps handler throws into a `500` envelope. |
-| `src/lib/sqliteDb.test.ts` | Uses an isolated temp `SQLITE_DATA_DIR`; covers seeding, member PIN auth, invalid-PIN rejection, plan persistence/round-trip, invalid payloads, admin member listing (asserts `pin_code` never leaks), member upsert/delete, lead create + status update, gym-config get/update. Cleans up in `afterAll`. |
+| `src/lib/aiAgentChat.test.ts` | Offline chat engine: injury, exercise and nutrition branches. |
+| `src/lib/occupancyAnalytics.test.ts` | Weekday/hour bucketing, averages and quietest/busiest hour selection. |
+| `src/lib/barcode.test.ts` | Barcode value normalisation. |
+| `src/lib/maps.test.ts` | Directions URL construction per platform. |
+| `src/lib/storage.test.ts` | localStorage helpers and their consent gating. |
+| `src/lib/auth.test.ts` | Client member-session storage and plan-history writes (including the quota/private-mode failure path). |
+
+**API & client**
+
+| Test file | Coverage |
+|---|---|
+| `src/lib/api.test.ts` | `adminRoute` guard: rejects missing/tampered cookies (`401`), passes authenticated requests, wraps handler throws into a `500` envelope; tenant isolation. |
 | `src/lib/demoMockApi.test.ts` | Demo mock API: config, demo login, plan persistence across logins, export attachment, erasure, lead submissions. |
+| `src/lib/demoApp.test.tsx` | The React demo shell end-to-end against the mock API (jsdom). |
+
+### Docs drift check
+
+`npm run check:docs` (`scripts/check-docs-drift.mjs`) compares the documentation
+against the code:
+
+- **hard** — a documented env var that nothing reads, a documented npm script that
+  does not exist, an npm script the README never mentions, a broken relative link,
+  or a variable in `deploy/.env.production.example` missing from the env table;
+- **soft** — code that exists but the docs have not caught up with yet (an
+  undocumented env var, `src/lib` module, test file, route method or table).
+
+Soft findings are reported but do not fail the run; `--strict` turns them into
+failures. Run it after touching env vars, scripts, routes or the schema.
 
 ---
 
@@ -859,8 +997,6 @@ persists data in `localStorage`; it deliberately has no server-side functionalit
 
 ## Known Gaps & Roadmap
 
-- **`GEMINI_MODEL` is documented but not read** — the chat route hardcodes
-  `gemini-2.0-flash-lite`, so setting the env var has no effect today.
 - **One database per tenant** — isolation comes from separate SQLite files rather
   than a shared schema with row-level security. Simple and safe, but it does not
   support cross-gym reporting; a shared Postgres schema with RLS would be the

@@ -4,27 +4,69 @@ NEXUSFIT - ΛΙΣΤΑ ΑΡΧΕΙΩΝ ΓΙΑ ΑΝΕΒΑΣΜΑ ΣΤΟΝ HOST (PROJ
 
 📁 ΑΡΧΕΙΑ ΠΟΥ ΑΝΕΒΑΖΟΥΜΕ ΣΤΟΝ SERVER / GIT:
 ------------------------------------------------------------------------------
-✅ src/                     (Όλα τα components, API routes, SQLite DB, AI Safety Harness)
-✅ public/                  (Εικόνες, icons, manifest.webmanifest)
-✅ deploy/                  (Οδηγοί, Dockerfile, docker-compose, scripts)
-✅ package.json             (Ορισμός εξαρτήσεων)
-✅ package-lock.json        (Κλειδωμένες εκδόσεις)
-✅ next.config.ts           (Security headers & συμπίεση)
-✅ tsconfig.json            (TypeScript config)
-✅ tailwind.config.ts       (Χρώματα & tokens)
-✅ postcss.config.mjs       (PostCSS)
-✅ .gitignore               (Εξαιρέσεις αρχείων)
+Κώδικας & διαμόρφωση
+  ✅ src/                     (components, API routes, lib, SQLite layer, proxy)
+  ✅ public/                  (icons, manifest.webmanifest, .well-known/security.txt)
+  ✅ package.json             (scripts & dependencies)
+  ✅ package-lock.json        (κλειδωμένες εκδόσεις — απαραίτητο για `npm ci`)
+  ✅ next.config.ts           (standalone output, security headers)
+  ✅ tsconfig.json            (TypeScript config)
+  ✅ tailwind.config.ts       (design tokens)
+  ✅ postcss.config.mjs       (PostCSS)
+  ✅ vitest.config.ts         (tests)
+  ✅ eslint.config.mjs        (lint)
+  ✅ .prettierrc / .prettierignore
+  ✅ .editorconfig
+  ✅ .gitignore
+  ✅ .dockerignore
+
+Deployment & scripts
+  ✅ deploy/                  (Dockerfile, docker-compose.yml, Caddyfile,
+                               ecosystem.config.js, backup.mjs, backup-db.sh,
+                               start.sh, .env.production.example, οδηγοί)
+  ✅ scripts/                 (create-tenant.mjs, set-tenant-password.mjs,
+                               check-docs-drift.mjs)
+
+Documentation & νομικά
+  ✅ README.md                (αρχιτεκτονική, API reference, οδηγίες)
+  ✅ docs/                    (CI.md, MONITORING.md, security/, checklist)
+  ✅ SECURITY.md              (υπεύθυνη γνωστοποίηση ευπαθειών)
+  ✅ LICENSE                  (AGPL-3.0)
+  ✅ NOTICE                   (commercial licensing & trademark)
+
+CI / security gates
+  ✅ .gitea/workflows/ci.yml  (audit · lint · typecheck · test · docs · demo · build)
+  ✅ .github/workflows/       (pages.yml, codeql.yml, security.yml)
+  ✅ .github/dependabot.yml
+  ✅ .gitleaks.toml
+
+Demo (προαιρετικό — μόνο αν δημοσιεύεις το GitHub Pages demo)
+  ✅ site/                    (Vite demo: DemoApp, mockApi, vite.config.mts)
 
 ❌ ΑΡΧΕΙΑ ΠΟΥ ΔΕΝ ΑΝΕΒΑΖΟΥΜΕ (ΑΓΝΟΟΥΝΤΑΙ ΑΥΤΟΜΑΤΑ):
 ------------------------------------------------------------------------------
-⛔ node_modules/            (Εγκαθίστανται αυτόματα στον server με npm install)
-⛔ .next/                   (Δημιουργείται αυτόματα κατά το npm run build)
-⛔ .env.local               (Δημιουργείται χειροκίνητα στον host με τα μυστικά κλειδιά)
-⛔ data/*.db                (Η βάση SQLite δημιουργείται αυτόματα κατά την 1η εκκίνηση)
+  ⛔ node_modules/            (εγκαθίσταται στον server με `npm ci`)
+  ⛔ .next/                   (δημιουργείται από το `npm run build`)
+  ⛔ site/dist/               (δημιουργείται από το `npm run demo:build`)
+  ⛔ deploy/.env              (τα μυστικά — δημιουργείται χειροκίνητα στον host
+                               από το deploy/.env.production.example)
+  ⛔ data/*.db                (nexusfit.db + registry.db — δημιουργούνται στην 1η εκκίνηση)
+  ⛔ deploy/backups/          (τοπικά snapshots)
+  ⛔ .private/ .omo/ .commandcode/ .codegraph/  (τοπικά artifacts)
 
 ==============================================================================
-ΒΗΜΑΤΑ ΕΚΚΙΝΗΣΗΣ ΣΤΟΝ SERVER (3 ΕΝΤΟΛΕΣ):
+ΒΗΜΑΤΑ ΕΚΚΙΝΗΣΗΣ ΣΤΟΝ SERVER
 ==============================================================================
-1. npm install
-2. npm run build
-3. npm run start
+Docker (προτεινόμενο):
+  1. cp deploy/.env.production.example deploy/.env   (συμπλήρωσε τα μυστικά)
+  2. npm run docker:up
+  3. npm run docker:down                             (για σταμάτημα)
+
+Bare-metal / PM2:
+  1. npm ci
+  2. npm run build
+  3. npm run serve:prod        (ή: pm2 start deploy/ecosystem.config.js)
+
+Έλεγχος μετά το deploy:
+  curl -fsS https://<domain>/api/health
+  curl -s -o /dev/null -w '%{http_code}\n' https://<domain>/api/admin/config   → 401

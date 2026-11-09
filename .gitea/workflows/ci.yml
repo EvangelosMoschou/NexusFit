@@ -32,6 +32,20 @@ jobs:
       - name: Test
         run: npm test
 
+      # Docs-vs-code drift. Hard checks (a documented env var nothing reads, a
+      # documented script that does not exist, a broken relative link, an env
+      # template variable missing from the README table) fail the run; soft
+      # checks (code the docs have not caught up with yet) only warn, so a
+      # feature branch adding a module or test cannot turn this red.
+      - name: Docs drift
+        run: npm run check:docs
+
+      # The demo is a separate Vite build shipped to GitHub Pages. Building it
+      # here catches a broken import in site/ on the primary pipeline instead of
+      # discovering it after the Pages deploy fails.
+      - name: Demo build
+        run: npm run demo:build
+
       - name: Build
         run: npm run build
         env:
