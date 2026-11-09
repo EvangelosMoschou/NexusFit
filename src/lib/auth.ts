@@ -44,13 +44,34 @@ export function clearMemberSession(): void {
   } catch {}
 }
 
-export async function logoutMember(): Promise<void> {
-  if (typeof window === "undefined") return;
+export async function logoutMember(all = false): Promise<boolean> {
+  if (typeof window === "undefined") return false;
   clearMemberSession();
-  // The session cookie is HttpOnly, so it can only be cleared server-side.
-  try {
-    await fetch("/api/auth/logout", { method: "POST" });
-  } catch {}
+
+  // The session cookie is HttpOnly, so it can only be cleared server-side. The
+  // server also revokes the session row (and all rows when `all` is true).
+  // Retry once because a transient network failure leaves the server session
+  // valid until its idle/absolute timeout.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all }),
+        keepalive: true,
+      });
+      if (res.ok || res.status === 401) return true;
+    } catch {
+      // Retry once below.
+    }
+
+    if (attempt === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
+
+  console.warn("[auth] logout request failed; the server session will expire at its timeout.");
+  return false;
 }
 
 export function addPlanToMemberHistory(plan: GeneratedWorkoutPlan): MemberUser | null {

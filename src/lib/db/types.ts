@@ -83,6 +83,30 @@ export interface MemberAccess {
   has_ai_access: number;
 }
 
+// Server-side member session. `session_id_hash` is the SHA-256 of the random
+// session id carried inside the signed cookie; the raw id is never stored, so a
+// database leak cannot be replayed as a live session.
+export interface DbMemberSession {
+  session_id_hash: string;
+  member_id: string;
+  created_at: number;
+  last_seen_at: number;
+  expires_at: number;
+  revoked_at: number | null;
+  ip: string | null;
+  user_agent: string | null;
+}
+
+export interface MemberSessionInput {
+  sessionIdHash: string;
+  memberId: string;
+  createdAt: number;
+  lastSeenAt: number;
+  expiresAt: number;
+  ip?: string | null;
+  userAgent?: string | null;
+}
+
 export interface InsideMember {
   member_id: string;
   member_code: string;

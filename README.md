@@ -294,11 +294,12 @@ NexusFit/
 | `aiSafetyHarness.ts` | Pre-flight persona-lock, out-of-scope & medical/steroid red-flag filters, trusted-domain list, system-prompt builder. |
 | `api.ts` | `adminRoute()` / `trainerRoute()` — tenant-aware auth + permission guards and a consistent error envelope. |
 | `audit.ts` / `auditActions.ts` | Best-effort audit writer, actor normalization, action/entity labels. |
-| `session.ts` | HMAC-SHA256 signing/verification of member, legacy trainer and staff session cookies (`SESSION_SECRET`). |
+| `session.ts` | HMAC-SHA256 signing/verification of member, legacy trainer and staff session cookies (`SESSION_SECRET`). Member tokens carry a session id and absolute expiry. |
+| `memberSessions.ts` | Server-side member sessions: SHA-256 session-id storage, idle/absolute timeout, touch throttling, per-session revocation and logout-all. |
 | `adminAuth.ts` | Legacy SHA-256 admin session cookie (`ADMIN_PASSWORD`-derived). |
 | `staffAuth.ts` | Named staff accounts: DB-checked sessions, login, permissions, password-hash binding. |
 | `staffPermissions.ts` | Permission keys, defaults, normalization and role checks. |
-| `cookies.ts` | Cookie names (`nexusfit_member_id`, `nexusfit_admin`, `nexusfit_trainer`, `nexusfit_staff`) and `Secure` policy. |
+| `cookies.ts` | Cookie names (`nexusfit_*`; `__Host-` prefixed in production), `Secure`/`HttpOnly`/`SameSite` attributes and the shared `buildSessionCookie()` helper. |
 | `consent.ts` | Cookie-consent preferences persisted on the client. |
 | `apiClient.ts` | Browser fetch wrapper that normalises the `{ success, error, message }` envelope. |
 | `format.ts` | Small shared formatting helpers. |
@@ -382,6 +383,10 @@ returns `503`.
 | `GEMINI_MODEL` | No | `gemini-2.0-flash-lite` | Documented in the env example; **currently the route hardcodes the model** (see Known Gaps). |
 | `ADMIN_PASSWORD` | For admin | — | Seeds the **default tenant's** admin password in the registry on first run. In production a missing value does **not** fall back to a default: the tenant is not seeded and admin login returns `503`. Development falls back to `admin` for convenience. Additional tenants get their own password via `npm run tenant:create`. |
 | `SESSION_SECRET` | Production | — | HMAC key used to sign member session cookies. Member login returns `503` in production if unset or shorter than 16 characters. Generate with `openssl rand -hex 32`. |
+| `MEMBER_SESSION_IDLE_SECONDS` | No | `604800` (7 days) | Idle timeout for a member session; minimum 60 seconds. A request after this window revokes the session. |
+| `MEMBER_SESSION_ABSOLUTE_SECONDS` | No | `2592000` (30 days) | Absolute session lifetime from login; also used as the cookie `Max-Age`. |
+| `MEMBER_SESSION_TOUCH_SECONDS` | No | `60` | Minimum interval between `last_seen_at` writes; avoids a database write on every polling request. |
+| `MEMBER_SESSION_MAX_ACTIVE` | No | `10` | Maximum active sessions per member (1–100); the oldest sessions are revoked when a new login exceeds the cap. |
 | `CRON_SECRET` | For retention | — | Shared secret required by `POST /api/cron/retention`. The route returns `503` if unset. |
 | `SQLITE_DATA_DIR` | No | `<cwd>/data` | Directory for `nexusfit.db`. Useful on read-only filesystems (e.g. Vercel → `/tmp`). When `VERCEL` is set and this is missing, the app falls back to `/tmp/nexusfit` and logs a warning. |
 | `DEMO_MODE` | No | — | One-variable demo setup: seeds the demo members (`NX-8492` / `NX-3109`, PIN `1234`), the admin password `admin1`, the trainer password `trainer1` and a known demo session secret, even when `NODE_ENV=production`. **Never on a real deployment.** |
@@ -415,6 +420,7 @@ schema and seeds defaults on first use.
 | `staff_accounts` | `id`, `name`, `email` (unique), `role` (`admin`/`trainer`), `password_hash`, `permissions` (JSON), `active`, `created_at`, `updated_at`, `last_login_at` | Named staff accounts per tenant. Deleting the row removes the account and invalidates its sessions; password hashes never leave the server. |
 | `audit_log` | `id`, `actor_id`, `actor_name`, `actor_email`, `actor_role`, `actor_legacy`, `action`, `entity_type`, `entity_id`, `details` (JSON), `ip`, `created_at` | Append-only staff/admin action history. Retained 12 months and purged by the retention cron; actor identifiers are anonymized when a staff account is deleted. |
 | `member_notifications` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `type`, `title`, `body`, `dedupe_key`, `read_at`, `created_at` | In-app notification feed. Unique `(member_id, dedupe_key)` makes generation idempotent; deleted with the member. |
+| `member_sessions` | `session_id_hash` (PK), `member_id` (FK → members, `ON DELETE CASCADE`), `created_at`, `last_seen_at`, `expires_at`, `revoked_at`, `ip`, `user_agent` | Server-side member sessions. Only the SHA-256 hash of the session id is stored; expiry and revocation are enforced on every member API. Expired/revoked rows are purged by the retention cron. |
 | `access_events` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `event_type`, `details` (JSON), `created_at` | Duplicate-entry and quick-re-entry anomalies for the weekly alarm. Retained 12 months and purged by the retention cron. |
 
 **Guarantees**
@@ -433,8 +439,9 @@ schema and seeds defaults on first use.
 ## API Reference
 
 All endpoints return a `{ success: boolean, ... }` JSON envelope. Admin endpoints are
-wrapped by `adminRoute()`, which accepts the legacy `nexusfit_admin` cookie or a
-named staff admin's `nexusfit_staff` cookie. Trainer endpoints use `trainerRoute()`,
+wrapped by `adminRoute()`, which accepts the legacy admin cookie or a named staff
+admin's staff cookie (`nexusfit_admin` / `nexusfit_staff`; `__Host-` prefixed in
+production). Trainer endpoints use `trainerRoute()`,
 which accepts a staff trainer or the legacy trainer cookie and enforces the required
 permission. Both return `401 { success: false, error: "Unauthorized" }` when the
 session is missing/invalid, `403` for a missing permission, and `500` with a
@@ -447,15 +454,17 @@ standard error message if the handler throws.
 | `GET` | `/api/health` | Uptime probe (`force-dynamic`). | `200 { success, ok, uptime, timestamp }` |
 | `GET` | `/api/config` | Admin-editable gym config for the public site. | `200 { success, config }` |
 | `POST` | `/api/leads` | `{ fullName, email, phone?, goal?, preferredPlan?, notes? }`. | `200 { success }`, `400` missing name/email |
-| `POST` | `/api/auth/member` | `{ identifier, pin }` (member code **or** email + PIN). Sets the **HMAC-signed** `nexusfit_member_id` cookie (HttpOnly, `Secure` in prod, `SameSite=Lax`, 30 days). | `200 { success, member }`, `400`, `401`, `503` (no `SESSION_SECRET`), `500` |
-| `POST` | `/api/auth/logout` | Clears the member session cookie (`Max-Age=0`). | `200 { success }` |
-| `POST` | `/api/member/workouts` | `{ plan }`. Requires the `nexusfit_member_id` cookie. | `200 { success }`, `400` missing plan, `401` not authenticated |
-| `GET` | `/api/member/export` | GDPR access/portability: downloads the signed-in member's data, plans, visits, notifications and access events as JSON (`Content-Disposition: attachment`). Requires the member cookie. | `200` file, `401`, `404` |
+| `POST` | `/api/auth/member` | `{ identifier, pin }` (member code **or** email + PIN). Creates a server-side session and sets the **HMAC-signed** member cookie (`nexusfit_member_id`; `__Host-` prefixed in production; HttpOnly, `Secure` in prod, `SameSite=Lax`; cookie up to 30 days, server idle timeout 7 days by default). | `200 { success, member }`, `400`, `401`, `503` (no `SESSION_SECRET`), `500` |
+| `POST` | `/api/auth/logout` | Revokes the current server-side session and clears the cookie. `{ "all": true }` revokes every session for the member. | `200 { success, all }` |
+| `GET` | `/api/member/sessions` | Lists the member's active sessions (hashed id, created/last-seen/expiry, IP, user agent, `current`). | `200 { success, sessions }`, `401` |
+| `DELETE` | `/api/member/sessions?id=<hashed-id>` | Revokes one of the member's sessions; revoking the current one also clears the cookie. | `200 { success, revokedCurrent }`, `400`, `401`, `404` |
+| `POST` | `/api/member/workouts` | `{ plan }`. Requires the member session cookie (`nexusfit_member_id`, or its `__Host-` production name). | `200 { success }`, `400` missing plan, `401` not authenticated |
+| `GET` | `/api/member/export` | GDPR access/portability: downloads the signed-in member's data, plans, visits, notifications, access events and session history as JSON (`Content-Disposition: attachment`). Requires the member cookie. | `200` file, `401`, `404` |
 | `GET` | `/api/member/notifications` | In-app notification feed; generates missing expiry/announcement/schedule entries idempotently. | `200 { success, notifications, unreadCount }`, `401`, `404` |
 | `POST` | `/api/member/notifications` | `{ markAll: true }` or `{ id }` to mark read. | `200 { success, unreadCount }`, `400`, `401` |
 | `GET` | `/api/member/access-token` | Rotating signed QR token (90 s) for the entrance scanner. Requires an active subscription and configured access control. | `200 { success, token, expiresAt }`, `401`, `403`, `503` |
 | `DELETE` | `/api/member/erase` | GDPR erasure: deletes the signed-in member, their plans (cascade) and any lead inquiries sharing their email, then clears the cookie. | `200 { success }`, `401` |
-| `POST` | `/api/cron/retention` | Deletes lead inquiries older than 12 months, closes idle/stale visits, purges audit entries and access events older than 12 months. Requires the `x-cron-secret` header. | `200 { success, removed, visitsClosed, idleVisitsClosed, auditPurged, accessEventsPurged, tenants }`, `401`, `503` (no `CRON_SECRET`) |
+| `POST` | `/api/cron/retention` | Deletes lead inquiries older than 12 months, closes idle/stale visits, purges audit entries/access events older than 12 months and expired/revoked member sessions. Requires the `x-cron-secret` header. | `200 { success, removed, visitsClosed, idleVisitsClosed, auditPurged, accessEventsPurged, memberSessionsPurged, tenants }`, `401`, `503` (no `CRON_SECRET`) |
 | `POST` | `/api/ai-agent/chat` | `{ query }`. Rate-limited per IP. | `200 { id, sender, text, timestamp, … }`, `400`, `429` (with `Retry-After`), `500` |
 | `GET` | `/api/media` | Published gallery metadata. | `200 { success, media }` |
 | `GET` | `/api/media/{id}` | Image bytes (`Cache-Control: immutable`, `nosniff`). | `200` image, `404` |
@@ -487,7 +496,7 @@ curl -X POST https://<domain>/api/access/scan \
 
 | Method | Path | Body | Purpose |
 |---|---|---|---|
-| `POST` | `/api/admin/auth` | `{ email?, password }` | With `email`, logs in a named staff admin and sets the signed `nexusfit_staff` cookie. Without `email`, uses the legacy `ADMIN_PASSWORD` and `nexusfit_admin` cookie (8 h, `Secure` in prod). `503` if sessions are unconfigured, `401` if wrong. |
+| `POST` | `/api/admin/auth` | `{ email?, password }` | With `email`, logs in a named staff admin and sets the signed staff cookie. Without `email`, uses the legacy `ADMIN_PASSWORD` and legacy admin cookie (8 h; plain names in dev, `__Host-` prefixed and `Secure` in production). `503` if sessions are unconfigured, `401` if wrong. |
 | `POST` | `/api/admin/logout` | — | Clears both the legacy admin and staff session cookies. |
 | `GET` | `/api/admin/me` | — | Verifies the HttpOnly session (also logs out deleted/deactivated staff accounts). |
 | `GET` | `/api/admin/staff` | — | List staff accounts (never password hashes). |
@@ -514,7 +523,7 @@ curl -X POST https://<domain>/api/access/scan \
 
 | Method | Path | Body | Purpose |
 |---|---|---|---|
-| `POST` | `/api/trainer/auth` | `{ email?, password }` | With `email`, logs in a staff trainer account and sets `nexusfit_staff`. Without `email`, uses the legacy `TRAINER_PASSWORD`. Rate-limited per IP and email. |
+| `POST` | `/api/trainer/auth` | `{ email?, password }` | With `email`, logs in a staff trainer account and sets the staff cookie. Without `email`, uses the legacy `TRAINER_PASSWORD` and legacy trainer cookie. Rate-limited per IP and email. |
 | `POST` | `/api/trainer/logout` | — | Clears both trainer and staff cookies. |
 | `GET` | `/api/trainer/me` | — | Session + role + permissions (legacy shared login included). |
 | `GET` | `/api/trainer/members` | `?id=` optional | Requires `members_view`. Member list, or one member with plans and visits. |
@@ -587,9 +596,10 @@ process resolves the tenant from the request's `Host` header.
 3. **Unmatched hosts fall back to the `default` tenant**, so `localhost`, an IP
    address or your existing single-gym domain keep working with no configuration.
 
-> Tenant resolution happens in the Node runtime (route handlers), **not** in Next
-> middleware, because middleware runs on the Edge runtime where `node:sqlite` is
-> unavailable.
+> Tenant resolution happens in the Node runtime (route handlers), **not** in the
+> Next proxy. The proxy only performs the cheap same-origin/CSRF check; keeping
+> tenant lookup and SQLite access in route handlers avoids coupling the global
+> request path to the data layer.
 
 **The tenant registry** lives in its own SQLite database at `data/registry.db`
 (`tenants` table: `id`, `name`, `domains`, `admin_password_hash`,
@@ -678,16 +688,19 @@ with an offline AI coach and an exercise checklist that makes **zero network req
 - **Admin auth** — the legacy `ADMIN_PASSWORD` still derives a SHA-256 cookie; named
   staff admins use a signed, DB-checked staff cookie. Deleting/deactivating an
   account or changing its password invalidates the session immediately.
-- **Member auth** — scrypt-hashed PINs, `timingSafeEqual` comparison, and an **HMAC-SHA256 signed, tenant-bound** session cookie (HttpOnly, `Secure` in production) that cannot be forged from a guessable member id or replayed against another gym.
+- **Member auth** — scrypt-hashed PINs, `timingSafeEqual` comparison, and an **HMAC-SHA256 signed, tenant-bound** session cookie (HttpOnly, `Secure` in production) that cannot be forged from a guessable member id or replayed against another gym. The cookie carries a random session id and absolute expiry; every member API checks `member_sessions` in the tenant database, so logout, per-device revocation, logout-all, PIN changes, member deletion and idle/absolute expiry take effect immediately.
+- **Member session lifecycle** — default idle timeout 7 days, absolute lifetime 30 days (both configurable by env), at most 10 active sessions per member (oldest revoked first), `last_seen_at` written at most once per minute, and expired/revoked rows purged by the retention cron. Login/logout/revocation/idle-expiry events are audited. The member profile menu exposes all-device logout and the portal lists active devices with individual revoke buttons.
 - **Staff permissions** — enforced server-side in `trainerRoute()`; UI tab hiding
   is only cosmetic. Permission changes apply on the next request without re-login.
 - **Access control** — rotating HMAC-signed QR tokens (90 s), device-key
   authentication, explicit entry/exit direction, DB-enforced anti-passback,
   duplicate/quick-re-entry tracking, a weekly admin alarm and audit logging of
   denied scans. The device key and token are never accepted through cookies.
-- **Audit trail** — staff/admin logins and all staff-side writes are appended to a
-  tenant-scoped `audit_log` with actor, action, entity, details, IP and time. It is
-  admin-only, retained 12 months, and staff deletion anonymizes the actor fields.
+- **Audit trail** — staff/admin logins, all staff-side writes and member session
+  events (login, logout, logout-all, per-device revoke, idle expiry and
+  oldest-session eviction) are appended to a tenant-scoped `audit_log` with
+  actor, action, entity, details, IP and time. It is admin-only, retained 12
+  months, and staff deletion anonymizes the actor fields.
 - **Rate limiting** on the AI endpoint, member login (per IP and per member
   code), admin/trainer login (per IP and email) and lead submissions.
 - **No known-credential accounts in production** — demo members (`NX-8492` / PIN
@@ -695,10 +708,28 @@ with an offline AI coach and an exercise checklist that makes **zero network req
   only for the default tenant, unless `DEMO_MODE=1` (or, for the members alone,
   `SEED_DEMO_MEMBERS=1`) is set explicitly for a demo instance.
 - **Security headers** set globally in `next.config.ts`: HSTS (2 years, preload),
-  `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: origin-when-cross-origin`, a `Permissions-Policy` that disables
-  camera, microphone and geolocation, plus COOP, CORP and
-  `X-Permitted-Cross-Domain-Policies: none`.
+  camera, microphone and geolocation, plus COOP, CORP,
+  `X-Permitted-Cross-Domain-Policies: none`, `X-DNS-Prefetch-Control: off` and an
+  enforced partial CSP (`base-uri 'self'`, `form-action 'self'`,
+  `frame-ancestors 'none'`, `object-src 'none'`). A nonce-based `script-src` CSP
+  remains a follow-up because Next injects inline RSC/bootstrap scripts.
+- **CSRF defense-in-depth** — `SameSite=Lax` cookies plus `src/proxy.ts`, which
+  rejects mutating `/api/*` requests when the browser `Origin` host does not match
+  `x-forwarded-host`/`Host`. Requests without `Origin` (access scanner, cron,
+  server-to-server) pass through and rely on their own credentials.
+- **Cookie hardening** — production session cookies use the `__Host-` prefix
+  (`__Host-nexusfit_member_id`, `__Host-nexusfit_admin`,
+  `__Host-nexusfit_trainer`, `__Host-nexusfit_staff`), which requires HTTPS,
+  `Secure`, `Path=/` and no `Domain`, and prevents a sibling subdomain from
+  overwriting them. Development/test keep the plain names so localhost works.
+- **Supply-chain / CI** — GitHub Actions run dependency review, production
+  `npm audit`, CycloneDX SBOM generation, Gitleaks, Semgrep, CodeQL and Trivy;
+  Dependabot proposes weekly npm and Actions updates. See
+  [`SECURITY.md`](./SECURITY.md), [`docs/security/`](./docs/security/README.md)
+  and [`.github/workflows/security.yml`](./.github/workflows/security.yml).
+  Local equivalents: `npm run audit:prod` and `npm run sbom`.
 - **Startup security warnings** (`instrumentation.ts`) flag a missing or short
   `SESSION_SECRET`/`ADMIN_PASSWORD`/`TRAINER_PASSWORD`/`CRON_SECRET` and an
   accidental demo mode.
@@ -709,7 +740,12 @@ with an offline AI coach and an exercise checklist that makes **zero network req
 **Privacy & cookies**
 - Essential cookies: `nexusfit_member_id` (30 days) and `nexusfit_admin` /
   `nexusfit_trainer` / `nexusfit_staff` (8 hours), all HttpOnly + SameSite=Lax +
-  Secure in production.
+  Secure in production. In production the names carry the `__Host-` prefix (for
+  example `__Host-nexusfit_member_id`); development/test use the plain names.
+- Server-side member session records: a SHA-256 hash of the session id, created /
+  last-seen / expiry timestamps, IP and user agent, used only for authentication,
+  revocation and security review. The raw session id is never stored; expired and
+  revoked rows are purged by the retention job.
 - Consent-gated local storage: UTM parameters, saved plans and weight logs.
   Theme/lite-mode preferences, the consent record and the member UI cache are
   functional storage disclosed in the privacy policy.
@@ -720,9 +756,10 @@ with an offline AI coach and an exercise checklist that makes **zero network req
 - Member self-service export/erase; admin member delete and staff account delete
   are full erasure paths. `CONSENT_VERSION` is bumped to re-prompt after material
   policy changes.
-- Audit history keeps action records for security/accountability for 12 months;
-  a deleted staff account's actor name/email/id are anonymized. The privacy policy
-  includes an explicit audit-log section (section 10).
+- Audit history keeps action records for security/accountability for 12 months,
+  including member login/logout/session-revocation events; a deleted staff
+  account's actor name/email/id are anonymized. The privacy policy includes an
+  explicit audit-log section (section 10).
 
 ---
 
@@ -836,10 +873,14 @@ persists data in `localStorage`; it deliberately has no server-side functionalit
   single-instance by design.
 - **Theme preview control** — visible by default while a theme is being chosen;
   the Docker build hides it unless built with `NEXT_PUBLIC_THEME_PREVIEW=1`.
-- **No Content-Security-Policy** — the other security headers are set, but a CSP
-  needs nonces or a proxy because Next injects inline RSC scripts.
-- **No two-factor authentication for `/admin`** — one password, protected by the
-  per-IP rate limit and a long random value.
+- **CSP is partial** — `base-uri`, `form-action`, `frame-ancestors` and
+  `object-src` are enforced; a full nonce-based `script-src` policy is still
+  pending because Next injects inline RSC/bootstrap scripts.
+- **No MFA yet** — admin/staff authentication is password-only. MFA/WebAuthn is
+  deliberately deferred; no fake or placeholder second factor is shipped. The
+  existing controls are scrypt hashes, per-IP/email rate limits, short-lived
+  sessions, DB-checked staff accounts and immediate session invalidation on
+  delete/deactivate/password change.
 - **TLS per gym is manual** — a new gym's domain must be added to the reverse
   proxy configuration (Caddy issues the certificate automatically once listed).
 - **Local plan storage is per-device** — a member's plans live in `localStorage` and are

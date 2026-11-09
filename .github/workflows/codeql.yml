@@ -1,0 +1,78 @@
+# CodeQL static analysis (GitHub code scanning).
+#
+# Runs on every push and pull request targeting `main`, plus a weekly scheduled
+# run so newly published CodeQL queries are applied to unchanged code.
+#
+# Requirements / notes
+#   * Code scanning is free for public repositories. For private repositories it
+#     needs GitHub Advanced Security (or GitHub Code Security).
+#   * `security-events: write` is the only privileged scope: it lets the job
+#     upload results. Everything else stays read-only.
+#   * Uploading results needs `security-events: write`. On pull requests from
+#     forks GitHub caps that scope at read, so the upload can be skipped while
+#     the analysis itself still runs and reports as a check.
+#   * `build-mode: none` is correct for JavaScript/TypeScript: CodeQL analyses
+#     the source directly and no build step (or `.next` output) is required.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Mondays, 03:41 UTC — offset from the top of the hour to avoid the
+    # congested scheduled-workflow window.
+    - cron: "41 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      # Upload the SARIF results to GitHub code scanning.
+      security-events: write
+      # CodeQL packs are public here, but keeping `packages: read` lets the job
+      # resolve packs from GitHub Packages without changes.
+      packages: read
+      # Required to read workflow metadata for private repositories; free and
+      # harmless on a public one.
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: "none"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # `security-extended` adds lower-severity security queries on top of
+          # the default suite. Drop this line for the default (faster) suite.
+          queries: security-extended
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"

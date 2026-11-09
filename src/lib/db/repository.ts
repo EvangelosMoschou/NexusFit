@@ -17,6 +17,8 @@ import {
   MemberNotification,
   MemberNotificationInput,
   MemberSession,
+  DbMemberSession,
+  MemberSessionInput,
   StaffAccount,
   StaffInput,
   StaffUpdate,
@@ -109,15 +111,28 @@ export interface Repository {
   getMemberAccess(id: string): Promise<MemberAccess | null>;
   authenticateMember(identifier: string, pin: string): Promise<MemberSession | null>;
 
+  // Server-side member sessions (revocation, idle/absolute expiry)
+  createMemberSession(input: MemberSessionInput): Promise<boolean>;
+  getMemberSession(sessionIdHash: string): Promise<DbMemberSession | null>;
+  touchMemberSession(sessionIdHash: string, lastSeenAt: number): Promise<boolean>;
+  revokeMemberSession(sessionIdHash: string, memberId: string, revokedAt: number): Promise<boolean>;
+  revokeAllMemberSessions(
+    memberId: string,
+    revokedAt: number,
+    exceptSessionIdHash?: string
+  ): Promise<number>;
+  listMemberSessions(
+    memberId: string,
+    activeSince: number,
+    now: number
+  ): Promise<DbMemberSession[]>;
+  listMemberSessionHistory(memberId: string, limit?: number): Promise<DbMemberSession[]>;
+  enforceMemberSessionLimit(memberId: string, limit: number, now: number): Promise<number>;
+  purgeMemberSessions(now: number): Promise<number>;
+
   // In-app member notifications
-  ensureMemberNotification(
-    memberId: string,
-    input: MemberNotificationInput
-  ): Promise<boolean>;
-  listMemberNotifications(
-    memberId: string,
-    limit?: number
-  ): Promise<MemberNotification[]>;
+  ensureMemberNotification(memberId: string, input: MemberNotificationInput): Promise<boolean>;
+  listMemberNotifications(memberId: string, limit?: number): Promise<MemberNotification[]>;
   getUnreadNotificationCount(memberId: string): Promise<number>;
   markMemberNotificationRead(memberId: string, notificationId: string): Promise<boolean>;
   markAllMemberNotificationsRead(memberId: string): Promise<number>;

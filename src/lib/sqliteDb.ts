@@ -19,6 +19,8 @@ import {
   AccessEventWithMember,
   MemberNotification,
   MemberNotificationInput,
+  MemberSessionInput,
+  DbMemberSession,
   StaffAccount,
   StaffInput,
   StaffRole,
@@ -235,6 +237,23 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
     CREATE INDEX IF NOT EXISTS idx_notifications_member
       ON member_notifications (member_id, created_at DESC);
 
+    CREATE TABLE IF NOT EXISTS member_sessions (
+      session_id_hash TEXT PRIMARY KEY,
+      member_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      last_seen_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      revoked_at INTEGER,
+      ip TEXT,
+      user_agent TEXT,
+      FOREIGN KEY (member_id) REFERENCES members (id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_member_sessions_member
+      ON member_sessions (member_id, expires_at);
+    CREATE INDEX IF NOT EXISTS idx_member_sessions_expiry
+      ON member_sessions (expires_at);
+
     CREATE TABLE IF NOT EXISTS access_events (
       id TEXT PRIMARY KEY,
       member_id TEXT NOT NULL,
@@ -261,7 +280,10 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
 
   // One-time migration: hash any legacy plaintext PINs (idempotent)
   try {
-    const rows = db.prepare("SELECT id, pin_code FROM members").all() as Array<{ id: string; pin_code: string }>;
+    const rows = db.prepare("SELECT id, pin_code FROM members").all() as Array<{
+      id: string;
+      pin_code: string;
+    }>;
     const updateStmt = db.prepare("UPDATE members SET pin_code = ? WHERE id = ?");
     for (const row of rows) {
       if (typeof row.pin_code === "string" && !row.pin_code.startsWith("scrypt:")) {
@@ -290,9 +312,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
   const countStmt = db.prepare("SELECT COUNT(*) as count FROM members");
   const row = countStmt.get() as { count: number } | undefined;
   const demoSeedAllowed =
-    process.env.NODE_ENV !== "production" ||
-    isDemoMode() ||
-    envFlag(process.env.SEED_DEMO_MEMBERS);
+    process.env.NODE_ENV !== "production" || isDemoMode() || envFlag(process.env.SEED_DEMO_MEMBERS);
 
   if (tenantId === DEFAULT_TENANT_ID && demoSeedAllowed && (!row || row.count === 0)) {
     const insertMember = db.prepare(`
@@ -301,9 +321,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
     `);
 
     // Demo members should not appear expired a year from now.
-    const seedExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
+    const seedExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     insertMember.run(
       "mem-8492",
@@ -343,9 +361,8 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
   // admin Access tab and the member-list flag are immediately visible in demos.
   if (tenantId === DEFAULT_TENANT_ID && demoSeedAllowed) {
     try {
-      const flagged = db
-        .prepare("SELECT id FROM members WHERE id = ?")
-        .get("mem-3109") as { id: string } | undefined;
+      const flagged = db.prepare("SELECT id FROM members WHERE id = ?").get("mem-3109") as
+        { id: string } | undefined;
       if (flagged) {
         const insertEvent = db.prepare(
           `INSERT OR IGNORE INTO access_events
@@ -416,9 +433,7 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
         for (let week = 0; week < 8; week += 1) {
           patterns.forEach((pattern, patternIndex) => {
             const start = new Date(
-              monday.getTime() -
-                week * 7 * 86_400_000 +
-                pattern.dayOffset * 86_400_000
+              monday.getTime() - week * 7 * 86_400_000 + pattern.dayOffset * 86_400_000
             );
             start.setUTCHours(pattern.hour, pattern.minute, 0, 0);
             if (start.getTime() >= now.getTime()) return;
@@ -444,10 +459,14 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
   }
 
   // Seed default site config if empty
-  const configStmt = db.prepare("SELECT COUNT(*) as count FROM site_config WHERE key = 'gym_config'");
+  const configStmt = db.prepare(
+    "SELECT COUNT(*) as count FROM site_config WHERE key = 'gym_config'"
+  );
   const configRow = configStmt.get() as { count: number } | undefined;
   if (!configRow || configRow.count === 0) {
-    const insertConfig = db.prepare("INSERT INTO site_config (key, value, updated_at) VALUES (?, ?, ?)");
+    const insertConfig = db.prepare(
+      "INSERT INTO site_config (key, value, updated_at) VALUES (?, ?, ?)"
+    );
     insertConfig.run("gym_config", JSON.stringify(defaultGymConfig), new Date().toISOString());
   }
 
@@ -481,14 +500,16 @@ export async function getMemberByCredentials(
   `);
   const plans = plansStmt.all(member.id) as unknown as DbWorkoutPlan[];
 
-  const parsedPlans: GeneratedWorkoutPlan[] = plans.map((p) => {
-    try {
-      return JSON.parse(p.plan_json);
-    } catch (err) {
-      console.error("[sqliteDb] parseMemberPlanJson failed:", err);
-      return null;
-    }
-  }).filter((p): p is GeneratedWorkoutPlan => Boolean(p));
+  const parsedPlans: GeneratedWorkoutPlan[] = plans
+    .map((p) => {
+      try {
+        return JSON.parse(p.plan_json);
+      } catch (err) {
+        console.error("[sqliteDb] parseMemberPlanJson failed:", err);
+        return null;
+      }
+    })
+    .filter((p): p is GeneratedWorkoutPlan => Boolean(p));
 
   return {
     id: member.id,
@@ -548,12 +569,22 @@ export function saveWorkoutPlanToDb(
 
 // 3. Save Lead Inquiry
 export function saveLeadInquiryToDb(
-  lead: { fullName: string; email: string; phone?: string; goal?: string; preferredPlan?: string; notes?: string },
+  lead: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    goal?: string;
+    preferredPlan?: string;
+    notes?: string;
+  },
   tenantId: string = DEFAULT_TENANT_ID
 ): boolean {
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const fullName = typeof lead.fullName === "string" ? lead.fullName.trim() : "";
-  const notes = typeof lead.notes === "string" && lead.notes.length > 2000 ? lead.notes.slice(0, 2000) : lead.notes;
+  const notes =
+    typeof lead.notes === "string" && lead.notes.length > 2000
+      ? lead.notes.slice(0, 2000)
+      : lead.notes;
 
   if (!emailRe.test(lead.email) || fullName.length < 2 || fullName.length > 80) {
     console.error("[sqliteDb] invalid lead payload:", { fullName, email: lead.email });
@@ -616,9 +647,7 @@ export function getSavedGymConfig(tenantId: string = DEFAULT_TENANT_ID): GymConf
         ]);
         const privacy = Array.isArray(savedPrivacy)
           ? (() => {
-              const savedByTitle = new Map(
-                savedPrivacy.map((section) => [section.title, section])
-              );
+              const savedByTitle = new Map(savedPrivacy.map((section) => [section.title, section]));
               const defaultTitles = new Set(
                 defaultGymConfig.legal.privacy.map((section) => section.title)
               );
@@ -626,7 +655,7 @@ export function getSavedGymConfig(tenantId: string = DEFAULT_TENANT_ID): GymConf
                 ...defaultGymConfig.legal.privacy.map((section) =>
                   mandatoryTitles.has(section.title)
                     ? section
-                    : savedByTitle.get(section.title) ?? section
+                    : (savedByTitle.get(section.title) ?? section)
                 ),
                 ...savedPrivacy.filter((section) => !defaultTitles.has(section.title)),
               ];
@@ -638,9 +667,7 @@ export function getSavedGymConfig(tenantId: string = DEFAULT_TENANT_ID): GymConf
               const titles = new Set(savedTos.map((section) => section.title));
               return [
                 ...savedTos,
-                ...defaultGymConfig.legal.tos.filter(
-                  (section) => !titles.has(section.title)
-                ),
+                ...defaultGymConfig.legal.tos.filter((section) => !titles.has(section.title)),
               ];
             })()
           : defaultGymConfig.legal.tos;
@@ -659,15 +686,12 @@ export function getSavedGymConfig(tenantId: string = DEFAULT_TENANT_ID): GymConf
           merged.latitude = defaultGymConfig.latitude;
           merged.longitude = defaultGymConfig.longitude;
 
-          const controller = merged.legal.privacy.find((section) =>
-            section.title.startsWith("1.")
-          );
+          const controller = merged.legal.privacy.find((section) => section.title.startsWith("1."));
           if (controller?.body.includes("Λεωφόρος Βουλιαγμένης 128")) {
             merged.legal.privacy = merged.legal.privacy.map((section) =>
               section === controller
-                ? defaultGymConfig.legal.privacy.find((item) =>
-                    item.title.startsWith("1.")
-                  ) ?? section
+                ? (defaultGymConfig.legal.privacy.find((item) => item.title.startsWith("1.")) ??
+                  section)
                 : section
             );
           }
@@ -718,6 +742,214 @@ export function updateSavedGymConfig(
 
 export type DbAdminMember = Omit<DbMember, "pin_code">;
 
+// Server-side member sessions
+//
+// The signed cookie carries a random session id. Only its SHA-256 hash is stored
+// here: a database dump cannot be converted back into a usable cookie. Every
+// member API checks this table, so deleting/revoking a row invalidates the
+// session immediately even though the cookie itself is still in the browser.
+
+export function createMemberSession(
+  input: MemberSessionInput,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    db.prepare(
+      `INSERT INTO member_sessions
+         (session_id_hash, member_id, created_at, last_seen_at, expires_at, ip, user_agent)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      input.sessionIdHash,
+      input.memberId,
+      input.createdAt,
+      input.lastSeenAt,
+      input.expiresAt,
+      input.ip ?? null,
+      input.userAgent ?? null
+    );
+    return true;
+  } catch (err) {
+    console.error("[sqliteDb] createMemberSession failed:", err);
+    return false;
+  }
+}
+
+export function getMemberSession(
+  sessionIdHash: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): DbMemberSession | null {
+  try {
+    const db = getDatabase(tenantId);
+    const row = db
+      .prepare("SELECT * FROM member_sessions WHERE session_id_hash = ?")
+      .get(sessionIdHash) as DbMemberSession | undefined;
+    return row ?? null;
+  } catch (err) {
+    console.error("[sqliteDb] getMemberSession failed:", err);
+    return null;
+  }
+}
+
+export function touchMemberSession(
+  sessionIdHash: string,
+  lastSeenAt: number,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        `UPDATE member_sessions
+         SET last_seen_at = ?
+         WHERE session_id_hash = ? AND revoked_at IS NULL AND expires_at > ?`
+      )
+      .run(lastSeenAt, sessionIdHash, lastSeenAt);
+    return Number(result.changes) > 0;
+  } catch (err) {
+    console.error("[sqliteDb] touchMemberSession failed:", err);
+    return false;
+  }
+}
+
+export function revokeMemberSession(
+  sessionIdHash: string,
+  memberId: string,
+  revokedAt: number,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        `UPDATE member_sessions
+         SET revoked_at = COALESCE(revoked_at, ?)
+         WHERE session_id_hash = ? AND member_id = ?`
+      )
+      .run(revokedAt, sessionIdHash, memberId);
+    return Number(result.changes) > 0;
+  } catch (err) {
+    console.error("[sqliteDb] revokeMemberSession failed:", err);
+    return false;
+  }
+}
+
+export function revokeAllMemberSessions(
+  memberId: string,
+  revokedAt: number,
+  tenantId: string = DEFAULT_TENANT_ID,
+  exceptSessionIdHash?: string
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const result = db
+      .prepare(
+        `UPDATE member_sessions
+         SET revoked_at = ?
+         WHERE member_id = ? AND revoked_at IS NULL
+           AND (? IS NULL OR session_id_hash <> ?)`
+      )
+      .run(revokedAt, memberId, exceptSessionIdHash ?? null, exceptSessionIdHash ?? null);
+    return Number(result.changes);
+  } catch (err) {
+    console.error("[sqliteDb] revokeAllMemberSessions failed:", err);
+    return 0;
+  }
+}
+
+export function enforceMemberSessionLimit(
+  memberId: string,
+  limit: number,
+  now: number,
+  tenantId: string = DEFAULT_TENANT_ID
+): number {
+  try {
+    const db = getDatabase(tenantId);
+    const cap = Math.max(1, Math.min(100, Math.floor(limit)));
+    const rows = db
+      .prepare(
+        `SELECT session_id_hash FROM member_sessions
+         WHERE member_id = ? AND revoked_at IS NULL AND expires_at > ?
+         ORDER BY created_at DESC, rowid DESC`
+      )
+      .all(memberId, now) as Array<{ session_id_hash: string }>;
+
+    if (rows.length <= cap) return 0;
+
+    const revoke = db.prepare(
+      "UPDATE member_sessions SET revoked_at = ? WHERE session_id_hash = ? AND revoked_at IS NULL"
+    );
+    const excess = rows.slice(cap);
+    for (const row of excess) {
+      revoke.run(now, row.session_id_hash);
+    }
+    return excess.length;
+  } catch (err) {
+    console.error("[sqliteDb] enforceMemberSessionLimit failed:", err);
+    return 0;
+  }
+}
+
+export function listMemberSessionHistory(
+  memberId: string,
+  limit: number = 1000,
+  tenantId: string = DEFAULT_TENANT_ID
+): DbMemberSession[] {
+  try {
+    const db = getDatabase(tenantId);
+    return db
+      .prepare(
+        `SELECT * FROM member_sessions
+         WHERE member_id = ?
+         ORDER BY created_at DESC
+         LIMIT ?`
+      )
+      .all(memberId, Math.max(1, Math.min(1000, limit))) as unknown as DbMemberSession[];
+  } catch (err) {
+    console.error("[sqliteDb] listMemberSessionHistory failed:", err);
+    return [];
+  }
+}
+
+export function listMemberSessions(
+  memberId: string,
+  activeSince: number,
+  now: number,
+  tenantId: string = DEFAULT_TENANT_ID
+): DbMemberSession[] {
+  try {
+    const db = getDatabase(tenantId);
+    return db
+      .prepare(
+        `SELECT * FROM member_sessions
+         WHERE member_id = ? AND revoked_at IS NULL
+           AND expires_at > ? AND last_seen_at > ?
+         ORDER BY last_seen_at DESC`
+      )
+      .all(memberId, now, activeSince) as unknown as DbMemberSession[];
+  } catch (err) {
+    console.error("[sqliteDb] listMemberSessions failed:", err);
+    return [];
+  }
+}
+
+export function purgeMemberSessions(now: number, tenantId: string = DEFAULT_TENANT_ID): number {
+  try {
+    const db = getDatabase(tenantId);
+    const revokedCutoff = now - 30 * 24 * 60 * 60 * 1000;
+    const result = db
+      .prepare(
+        `DELETE FROM member_sessions
+         WHERE expires_at <= ? OR (revoked_at IS NOT NULL AND revoked_at <= ?)`
+      )
+      .run(now, revokedCutoff);
+    return Number(result.changes);
+  } catch (err) {
+    console.error("[sqliteDb] purgeMemberSessions failed:", err);
+    return 0;
+  }
+}
+
 // 4B. Get All Members (pin_code hash excluded from admin listings)
 export function getAllMembersAdmin(tenantId: string = DEFAULT_TENANT_ID): DbAdminMember[] {
   try {
@@ -733,17 +965,18 @@ export function getAllMembersAdmin(tenantId: string = DEFAULT_TENANT_ID): DbAdmi
 }
 
 // 4C. Create or Update Member
-export async function upsertMemberAdmin(member: {
-  id?: string;
-  memberCode: string;
-  fullName: string;
-  email: string;
-  pinCode: string;
-  tierName: string;
-  hasAIAccess: boolean;
-  subscriptionStatus: string;
-  expiresAt: string;
-},
+export async function upsertMemberAdmin(
+  member: {
+    id?: string;
+    memberCode: string;
+    fullName: string;
+    email: string;
+    pinCode: string;
+    tierName: string;
+    hasAIAccess: boolean;
+    subscriptionStatus: string;
+    expiresAt: string;
+  },
   tenantId: string = DEFAULT_TENANT_ID
 ): Promise<boolean> {
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -757,13 +990,23 @@ export async function upsertMemberAdmin(member: {
     fullName.length > 80 ||
     memberCode.length < 3
   ) {
-    console.error("[sqliteDb] invalid member payload:", { memberCode, fullName, email: member.email, pinCode: "[REDACTED]" });
+    console.error("[sqliteDb] invalid member payload:", {
+      memberCode,
+      fullName,
+      email: member.email,
+      pinCode: "[REDACTED]",
+    });
     return false;
   }
 
   try {
     const db = getDatabase(tenantId);
     const memberId = member.id || `mem-${Date.now()}`;
+    const normalizedCode = member.memberCode.toUpperCase().trim();
+    const existing = db
+      .prepare("SELECT id, pin_code FROM members WHERE member_code = ? OR id = ?")
+      .get(normalizedCode, member.id ?? "") as { id: string; pin_code: string } | undefined;
+
     const stmt = db.prepare(`
       INSERT INTO members (id, member_code, full_name, email, pin_code, tier_name, has_ai_access, subscription_status, expires_at, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -779,7 +1022,7 @@ export async function upsertMemberAdmin(member: {
 
     stmt.run(
       memberId,
-      member.memberCode.toUpperCase().trim(),
+      normalizedCode,
       member.fullName.trim(),
       member.email.toLowerCase().trim(),
       await hashPin(member.pinCode.trim()),
@@ -789,6 +1032,16 @@ export async function upsertMemberAdmin(member: {
       member.expiresAt,
       new Date().toISOString()
     );
+
+    // A PIN change must invalidate every outstanding member session, including
+    // a stolen cookie. Other profile edits leave existing sessions alone.
+    const actual = db
+      .prepare("SELECT id FROM members WHERE member_code = ?")
+      .get(normalizedCode) as { id: string } | undefined;
+    if (existing && actual && !(await verifyPin(member.pinCode.trim(), existing.pin_code))) {
+      revokeAllMemberSessions(actual.id, Date.now(), tenantId);
+    }
+
     return true;
   } catch (err) {
     console.error("[sqliteDb] upsertMemberAdmin failed:", err);
@@ -844,21 +1097,28 @@ export function updateLeadStatusAdmin(
 
 // 5A. Export a member's personal data (right of access / portability).
 // The pin hash is deliberately excluded from the export.
-export function exportMemberData(memberId: string, tenantId: string = DEFAULT_TENANT_ID): {
+export function exportMemberData(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): {
   member: DbAdminMember | null;
   plans: GeneratedWorkoutPlan[];
 } {
   try {
     const db = getDatabase(tenantId);
-    const member = db.prepare(
-      "SELECT id, member_code, full_name, email, tier_name, has_ai_access, subscription_status, expires_at, created_at FROM members WHERE id = ?"
-    ).get(memberId) as DbAdminMember | undefined;
+    const member = db
+      .prepare(
+        "SELECT id, member_code, full_name, email, tier_name, has_ai_access, subscription_status, expires_at, created_at FROM members WHERE id = ?"
+      )
+      .get(memberId) as DbAdminMember | undefined;
 
     if (!member) return { member: null, plans: [] };
 
-    const plans = (db.prepare(
-      "SELECT plan_json FROM workout_plans WHERE member_id = ? ORDER BY created_at DESC"
-    ).all(memberId) as Array<{ plan_json: string }>)
+    const plans = (
+      db
+        .prepare("SELECT plan_json FROM workout_plans WHERE member_id = ? ORDER BY created_at DESC")
+        .all(memberId) as Array<{ plan_json: string }>
+    )
       .map((row) => {
         try {
           return JSON.parse(row.plan_json) as GeneratedWorkoutPlan;
@@ -895,7 +1155,9 @@ export function purgeExpiredLeads(months = 12, tenantId: string = DEFAULT_TENANT
     const db = getDatabase(tenantId);
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - months);
-    const result = db.prepare("DELETE FROM lead_inquiries WHERE created_at < ?").run(cutoff.toISOString());
+    const result = db
+      .prepare("DELETE FROM lead_inquiries WHERE created_at < ?")
+      .run(cutoff.toISOString());
     return Number(result.changes ?? 0);
   } catch (err) {
     console.error("[sqliteDb] purgeExpiredLeads failed:", err);
@@ -908,7 +1170,9 @@ export function purgeExpiredLeads(months = 12, tenantId: string = DEFAULT_TENANT
 export function deleteLeadsByEmail(email: string, tenantId: string = DEFAULT_TENANT_ID): number {
   try {
     const db = getDatabase(tenantId);
-    const result = db.prepare("DELETE FROM lead_inquiries WHERE LOWER(email) = LOWER(?)").run(email);
+    const result = db
+      .prepare("DELETE FROM lead_inquiries WHERE LOWER(email) = LOWER(?)")
+      .run(email);
     return Number(result.changes ?? 0);
   } catch (err) {
     console.error("[sqliteDb] deleteLeadsByEmail failed:", err);
@@ -941,9 +1205,7 @@ export function getMediaWithData(
   try {
     const db = getDatabase(tenantId);
     const row = db
-      .prepare(
-        "SELECT id, filename, mime, size, alt, created_at, data FROM media WHERE id = ?"
-      )
+      .prepare("SELECT id, filename, mime, size, alt, created_at, data FROM media WHERE id = ?")
       .get(id) as (DbMedia & { data: Uint8Array | ArrayBuffer }) | undefined;
 
     if (!row) return null;
@@ -1048,8 +1310,12 @@ function toPublicStaffAccount(account: DbStaffAccount): StaffAccount {
 export function listStaffAccounts(tenantId: string = DEFAULT_TENANT_ID): StaffAccount[] {
   try {
     const db = getDatabase(tenantId);
-    return (db.prepare("SELECT * FROM staff_accounts ORDER BY created_at ASC").all() as
-      Record<string, unknown>[]).map((row) => toPublicStaffAccount(rowToStaffAccount(row)));
+    return (
+      db.prepare("SELECT * FROM staff_accounts ORDER BY created_at ASC").all() as Record<
+        string,
+        unknown
+      >[]
+    ).map((row) => toPublicStaffAccount(rowToStaffAccount(row)));
   } catch (err) {
     console.error("[sqliteDb] listStaffAccounts failed:", err);
     return [];
@@ -1063,8 +1329,7 @@ export function getStaffAccountById(
   try {
     const db = getDatabase(tenantId);
     const row = db.prepare("SELECT * FROM staff_accounts WHERE id = ?").get(id) as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     return row ? rowToStaffAccount(row) : null;
   } catch (err) {
     console.error("[sqliteDb] getStaffAccountById failed:", err);
@@ -1080,8 +1345,7 @@ export function getStaffAccountByEmail(
     const db = getDatabase(tenantId);
     const normalized = email.trim().toLowerCase();
     const row = db.prepare("SELECT * FROM staff_accounts WHERE email = ?").get(normalized) as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     return row ? rowToStaffAccount(row) : null;
   } catch (err) {
     console.error("[sqliteDb] getStaffAccountByEmail failed:", err);
@@ -1163,10 +1427,7 @@ export async function updateStaffAccount(
     fields.push("updated_at = ?");
     values.push(new Date().toISOString());
 
-    db.prepare(`UPDATE staff_accounts SET ${fields.join(", ")} WHERE id = ?`).run(
-      ...values,
-      id
-    );
+    db.prepare(`UPDATE staff_accounts SET ${fields.join(", ")} WHERE id = ?`).run(...values, id);
 
     const account = getStaffAccountById(id, tenantId);
     return account ? toPublicStaffAccount(account) : null;
@@ -1176,10 +1437,7 @@ export async function updateStaffAccount(
   }
 }
 
-export function deleteStaffAccount(
-  id: string,
-  tenantId: string = DEFAULT_TENANT_ID
-): boolean {
+export function deleteStaffAccount(id: string, tenantId: string = DEFAULT_TENANT_ID): boolean {
   try {
     const db = getDatabase(tenantId);
     const result = db.prepare("DELETE FROM staff_accounts WHERE id = ?").run(id);
@@ -1190,10 +1448,7 @@ export function deleteStaffAccount(
   }
 }
 
-export function touchStaffLogin(
-  id: string,
-  tenantId: string = DEFAULT_TENANT_ID
-): void {
+export function touchStaffLogin(id: string, tenantId: string = DEFAULT_TENANT_ID): void {
   try {
     const db = getDatabase(tenantId);
     const now = new Date().toISOString();
@@ -1234,10 +1489,7 @@ function rowToAuditEntry(row: Record<string, unknown>): AuditEntry {
   };
 }
 
-export function insertAuditEntry(
-  input: AuditInput,
-  tenantId: string = DEFAULT_TENANT_ID
-): boolean {
+export function insertAuditEntry(input: AuditInput, tenantId: string = DEFAULT_TENANT_ID): boolean {
   try {
     const db = getDatabase(tenantId);
     db.prepare(
@@ -1276,10 +1528,7 @@ export function listAuditEntries(
       200,
       Math.max(1, Number.isFinite(filters.limit) ? Number(filters.limit) : 50)
     );
-    const offset = Math.max(
-      0,
-      Number.isFinite(filters.offset) ? Number(filters.offset) : 0
-    );
+    const offset = Math.max(0, Number.isFinite(filters.offset) ? Number(filters.offset) : 0);
 
     const clauses: string[] = [];
     const params: Array<string | number> = [];
@@ -1305,13 +1554,11 @@ export function listAuditEntries(
     }
 
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-    const totalRow = db
-      .prepare(`SELECT COUNT(*) as c FROM audit_log ${where}`)
-      .get(...params) as { c: number };
+    const totalRow = db.prepare(`SELECT COUNT(*) as c FROM audit_log ${where}`).get(...params) as {
+      c: number;
+    };
     const rows = db
-      .prepare(
-        `SELECT * FROM audit_log ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
-      )
+      .prepare(`SELECT * FROM audit_log ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
       .all(...params, limit, offset) as Record<string, unknown>[];
 
     return {
@@ -1328,10 +1575,7 @@ export function listAuditEntries(
 
 // Audit records are retained for accountability, but the personal identifiers
 // of a deleted staff actor are removed from the history.
-export function anonymizeStaffAudit(
-  staffId: string,
-  tenantId: string = DEFAULT_TENANT_ID
-): number {
+export function anonymizeStaffAudit(staffId: string, tenantId: string = DEFAULT_TENANT_ID): number {
   try {
     const db = getDatabase(tenantId);
     const result = db
@@ -1348,10 +1592,7 @@ export function anonymizeStaffAudit(
   }
 }
 
-export function purgeAuditLog(
-  days: number = 365,
-  tenantId: string = DEFAULT_TENANT_ID
-): number {
+export function purgeAuditLog(days: number = 365, tenantId: string = DEFAULT_TENANT_ID): number {
   try {
     if (!Number.isFinite(days) || days <= 0) return 0;
     const db = getDatabase(tenantId);
@@ -1562,9 +1803,7 @@ export function countAccessEvents(
     const db = getDatabase(tenantId);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
     const row = db
-      .prepare(
-        "SELECT COUNT(*) as c FROM access_events WHERE member_id = ? AND created_at >= ?"
-      )
+      .prepare("SELECT COUNT(*) as c FROM access_events WHERE member_id = ? AND created_at >= ?")
       .get(memberId, since) as { c: number };
     return row.c;
   } catch (err) {
@@ -1741,8 +1980,7 @@ export function getMemberVisitStatus(
          ORDER BY checked_in_at DESC LIMIT 1`
       )
       .get(memberId, staleVisitCutoff(), activityCutoff, activityCutoff) as
-      | { checked_in_at: string }
-      | undefined;
+      { checked_in_at: string } | undefined;
 
     return { inside: Boolean(row), since: row?.checked_in_at ?? null };
   } catch (err) {
@@ -1837,9 +2075,10 @@ export function checkOutMember(
   }
 }
 
-export function getOccupancy(
-  tenantId: string = DEFAULT_TENANT_ID
-): { inside: number; capacity: number } {
+export function getOccupancy(tenantId: string = DEFAULT_TENANT_ID): {
+  inside: number;
+  capacity: number;
+} {
   try {
     const db = getDatabase(tenantId);
     const config = getSavedGymConfig(tenantId);
@@ -1885,10 +2124,7 @@ export function getInsideMembers(tenantId: string = DEFAULT_TENANT_ID): InsideMe
 
 // Any member action (portal heartbeat, weight log, plan save) keeps the open
 // visit alive so idle auto-checkout does not close an active workout.
-export function touchMemberVisit(
-  memberId: string,
-  tenantId: string = DEFAULT_TENANT_ID
-): boolean {
+export function touchMemberVisit(memberId: string, tenantId: string = DEFAULT_TENANT_ID): boolean {
   try {
     const db = getDatabase(tenantId);
     const idleMinutes = getSavedGymConfig(tenantId).idleCheckoutMinutes || 0;
@@ -1906,13 +2142,7 @@ export function touchMemberVisit(
            ORDER BY checked_in_at DESC LIMIT 1
          )`
       )
-      .run(
-        new Date().toISOString(),
-        memberId,
-        staleVisitCutoff(),
-        activityCutoff,
-        activityCutoff
-      );
+      .run(new Date().toISOString(), memberId, staleVisitCutoff(), activityCutoff, activityCutoff);
     return Number(result.changes) > 0;
   } catch (err) {
     console.error("[sqliteDb] touchMemberVisit failed:", err);
@@ -1920,10 +2150,7 @@ export function touchMemberVisit(
   }
 }
 
-export function closeIdleVisits(
-  minutes: number,
-  tenantId: string = DEFAULT_TENANT_ID
-): number {
+export function closeIdleVisits(minutes: number, tenantId: string = DEFAULT_TENANT_ID): number {
   try {
     if (!Number.isFinite(minutes) || minutes <= 0) return 0;
     const db = getDatabase(tenantId);
@@ -1967,9 +2194,7 @@ export function getMemberVisits(
   try {
     const db = getDatabase(tenantId);
     return db
-      .prepare(
-        "SELECT * FROM visits WHERE member_id = ? ORDER BY checked_in_at DESC LIMIT ?"
-      )
+      .prepare("SELECT * FROM visits WHERE member_id = ? ORDER BY checked_in_at DESC LIMIT ?")
       .all(memberId, limit) as unknown as DbVisit[];
   } catch (err) {
     console.error("[sqliteDb] getMemberVisits failed:", err);
@@ -2038,12 +2263,14 @@ export function closeStaleVisits(
 
 // 5E. Complete GDPR erasure: removes the member (cascading to their workout
 // plans) together with any lead inquiries sharing their email, atomically.
-export function eraseMemberCompletely(memberId: string, tenantId: string = DEFAULT_TENANT_ID): boolean {
+export function eraseMemberCompletely(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): boolean {
   try {
     const db = getDatabase(tenantId);
     const member = db.prepare("SELECT email FROM members WHERE id = ?").get(memberId) as
-      | { email: string }
-      | undefined;
+      { email: string } | undefined;
     if (!member) return false;
 
     db.exec("BEGIN");

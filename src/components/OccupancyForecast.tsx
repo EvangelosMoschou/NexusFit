@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { BarChart3, Clock3, Lock } from "lucide-react";
 import type { OccupancyAnalytics } from "@/types";
+import { memberFetch } from "@/lib/memberFetch";
 
 interface ForecastResponse extends Partial<OccupancyAnalytics> {
   success: boolean;
@@ -30,7 +31,7 @@ export const OccupancyForecast: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/occupancy/analytics?weeks=8", {
+      const res = await memberFetch("/api/occupancy/analytics?weeks=8", {
         cache: "no-store",
       });
       const json = (await res.json()) as ForecastResponse;
@@ -53,9 +54,7 @@ export const OccupancyForecast: React.FC = () => {
         days: json.days ?? [],
       });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Σφάλμα φόρτωσης της πρόβλεψης."
-      );
+      setError(err instanceof Error ? err.message : "Σφάλμα φόρτωσης της πρόβλεψης.");
     } finally {
       setLoading(false);
     }
@@ -67,15 +66,10 @@ export const OccupancyForecast: React.FC = () => {
 
   const day = data?.days[selectedDay];
   const maxAvg = data
-    ? Math.max(
-        1,
-        ...data.days.flatMap((entry) => entry.hours.map((point) => point.avg))
-      )
+    ? Math.max(1, ...data.days.flatMap((entry) => entry.hours.map((point) => point.avg)))
     : 1;
 
-  const activeHours = day
-    ? day.hours.filter((point) => point.avg > 0)
-    : [];
+  const activeHours = day ? day.hours.filter((point) => point.avg > 0) : [];
   const quietestHour =
     activeHours.length > 0
       ? activeHours.reduce((best, point) => (point.avg < best.avg ? point : best))
@@ -94,8 +88,8 @@ export const OccupancyForecast: React.FC = () => {
             Πρόβλεψη Πληρότητας
           </h3>
           <p className="text-[11px] text-secondary mt-1">
-            Μέσος όρος ατόμων ανά ώρα από τις τελευταίες {data?.weeks ?? 8}{" "}
-            εβδομάδες. Διάλεξε μέρα για να προγραμματίσεις καλύτερα.
+            Μέσος όρος ατόμων ανά ώρα από τις τελευταίες {data?.weeks ?? 8} εβδομάδες. Διάλεξε μέρα
+            για να προγραμματίσεις καλύτερα.
           </p>
         </div>
         <div className="text-[10px] text-tertiary font-mono flex items-center gap-1">
@@ -111,9 +105,7 @@ export const OccupancyForecast: React.FC = () => {
       ) : locked ? (
         <div className="p-4 rounded-lg bg-background border border-border flex items-start gap-2 text-[11px] text-secondary">
           <Lock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <span>
-            Η πρόβλεψη πληρότητας είναι διαθέσιμη με Premium συνδρομή.
-          </span>
+          <span>Η πρόβλεψη πληρότητας είναι διαθέσιμη με Premium συνδρομή.</span>
         </div>
       ) : error ? (
         <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
@@ -179,26 +171,20 @@ export const OccupancyForecast: React.FC = () => {
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-secondary">
               <span>
                 Πιο ήσυχα:{" "}
-                <strong className="text-emerald-400">
-                  {hourLabel(quietestHour?.hour ?? 0)}
-                </strong>{" "}
-                ({quietestHour?.avg ?? 0} άτομα)
+                <strong className="text-emerald-400">{hourLabel(quietestHour?.hour ?? 0)}</strong> (
+                {quietestHour?.avg ?? 0} άτομα)
               </span>
               <span>
                 Πιο γεμάτα:{" "}
-                <strong className="text-amber-300">
-                  {hourLabel(busiestHour?.hour ?? 0)}
-                </strong>{" "}
-                ({busiestHour?.avg ?? 0} άτομα)
+                <strong className="text-amber-300">{hourLabel(busiestHour?.hour ?? 0)}</strong> (
+                {busiestHour?.avg ?? 0} άτομα)
               </span>
-              <span className="text-tertiary">
-                Χωρητικότητα: {data.capacity}
-              </span>
+              <span className="text-tertiary">Χωρητικότητα: {data.capacity}</span>
             </div>
           )}
           <p className="text-[10px] text-tertiary">
-            Οι μπάρες δείχνουν σχετικό μέσο όρο· μια παρουσία 30 λεπτών μετράει
-            ως μισό άτομο στην ώρα της.
+            Οι μπάρες δείχνουν σχετικό μέσο όρο· μια παρουσία 30 λεπτών μετράει ως μισό άτομο στην
+            ώρα της.
           </p>
         </>
       )}

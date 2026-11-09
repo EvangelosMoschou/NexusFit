@@ -23,8 +23,15 @@ import { FloatingContact } from "@/components/FloatingContact";
 import { GeneratedWorkoutPlan } from "@/types";
 import { useUTM } from "@/lib/useUTM";
 import { useNetworkStatus } from "@/lib/useNetworkStatus";
-import { getCurrentMember, MemberUser, addPlanToMemberHistory, storeMemberSession } from "@/lib/auth";
+import {
+  getCurrentMember,
+  MemberUser,
+  addPlanToMemberHistory,
+  storeMemberSession,
+  logoutMember,
+} from "@/lib/auth";
 import { clearUrlHash } from "@/lib/scroll";
+import { MEMBER_SESSION_EXPIRED_EVENT, memberFetch } from "@/lib/memberFetch";
 
 // Theme previews are visible by default while the design is being chosen.
 // A real deployment build can hide them with NEXT_PUBLIC_THEME_PREVIEW=0.
@@ -52,17 +59,19 @@ const AICoachChatModal = dynamic(
   { ssr: false }
 );
 const ManualWorkoutBuilderModal = dynamic(
-  () => import("@/components/workout/ManualWorkoutBuilderModal").then((mod) => mod.ManualWorkoutBuilderModal),
+  () =>
+    import("@/components/workout/ManualWorkoutBuilderModal").then(
+      (mod) => mod.ManualWorkoutBuilderModal
+    ),
   { ssr: false }
 );
 const LoginModal = dynamic(
   () => import("@/components/auth/LoginModal").then((mod) => mod.LoginModal),
   { ssr: false }
 );
-const LegalModal = dynamic(
-  () => import("@/components/LegalModal").then((mod) => mod.LegalModal),
-  { ssr: false }
-);
+const LegalModal = dynamic(() => import("@/components/LegalModal").then((mod) => mod.LegalModal), {
+  ssr: false,
+});
 const SearchModal = dynamic(
   () => import("@/components/SearchModal").then((mod) => mod.SearchModal),
   { ssr: false }
@@ -98,6 +107,23 @@ export default function Home() {
     clearUrlHash();
   }, []);
 
+  // The branded 401 page links to /?login=1; open the member login once and
+  // remove the marker from the URL so refreshes do not keep reopening it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("login") !== "1") return;
+    // Query-driven one-shot modal; this is a client navigation side effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!getCurrentMember()) setIsLoginOpen(true);
+    params.delete("login");
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`
+    );
+  }, []);
+
   // Opening the member area pushes one history entry, so the browser Back
   // button closes it instead of walking through section anchors.
   useEffect(() => {
@@ -106,7 +132,8 @@ export default function Home() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  const isMemberAIActive = member?.subscription.hasAIAccess && member?.subscription.status === "active";
+  const isMemberAIActive =
+    member?.subscription.hasAIAccess && member?.subscription.status === "active";
 
   const currentUrl = () => window.location.pathname + window.location.search;
 
@@ -132,7 +159,7 @@ export default function Home() {
     window.scrollTo({ top: 0 });
   };
 
-  const handleLogout = () => {
+  const clearMemberUi = () => {
     setMember(null);
     setView("home");
     clearUrlHash();
@@ -140,6 +167,36 @@ export default function Home() {
       window.history.replaceState({ nexusfitView: "home" }, "", currentUrl());
     }
   };
+
+  const handleLogout = () => {
+    void logoutMember();
+    clearMemberUi();
+  };
+
+  const handleLogoutAll = () => {
+    void logoutMember(true);
+    clearMemberUi();
+  };
+
+  // Any member API can discover that the server-side session was revoked or
+  // expired. The wrapper clears local storage and emits this event; the landing
+  // page then drops the portal instead of leaving a half-authenticated UI open.
+  useEffect(() => {
+    const onSessionExpired = () => {
+      setMember(null);
+      setView("home");
+      clearUrlHash();
+      if (window.history.state?.nexusfitView === "portal") {
+        window.history.replaceState(
+          { nexusfitView: "home" },
+          "",
+          window.location.pathname + window.location.search
+        );
+      }
+    };
+    window.addEventListener(MEMBER_SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(MEMBER_SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, []);
 
   const handleOpenContact = (planName?: string) => {
     if (planName) {
@@ -159,7 +216,7 @@ export default function Home() {
     if (member) {
       const updated = addPlanToMemberHistory(plan);
       if (updated) setMember(updated);
-      fetch("/api/member/workouts", {
+      memberFetch("/api/member/workouts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plan }),
@@ -195,12 +252,13 @@ export default function Home() {
     return (
       <main className="min-h-screen bg-background text-foreground relative">
         <ScrollProgressBar />
-        
+
         <MemberPortalPage
           member={member}
           initialTab={portalTab}
           onGoHome={goHome}
           onLogout={handleLogout}
+          onLogoutAll={handleLogoutAll}
           onLaunchAIWizard={() => {
             if (isMemberAIActive) setIsAIWizardOpen(true);
           }}
@@ -223,10 +281,7 @@ export default function Home() {
 
         {/* Live AI Agent Chat Modal */}
         {isMemberAIActive && isAIChatOpen && (
-          <AICoachChatModal
-            isOpen={isAIChatOpen}
-            onClose={() => setIsAIChatOpen(false)}
-          />
+          <AICoachChatModal isOpen={isAIChatOpen} onClose={() => setIsAIChatOpen(false)} />
         )}
 
         {/* AI Wizard Modal */}
@@ -271,6 +326,7 @@ export default function Home() {
         onGoHome={goHome}
         member={member}
         onLogout={handleLogout}
+        onLogoutAll={handleLogoutAll}
         onSelectMemberTab={openMemberTab}
       />
 
@@ -309,8 +365,8 @@ export default function Home() {
         <GymMap />
 
         {/* Contact & Inquiries Form */}
-        <LeadBooking 
-          preselectedPlan={selectedPlanName} 
+        <LeadBooking
+          preselectedPlan={selectedPlanName}
           onOpenLegal={(type) => setLegalModalType(type)}
         />
       </div>
@@ -356,10 +412,7 @@ export default function Home() {
 
       {/* Legal Modal (TOS / Privacy Policy) */}
       {legalModalType && (
-        <LegalModal
-          type={legalModalType}
-          onClose={() => setLegalModalType(null)}
-        />
+        <LegalModal type={legalModalType} onClose={() => setLegalModalType(null)} />
       )}
     </main>
   );

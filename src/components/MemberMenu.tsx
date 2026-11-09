@@ -3,16 +3,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { MemberUser } from "@/lib/auth";
-import {
-  Bell,
-  CalendarDays,
-  ChevronDown,
-  Dumbbell,
-  LineChart,
-  LogOut,
-  User,
-} from "lucide-react";
+import { Bell, CalendarDays, ChevronDown, Dumbbell, LineChart, LogOut, User } from "lucide-react";
 import { MemberNotificationsModal } from "@/components/MemberNotificationsModal";
+import { memberFetch } from "@/lib/memberFetch";
 
 export type PortalTab = "overview" | "plans" | "logs" | "schedule";
 
@@ -20,6 +13,7 @@ interface MemberMenuProps {
   member: MemberUser;
   onSelectTab: (tab: PortalTab) => void;
   onLogout: () => void;
+  onLogoutAll?: () => void;
 }
 
 const MENU_ITEMS: Array<{ tab: PortalTab; label: string; icon: typeof User }> = [
@@ -39,7 +33,12 @@ function initials(fullName: string): string {
 
 // Compact account menu shown in the site header while a member is signed in.
 // It replaces the separate member screen as the entry point to the portal.
-export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onLogout }) => {
+export const MemberMenu: React.FC<MemberMenuProps> = ({
+  member,
+  onSelectTab,
+  onLogout,
+  onLogoutAll,
+}) => {
   const [open, setOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -49,7 +48,7 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
 
   const loadUnread = useCallback(async () => {
     try {
-      const res = await fetch("/api/member/notifications", { cache: "no-store" });
+      const res = await memberFetch("/api/member/notifications", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       if (data?.success && typeof data.unreadCount === "number") {
@@ -103,7 +102,9 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
         <span className="w-7 h-7 rounded-full bg-accent text-accent-ink text-[11px] font-extrabold flex items-center justify-center">
           {initials(member.fullName)}
         </span>
-        <ChevronDown className={`w-3.5 h-3.5 text-secondary transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-secondary transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -114,9 +115,7 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
         >
           <div className="px-4 py-3 border-b border-border">
             <div className="text-xs font-bold text-primary truncate">{member.fullName}</div>
-            <div className="text-[11px] text-tertiary font-mono mt-0.5">
-              {member.memberCode}
-            </div>
+            <div className="text-[11px] text-tertiary font-mono mt-0.5">{member.memberCode}</div>
           </div>
 
           <div className="p-1.5">
@@ -156,6 +155,20 @@ export const MemberMenu: React.FC<MemberMenuProps> = ({ member, onSelectTab, onL
           </div>
 
           <div className="border-t border-border p-1.5">
+            {onLogoutAll && (
+              <button
+                role="menuitem"
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  onLogoutAll();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs text-secondary hover:text-primary hover:bg-surface-elevated transition-colors text-left"
+              >
+                <LogOut className="w-4 h-4 shrink-0" />
+                <span>Αποσύνδεση από όλες τις συσκευές</span>
+              </button>
+            )}
             <button
               role="menuitem"
               type="button"

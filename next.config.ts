@@ -1,10 +1,32 @@
 import path from "node:path";
 import type { NextConfig } from "next";
 
+// Enforced partial CSP.
+//
+// Only directives that cannot break Next's inline bootstrap/hydration scripts
+// are enabled here. A full script-src policy needs per-request nonces and is a
+// separate follow-up. These four directives do not restrict subresources:
+//   * base-uri 'self'      - no external <base> hijack
+//   * form-action 'self'   - forms cannot post credentials off-site
+//   * frame-ancestors none - the app cannot be framed (supersedes X-Frame-Options
+//                            in CSP-capable browsers); it governs who may embed
+//                            *this* page, not the OSM iframe this page embeds
+//   * object-src 'none'    - no <object>/<embed> plugins
+const contentSecurityPolicy = [
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+].join("; ");
+
 const securityHeaders = [
   {
     key: "X-DNS-Prefetch-Control",
-    value: "on",
+    value: "off",
+  },
+  {
+    key: "Content-Security-Policy",
+    value: contentSecurityPolicy,
   },
   {
     key: "Strict-Transport-Security",
@@ -12,7 +34,7 @@ const securityHeaders = [
   },
   {
     key: "X-Frame-Options",
-    value: "SAMEORIGIN",
+    value: "DENY",
   },
   {
     key: "X-Content-Type-Options",
@@ -52,8 +74,7 @@ const nextConfig: NextConfig = {
     // Strip the noisy console.log/debug/info in production, but KEEP error and
     // warn: they are the only signal we get from server-side failures (e.g. the
     // sqliteDb error paths), and stripping them made production failures silent.
-    removeConsole:
-      process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
+    removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error", "warn"] } : false,
   },
   experimental: {
     optimizePackageImports: ["lucide-react"], // Tree-shake Lucide icons down to exact SVGs

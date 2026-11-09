@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
-import { signMemberSession } from "@/lib/session";
+import { MEMBER_SESSION_COOKIE_MAX_AGE_SECONDS, createMemberSession } from "@/lib/memberSessions";
 import { MEMBER_COOKIE, SECURE_COOKIES } from "@/lib/cookies";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const token = signMemberSession(tenantId, member.id);
+    const token = await createMemberSession(tenantId, member.id, req);
     if (!token) {
       return NextResponse.json(
         { success: false, error: "Ο διακομιστής δεν έχει ρυθμιστεί για ασφαλείς συνεδρίες." },
@@ -66,13 +66,10 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       sameSite: "lax",
       secure: SECURE_COOKIES,
-      maxAge: 2592000,
+      maxAge: MEMBER_SESSION_COOKIE_MAX_AGE_SECONDS,
     });
     return res;
   } catch {
-    return NextResponse.json(
-      { success: false, error: "Σφάλμα βάσης δεδομένων." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Σφάλμα βάσης δεδομένων." }, { status: 500 });
   }
 }

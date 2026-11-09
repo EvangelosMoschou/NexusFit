@@ -38,6 +38,15 @@ import {
   closeStaleVisits,
   closeIdleVisits,
   getMemberAccess,
+  createMemberSession,
+  getMemberSession,
+  touchMemberSession,
+  revokeMemberSession,
+  revokeAllMemberSessions,
+  listMemberSessions,
+  listMemberSessionHistory,
+  enforceMemberSessionLimit,
+  purgeMemberSessions,
   ensureMemberNotification,
   listMemberNotifications,
   getUnreadNotificationCount,
@@ -165,6 +174,33 @@ export function createSqliteRepository(tenantId: string): Repository {
     },
     async authenticateMember(identifier, pin) {
       return getMemberByCredentials(identifier, pin, tenantId);
+    },
+    async createMemberSession(input) {
+      return createMemberSession(input, tenantId);
+    },
+    async getMemberSession(sessionIdHash) {
+      return getMemberSession(sessionIdHash, tenantId);
+    },
+    async touchMemberSession(sessionIdHash, lastSeenAt) {
+      return touchMemberSession(sessionIdHash, lastSeenAt, tenantId);
+    },
+    async revokeMemberSession(sessionIdHash, memberId, revokedAt) {
+      return revokeMemberSession(sessionIdHash, memberId, revokedAt, tenantId);
+    },
+    async revokeAllMemberSessions(memberId, revokedAt, exceptSessionIdHash) {
+      return revokeAllMemberSessions(memberId, revokedAt, tenantId, exceptSessionIdHash);
+    },
+    async listMemberSessions(memberId, activeSince, now) {
+      return listMemberSessions(memberId, activeSince, now, tenantId);
+    },
+    async listMemberSessionHistory(memberId, limit) {
+      return listMemberSessionHistory(memberId, limit, tenantId);
+    },
+    async enforceMemberSessionLimit(memberId, limit, now) {
+      return enforceMemberSessionLimit(memberId, limit, now, tenantId);
+    },
+    async purgeMemberSessions(now) {
+      return purgeMemberSessions(now, tenantId);
     },
     async ensureMemberNotification(memberId, input) {
       return ensureMemberNotification(memberId, input, tenantId);

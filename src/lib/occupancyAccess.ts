@@ -3,17 +3,13 @@ import { isAdminRequest } from "@/lib/adminAuth";
 import { isLegacyTrainerRequest } from "@/lib/trainerAuth";
 import { getStaffSession } from "@/lib/staffAuth";
 import { hasStaffPermission } from "@/lib/staffPermissions";
-import { verifyMemberSession } from "@/lib/session";
-import { MEMBER_COOKIE } from "@/lib/cookies";
+import { authenticateMemberSession } from "@/lib/memberSessions";
 import { getRepository } from "@/lib/db";
 import { isPremiumSubscriptionActive } from "@/lib/subscription";
 
 // Occupancy (live or historical) is a member benefit. Staff with the right
 // permission see it without a member subscription.
-export async function canViewOccupancy(
-  req: NextRequest,
-  tenantId: string
-): Promise<boolean> {
+export async function canViewOccupancy(req: NextRequest, tenantId: string): Promise<boolean> {
   const staff = await getStaffSession(req, tenantId);
 
   if (
@@ -26,19 +22,12 @@ export async function canViewOccupancy(
     return true;
   }
 
-  const memberId = verifyMemberSession(
-    req.cookies.get(MEMBER_COOKIE)?.value,
-    tenantId
-  );
-  if (!memberId) return false;
+  const session = await authenticateMemberSession(req, tenantId);
+  if (!session) return false;
 
-  const member = await getRepository(tenantId).getMemberAccess(memberId);
+  const member = await getRepository(tenantId).getMemberAccess(session.memberId);
   return Boolean(
     member &&
-      isPremiumSubscriptionActive(
-        member.subscription_status,
-        member.expires_at,
-        member.has_ai_access
-      )
+    isPremiumSubscriptionActive(member.subscription_status, member.expires_at, member.has_ai_access)
   );
 }

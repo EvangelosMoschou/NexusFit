@@ -23,7 +23,9 @@
     "demo:preview": "vite preview --config site/vite.config.mts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "sbom": "npx --yes @cyclonedx/cyclonedx-npm@6.0.1 --output-file sbom.json"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",

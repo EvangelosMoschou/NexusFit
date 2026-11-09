@@ -1,13 +1,9 @@
 import type { NextRequest } from "next/server";
-import { STAFF_COOKIE, SECURE_COOKIES } from "@/lib/cookies";
+import { STAFF_COOKIE, buildSessionCookie } from "@/lib/cookies";
 import { getRepository } from "@/lib/db";
 import type { DbStaffAccount, StaffRole } from "@/lib/db/types";
 import { verifyPin } from "@/lib/passwordHash";
-import {
-  parseStaffSession,
-  signStaffSession,
-  verifyStaffSession,
-} from "@/lib/session";
+import { parseStaffSession, signStaffSession, verifyStaffSession } from "@/lib/session";
 import {
   hasStaffPermission,
   permissionsForRole,
@@ -68,19 +64,12 @@ export async function authenticateStaff(
   return account;
 }
 
-export function buildStaffSessionCookie(
-  tenantId: string,
-  account: DbStaffAccount
-): string | null {
+export function buildStaffSessionCookie(tenantId: string, account: DbStaffAccount): string | null {
   const token = signStaffSession(tenantId, account.id, account.password_hash);
   if (!token) return null;
-  const secure = SECURE_COOKIES ? "; Secure" : "";
-  return `${STAFF_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800${secure}`;
+  return buildSessionCookie(STAFF_COOKIE, token);
 }
 
-export function hasSessionPermission(
-  session: StaffSession,
-  permission: StaffPermission
-): boolean {
+export function hasSessionPermission(session: StaffSession, permission: StaffPermission): boolean {
   return hasStaffPermission(session.role, session.permissions, permission);
 }

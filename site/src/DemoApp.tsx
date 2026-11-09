@@ -29,7 +29,12 @@ import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { GeneratedWorkoutPlan } from "@/types";
 import { useUTM } from "@/lib/useUTM";
 import { useNetworkStatus } from "@/lib/useNetworkStatus";
-import { getCurrentMember, MemberUser, addPlanToMemberHistory, storeMemberSession } from "@/lib/auth";
+import {
+  getCurrentMember,
+  MemberUser,
+  addPlanToMemberHistory,
+  storeMemberSession,
+} from "@/lib/auth";
 
 function DemoBanner() {
   const resetDemo = () => {
@@ -46,7 +51,8 @@ function DemoBanner() {
     <div className="fixed bottom-3 left-3 z-[80] max-w-[calc(100vw-1.5rem)] rounded-lg border border-border bg-surface/95 px-3 py-2 text-[11px] text-secondary shadow-xl backdrop-blur flex flex-wrap items-center gap-x-2 gap-y-1">
       <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
       <span>
-        <strong className="text-primary">Διαδραστική επίδειξη</strong> — τα δεδομένα μένουν σε αυτόν τον περιηγητή.
+        <strong className="text-primary">Διαδραστική επίδειξη</strong> — τα δεδομένα μένουν σε αυτόν
+        τον περιηγητή.
       </span>
       <span className="font-mono text-tertiary">Σύνδεση: NX-8492 / 1234</span>
       <button
@@ -86,7 +92,8 @@ export function DemoApp() {
     if (current) setMember(current);
   }, []);
 
-  const isMemberAIActive = member?.subscription.hasAIAccess && member?.subscription.status === "active";
+  const isMemberAIActive =
+    member?.subscription.hasAIAccess && member?.subscription.status === "active";
 
   const goHome = () => {
     setView("home");
@@ -159,6 +166,7 @@ export function DemoApp() {
             initialTab={portalTab}
             onGoHome={goHome}
             onLogout={handleLogout}
+            onLogoutAll={handleLogout}
             onLaunchAIWizard={() => {
               if (isMemberAIActive) setIsAIWizardOpen(true);
             }}

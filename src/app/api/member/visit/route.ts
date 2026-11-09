@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
-import { verifyMemberSession } from "@/lib/session";
-import { MEMBER_COOKIE } from "@/lib/cookies";
+import { authenticateMemberSession } from "@/lib/memberSessions";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
-import {
-  isPremiumSubscriptionActive,
-  isSubscriptionActive,
-} from "@/lib/subscription";
+import { isPremiumSubscriptionActive, isSubscriptionActive } from "@/lib/subscription";
 import { reentryCooldownMessage } from "@/lib/accessToken";
 import { isQuickReentry, trackAccessEvent } from "@/lib/accessEvents";
 
-function authenticatedMember(req: NextRequest, tenantId: string): string | null {
-  return verifyMemberSession(req.cookies.get(MEMBER_COOKIE)?.value, tenantId);
+async function authenticatedMember(req: NextRequest, tenantId: string): Promise<string | null> {
+  const session = await authenticateMemberSession(req, tenantId);
+  return session?.memberId ?? null;
 }
 
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantIdFromHeaders(req.headers);
-  const memberId = authenticatedMember(req, tenantId);
+  const memberId = await authenticatedMember(req, tenantId);
 
   if (!memberId) {
     return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
@@ -55,7 +52,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const tenantId = resolveTenantIdFromHeaders(req.headers);
-  const memberId = authenticatedMember(req, tenantId);
+  const memberId = await authenticatedMember(req, tenantId);
 
   if (!memberId) {
     return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });

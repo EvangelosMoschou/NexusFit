@@ -1,26 +1,28 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { MemberUser, logoutMember, clearMemberSession } from "@/lib/auth";
+import { MemberUser, clearMemberSession } from "@/lib/auth";
 import { MemberMenu, PortalTab } from "@/components/MemberMenu";
 import { Barcode } from "@/components/Barcode";
 import { MemberCheckIn } from "@/components/MemberCheckIn";
+import { MemberSessionsCard } from "@/components/member/MemberSessionsCard";
 import { AccessPass } from "@/components/AccessPass";
 import { OccupancyForecast } from "@/components/OccupancyForecast";
 import { GeneratedWorkoutPlan } from "@/types";
 import { useGymConfig } from "@/lib/useGymConfig";
-import { 
-  Dumbbell, 
-  Bot, 
-  CheckCircle2, 
-  ExternalLink, 
-  Plus, 
-  MessageSquareText, 
+import { memberFetch } from "@/lib/memberFetch";
+import {
+  Dumbbell,
+  Bot,
+  CheckCircle2,
+  ExternalLink,
+  Plus,
+  MessageSquareText,
   Lock,
   Edit3,
   Wifi,
   Download,
-  Trash2
+  Trash2,
 } from "lucide-react";
 import { getExerciseLogs } from "@/lib/storage";
 
@@ -29,6 +31,7 @@ interface MemberPortalPageProps {
   initialTab?: PortalTab;
   onGoHome: () => void;
   onLogout: () => void;
+  onLogoutAll: () => void;
   onLaunchAIWizard: () => void;
   onLaunchAIChat: () => void;
   onLaunchManualBuilder: () => void;
@@ -41,6 +44,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
   initialTab = "overview",
   onGoHome,
   onLogout,
+  onLogoutAll,
   onLaunchAIWizard,
   onLaunchAIChat,
   onLaunchManualBuilder,
@@ -57,14 +61,15 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
   }, [initialTab]);
 
   const handleLogout = () => {
-    void logoutMember();
+    // The parent owns the server logout/revocation so every entry point
+    // (Navbar, MemberMenu, sessions card) follows the same path.
     onLogout();
   };
 
   // GDPR: fetch the export so it downloads as a file without leaving the page.
   const handleExportData = async () => {
     try {
-      const res = await fetch("/api/member/export");
+      const res = await memberFetch("/api/member/export");
       if (!res.ok) return;
       const disposition = res.headers.get("content-disposition");
       const match = disposition?.match(/filename="?([^";]+)"?/);
@@ -89,16 +94,17 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
     }
     setIsErasing(true);
     try {
-      const res = await fetch("/api/member/erase", { method: "DELETE" });
+      const res = await memberFetch("/api/member/erase", { method: "DELETE" });
       if (res.ok) {
         clearMemberSession();
         onLogout();
       }
-    } catch {} finally {
+    } catch {
+    } finally {
       setIsErasing(false);
     }
   };
-  
+
   // Strict check: only active members with AI tier have AI access
   const isAIActive = member.subscription.hasAIAccess && member.subscription.status === "active";
   const latestPlan = member.savedPlans[0];
@@ -153,6 +159,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               member={member}
               onSelectTab={setActiveTab}
               onLogout={handleLogout}
+              onLogoutAll={onLogoutAll}
             />
           </div>
         </div>
@@ -160,7 +167,6 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
       {/* Main Member Dashboard */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 space-y-8">
-        
         {/* Welcome Header & Member Action Hub */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
           <div>
@@ -207,7 +213,9 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             ) : (
               <div className="px-3 py-2 rounded-lg bg-surface-elevated border border-border text-xs text-secondary flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-tertiary" />
-                <span className="text-[11px]">Ψηφιακός Βοηθός: <strong className="text-tertiary">Βασικό Πακέτο</strong></span>
+                <span className="text-[11px]">
+                  Ψηφιακός Βοηθός: <strong className="text-tertiary">Βασικό Πακέτο</strong>
+                </span>
               </div>
             )}
           </div>
@@ -223,9 +231,13 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Stat 1: Subscription Status */}
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
-            <div className="text-[10px] font-mono uppercase text-tertiary">Συνδρομή Γυμναστηρίου</div>
+            <div className="text-[10px] font-mono uppercase text-tertiary">
+              Συνδρομή Γυμναστηρίου
+            </div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-primary truncate">{member.subscription.tierName.split("(")[0]}</span>
+              <span className="text-sm font-bold text-primary truncate">
+                {member.subscription.tierName.split("(")[0]}
+              </span>
               {member.subscription.status === "active" ? (
                 <span className="text-[10px] bg-emerald-950/60 text-emerald-400 border border-emerald-800/80 px-2 py-0.5 rounded-md font-mono font-bold">
                   Ενεργή
@@ -243,7 +255,9 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
           {/* Stat 2: AI Access Status */}
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
-            <div className="text-[10px] font-mono uppercase text-tertiary">Πρόσβαση Ψηφιακού Προπονητή</div>
+            <div className="text-[10px] font-mono uppercase text-tertiary">
+              Πρόσβαση Ψηφιακού Προπονητή
+            </div>
             <div className="flex items-center gap-2">
               {isAIActive ? (
                 <span className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
@@ -258,15 +272,15 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               )}
             </div>
             <div className="text-[11px] text-secondary">
-              {isAIActive
-                ? "Πρόγραμμα & συνομιλία ενεργά"
-                : "Απαιτείται πρόσθετο πακέτο (+14€)"}
+              {isAIActive ? "Πρόγραμμα & συνομιλία ενεργά" : "Απαιτείται πρόσθετο πακέτο (+14€)"}
             </div>
           </div>
 
           {/* Stat 3: Total Saved Plans */}
           <div className="p-4 rounded-xl bg-surface border border-border space-y-2">
-            <div className="text-[10px] font-mono uppercase text-tertiary">Αποθηκευμένα Προγράμματα</div>
+            <div className="text-[10px] font-mono uppercase text-tertiary">
+              Αποθηκευμένα Προγράμματα
+            </div>
             <div className="text-2xl font-extrabold text-primary font-mono">
               {member.savedPlans.length}
             </div>
@@ -330,7 +344,6 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
         {/* TAB 1: OVERVIEW & ACTIVE WORKOUT */}
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            
             {/* Left Column: Active Routine Preview */}
             <div className="lg:col-span-8 space-y-4">
               <div className="p-5 rounded-xl bg-surface border border-border space-y-4">
@@ -364,14 +377,17 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {latestPlan.days.slice(0, 2).map((day, idx) => (
-                        <div key={idx} className="p-3.5 rounded-lg bg-background border border-border space-y-2">
+                        <div
+                          key={idx}
+                          className="p-3.5 rounded-lg bg-background border border-border space-y-2"
+                        >
                           <div className="text-xs font-bold text-primary flex items-center justify-between">
                             <span>{day.dayName}</span>
-                            <span className="text-[10px] text-tertiary font-mono">{day.estimatedMinutes} λεπτά</span>
+                            <span className="text-[10px] text-tertiary font-mono">
+                              {day.estimatedMinutes} λεπτά
+                            </span>
                           </div>
-                          <div className="text-[11px] text-secondary">
-                            Εστίαση: {day.focus}
-                          </div>
+                          <div className="text-[11px] text-secondary">Εστίαση: {day.focus}</div>
                           <div className="text-[11px] text-accent font-mono pt-1">
                             {day.exercises.length} Ασκήσεις (π.χ. {day.exercises[0]?.greekName})
                           </div>
@@ -416,7 +432,8 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                     <h3 className="text-sm font-bold text-primary">Βοήθεια Ψηφιακού Προπονητή</h3>
                   </div>
                   <p className="text-xs text-secondary leading-relaxed">
-                    Έχετε κάποια ενόχληση σε άρθρωση ή θέλετε να αντικαταστήσετε μία άσκηση στο γυμναστήριο;
+                    Έχετε κάποια ενόχληση σε άρθρωση ή θέλετε να αντικαταστήσετε μία άσκηση στο
+                    γυμναστήριο;
                   </p>
                   <button
                     onClick={onLaunchAIChat}
@@ -430,13 +447,17 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                 <div className="p-5 rounded-xl bg-surface border border-border space-y-3">
                   <div className="flex items-center gap-2 text-tertiary">
                     <Lock className="w-4 h-4" />
-                    <h3 className="text-xs font-bold text-primary">NexusFit Ψηφιακός Βοηθός (Κλειδωμένο)</h3>
+                    <h3 className="text-xs font-bold text-primary">
+                      NexusFit Ψηφιακός Βοηθός (Κλειδωμένο)
+                    </h3>
                   </div>
                   <p className="text-[11px] text-secondary leading-relaxed">
-                    Ο λογαριασμός σας διαθέτει βασική συνδρομή. Μπορείτε να φτιάξετε χειροκίνητα τα προγράμματά σας ή να αναβαθμίσετε για τον ψηφιακό προπονητή:
+                    Ο λογαριασμός σας διαθέτει βασική συνδρομή. Μπορείτε να φτιάξετε χειροκίνητα τα
+                    προγράμματά σας ή να αναβαθμίσετε για τον ψηφιακό προπονητή:
                   </p>
                   <div className="p-3 rounded-lg bg-background border border-border text-[11px] text-tertiary">
-                    Απευθυνθείτε στη ρεσεψιόν του γυμναστηρίου για ενεργοποίηση του ψηφιακού βοηθού (+14€/μήνα).
+                    Απευθυνθείτε στη ρεσεψιόν του γυμναστηρίου για ενεργοποίηση του ψηφιακού βοηθού
+                    (+14€/μήνα).
                   </div>
                 </div>
               )}
@@ -455,7 +476,8 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   <Barcode value={member.memberCode} height={56} />
                 </div>
                 <div className="text-[11px] text-tertiary leading-relaxed">
-                  Δείξτε το barcode ή τον κωδικό μέλους στη ρεσεψιόν για είσοδο στους χώρους και στα ομαδικά.
+                  Δείξτε το barcode ή τον κωδικό μέλους στη ρεσεψιόν για είσοδο στους χώρους και στα
+                  ομαδικά.
                 </div>
               </div>
 
@@ -463,7 +485,8 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               <div className="p-5 rounded-xl bg-surface border border-border space-y-3">
                 <div className="text-xs font-bold text-primary">Τα Δεδομένα μου</div>
                 <p className="text-[11px] text-tertiary leading-relaxed">
-                  Σύμφωνα με τον GDPR μπορείτε να εξάγετε αντίγραφο ή να διαγράψετε οριστικά τα προσωπικά σας δεδομένα.
+                  Σύμφωνα με τον GDPR μπορείτε να εξάγετε αντίγραφο ή να διαγράψετε οριστικά τα
+                  προσωπικά σας δεδομένα.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -483,8 +506,9 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                   </button>
                 </div>
               </div>
-            </div>
 
+              <MemberSessionsCard onLogout={handleLogout} onLogoutAll={onLogoutAll} />
+            </div>
           </div>
         )}
 
@@ -540,7 +564,9 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
               ))
             ) : (
               <div className="p-8 text-center bg-surface rounded-xl border border-border space-y-3">
-                <div className="text-xs text-secondary">Δεν έχετε αποθηκευμένα προγράμματα ακόμα.</div>
+                <div className="text-xs text-secondary">
+                  Δεν έχετε αποθηκευμένα προγράμματα ακόμα.
+                </div>
                 <button
                   onClick={onLaunchManualBuilder}
                   className="px-4 py-2 rounded-lg bg-btn text-btn-ink font-bold text-xs"
@@ -566,9 +592,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                       <div className="font-semibold text-primary font-mono">{log.exerciseId}</div>
                       <div className="text-[10px] text-tertiary">Ημερομηνία: {log.date}</div>
                     </div>
-                    <div className="font-mono font-bold text-accent text-sm">
-                      {log.weightKg} kg
-                    </div>
+                    <div className="font-mono font-bold text-accent text-sm">{log.weightKg} kg</div>
                   </div>
                 ))}
               </div>
@@ -612,7 +636,6 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             )}
           </div>
         )}
-
       </div>
     </div>
   );

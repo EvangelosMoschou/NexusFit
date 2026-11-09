@@ -4,6 +4,8 @@ Operational and design documentation for the NexusFit platform.
 
 - [CI.md](./CI.md) — Gitea/Forgejo Actions pipeline and runner setup.
 - [MONITORING.md](./MONITORING.md) — uptime probes, log rotation and backup strategy.
+- [security/](./security/README.md) — vulnerability disclosure and supply-chain/CI
+  security gates (Gitleaks, Semgrep, CodeQL, Trivy, SBOM, dependency review).
 - [50_RULES_WEBSITE_CHECKLIST.txt](./50_RULES_WEBSITE_CHECKLIST.txt) — the design and
   quality checklist this project follows.
 

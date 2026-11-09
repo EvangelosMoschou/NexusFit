@@ -1,0 +1,88 @@
+# Dependabot configuration.
+#
+# Weekly, grouped dependency updates for the npm project (root) and for the
+# GitHub Actions used by the workflows in this directory. Grouping keeps the PR
+# queue reviewable: coupled packages (Next.js + React) arrive together, and
+# low-risk minor/patch bumps are batched into one PR per ecosystem per week.
+#
+# Security updates are delivered separately by Dependabot and are not affected
+# by `open-pull-requests-limit` or by the `groups` below.
+#
+# Note: Dependabot version updates must also be enabled for the repository
+# (Settings → Code security and analysis → Dependabot version updates), and the
+# Gitea/Forgejo mirror needs its own updater — see docs/security/supply-chain.md.
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------------------
+  # Runtime + toolchain dependencies (package.json / package-lock.json).
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Athens
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    labels:
+      - dependencies
+      - npm
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    # Wait a few days after a release before opening a PR. A freshly published
+    # version is the most likely to be a compromised or yanked release; the
+    # cooldown gives the registry and the community time to notice. Security
+    # updates ignore `cooldown` and still arrive immediately.
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    groups:
+      # These move as a unit: a Next.js bump frequently requires matching React
+      # and @types versions, and eslint-config-next must track Next.js exactly.
+      nextjs-react:
+        patterns:
+          - next
+          - react
+          - react-dom
+          - "@types/react"
+          - "@types/react-dom"
+          - eslint-config-next
+      # Everything else: minor and patch bumps only, one PR per week. Major
+      # updates are still opened individually so they can be reviewed properly.
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions used by .github/workflows/*.yml.
+  # ---------------------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Europe/Athens
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    commit-message:
+      prefix: "chore(ci)"
+      include: scope
+    # Actions run with a repository token, so let a new release settle first.
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Lock, LogIn, LogOut, Users } from "lucide-react";
+import { memberFetch } from "@/lib/memberFetch";
 
 interface Occupancy {
   inside: number;
@@ -29,7 +30,7 @@ export const MemberCheckIn: React.FC = () => {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/member/visit", { cache: "no-store" });
+      const res = await memberFetch("/api/member/visit", { cache: "no-store" });
       const data = await res.json();
       if (res.ok && data.success) {
         setInside(Boolean(data.inside));
@@ -61,7 +62,7 @@ export const MemberCheckIn: React.FC = () => {
         return;
       }
 
-      void fetch("/api/member/visit", {
+      void memberFetch("/api/member/visit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "heartbeat" }),
@@ -90,7 +91,7 @@ export const MemberCheckIn: React.FC = () => {
     setError(null);
 
     try {
-      const res = await fetch("/api/member/visit", {
+      const res = await memberFetch("/api/member/visit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: inside ? "out" : "in" }),
@@ -131,12 +132,9 @@ export const MemberCheckIn: React.FC = () => {
           <Lock className="w-4 h-4" />
         </div>
         <div>
-          <div className="text-xs font-bold text-primary">
-            Η συνδρομή σου δεν είναι ενεργή
-          </div>
+          <div className="text-xs font-bold text-primary">Η συνδρομή σου δεν είναι ενεργή</div>
           <div className="text-[11px] text-secondary mt-1 leading-relaxed">
-            Η δήλωση εισόδου απαιτεί ενεργή συνδρομή. Για ανανέωση, επικοινώνησε
-            με τη ρεσεψιόν.
+            Η δήλωση εισόδου απαιτεί ενεργή συνδρομή. Για ανανέωση, επικοινώνησε με τη ρεσεψιόν.
           </div>
         </div>
       </div>
@@ -168,15 +166,12 @@ export const MemberCheckIn: React.FC = () => {
           </div>
           {locked && (
             <div className="text-[10px] text-amber-300 mt-1 flex items-center gap-1">
-              <Lock className="w-3 h-3" />
-              Η πληρότητα & η πρόβλεψη είναι διαθέσιμες με Premium συνδρομή
-              (Ψηφιακός Βοηθός).
+              <Lock className="w-3 h-3" />Η πληρότητα & η πρόβλεψη είναι διαθέσιμες με Premium
+              συνδρομή (Ψηφιακός Βοηθός).
             </div>
           )}
           {visits30d !== null && (
-            <div className="text-[10px] text-tertiary mt-1">
-              {visits30d} παρουσίες (30 ημέρες)
-            </div>
+            <div className="text-[10px] text-tertiary mt-1">{visits30d} παρουσίες (30 ημέρες)</div>
           )}
           {error && <div className="text-[10px] text-red-400 mt-1">{error}</div>}
         </div>
@@ -193,9 +188,7 @@ export const MemberCheckIn: React.FC = () => {
         }`}
       >
         {inside ? <LogOut className="w-3.5 h-3.5" /> : <LogIn className="w-3.5 h-3.5" />}
-        <span>
-          {busy ? "Αποθήκευση..." : inside ? "Τέλος προπόνησης" : "Δήλωση εισόδου"}
-        </span>
+        <span>{busy ? "Αποθήκευση..." : inside ? "Τέλος προπόνησης" : "Δήλωση εισόδου"}</span>
       </button>
     </div>
   );

@@ -1,0 +1,328 @@
+# Supply-chain and CI security gates.
+#
+# This workflow complements — it does not replace — the existing pipelines:
+#   * `.github/workflows/pages.yml`  — builds and deploys the static demo.
+#   * `.gitea/workflows/ci.yml`      — lint / typecheck / test / build on a
+#     self-hosted Gitea/Forgejo runner.
+#
+# Design rules
+#   * `contents: read` is the default for the whole workflow. Only the jobs that
+#     upload a SARIF file ask for `security-events: write`.
+#   * No repository secret is required to get a green run. Semgrep uses the
+#     public `p/ci` ruleset through the CLI (no SEMGREP_APP_TOKEN, no Semgrep
+#     AppSec Platform account), so the job behaves the same on pull requests
+#     from forks. See docs/security/supply-chain.md for the optional add-ons.
+#   * External tools are pinned to an explicit version (Dependabot keeps them
+#     fresh) and the Gitleaks download is checksum-verified.
+#   * SARIF uploads are best effort: GitHub hands read-only tokens to pull
+#     requests from forks, so the upload may be skipped/failed while the scan
+#     output is still published as an artifact for review.
+
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: jobs inherit read-only contents and opt in to anything else.
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+  # Bump deliberately in a dedicated PR (and read the release notes): the
+  # downloaded binary is verified against the published checksums file.
+  GITLEAKS_VERSION: "8.30.1"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Repository hygiene: the same gates every contributor can run locally.
+  # ---------------------------------------------------------------------------
+  quality:
+    name: Install, typecheck, lint & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      # The production build also runs Next's TypeScript pass and catches
+      # boundary/runtime mistakes that `tsc --noEmit` alone does not.
+      - name: Production build
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Dependency health: production audit gate + CycloneDX SBOM artifact.
+  # ---------------------------------------------------------------------------
+  supply-chain:
+    name: Production audit & CycloneDX SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Blocking gate: a high or critical advisory in a runtime dependency must
+      # be fixed (or explicitly triaged and pinned) before the change ships.
+      - name: Audit production dependencies
+        run: npm run audit:prod
+
+      # Informational: dev-only advisories are reported in the log but do not
+      # fail the run, so an unrelated toolchain advisory cannot block a fix.
+      - name: Audit all dependencies (report only)
+        if: always()
+        continue-on-error: true
+        run: npm audit
+
+      - name: Generate CycloneDX SBOM
+        run: npm run sbom
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-cyclonedx
+          path: sbom.json
+          if-no-files-found: error
+          retention-days: 90
+
+  # ---------------------------------------------------------------------------
+  # Pull-request-only gate: block newly introduced vulnerable dependencies.
+  # Requires the repository "Dependency graph" (enabled by default on public
+  # repositories). No `pull-requests: write` needed because no PR comment is
+  # posted — see docs/security/supply-chain.md to enable the comment summary.
+  # ---------------------------------------------------------------------------
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Read the pull-request diff and dependency graph. No write scope is
+      # requested because the action is configured not to comment on the PR.
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: never
+
+  # ---------------------------------------------------------------------------
+  # Secret scanning over the full git history (not just the working tree).
+  # ---------------------------------------------------------------------------
+  secrets:
+    name: Secret scanning (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Needed by the SARIF upload below.
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Full history: a secret that was committed and later "removed" is
+          # still leaked and must be rotated.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Gitleaks ${{ env.GITLEAKS_VERSION }}
+        run: |
+          set -euo pipefail
+          version="${GITLEAKS_VERSION}"
+          archive="gitleaks_${version}_linux_x64.tar.gz"
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
+          curl -sSfL -o "${RUNNER_TEMP}/${archive}" "${base}/${archive}"
+          curl -sSfL -o "${RUNNER_TEMP}/gitleaks_checksums.txt" \
+            "${base}/gitleaks_${version}_checksums.txt"
+          (cd "${RUNNER_TEMP}" \
+            && grep " ${archive}\$" gitleaks_checksums.txt | sha256sum -c -)
+          mkdir -p "${RUNNER_TEMP}/bin"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/bin" gitleaks
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
+      - name: Scan git history for secrets
+        run: |
+          gitleaks git \
+            --no-banner \
+            --redact \
+            --config .gitleaks.toml \
+            --report-format sarif \
+            --report-path gitleaks.sarif \
+            --exit-code 1
+
+      - name: Upload Gitleaks SARIF
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+      - name: Upload Gitleaks report
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # SAST. Uses the public `p/ci` ruleset through the Semgrep CLI, so no
+  # SEMGREP_APP_TOKEN is needed. Findings land in code scanning; the job itself
+  # stays green — promote it to a hard gate when the baseline is clean (see
+  # docs/security/supply-chain.md).
+  # ---------------------------------------------------------------------------
+  sast:
+    name: SAST (Semgrep p/ci)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install Semgrep
+        # Bounded range instead of an exact pin: rule packs are fetched from the
+        # registry at run time, so an old binary ages badly. Tighten to an exact
+        # version (or a hash-locked requirements file) if you need bit-for-bit
+        # reproducible runs.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "semgrep>=1.100,<2"
+
+      - name: Run Semgrep
+        env:
+          SEMGREP_SEND_METRICS: "off"
+        run: |
+          semgrep scan \
+            --config p/ci \
+            --sarif \
+            --output semgrep.sarif \
+            --disable-version-check \
+            --timeout 300
+
+      - name: Upload Semgrep SARIF
+        if: always() && hashFiles('semgrep.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      - name: Upload Semgrep report
+        if: always() && hashFiles('semgrep.sarif') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: semgrep-sarif
+          path: semgrep.sarif
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ---------------------------------------------------------------------------
+  # Filesystem scan: dependency advisories from the lockfile, committed
+  # secrets, Dockerfile/IaC misconfigurations. Report-only; results are triaged
+  # through the code scanning alerts page.
+  # ---------------------------------------------------------------------------
+  filesystem-scan:
+    name: Trivy filesystem scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Scan repository with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          limit-severities-for-sarif: true
+          format: sarif
+          output: trivy-fs.sarif
+          # Report-only: the SARIF upload below is the delivery mechanism.
+          exit-code: "0"
+          hide-progress: true
+
+      - name: Upload Trivy SARIF
+        if: always() && hashFiles('trivy-fs.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-filesystem
+
+      - name: Upload Trivy report
+        if: always() && hashFiles('trivy-fs.sarif') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: trivy-fs-sarif
+          path: trivy-fs.sarif
+          if-no-files-found: ignore
+          retention-days: 30

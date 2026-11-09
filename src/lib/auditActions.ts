@@ -1,5 +1,11 @@
 export const AUDIT_ACTION_LABELS: Record<string, string> = {
   "auth.login": "Σύνδεση",
+  "member.session.login": "Σύνδεση μέλους",
+  "member.session.logout": "Αποσύνδεση μέλους",
+  "member.session.logout_all": "Αποσύνδεση μέλους από όλες τις συσκευές",
+  "member.session.revoke": "Ανάκληση συνεδρίας μέλους",
+  "member.session.idle_expired": "Λήξη συνεδρίας μέλους λόγω αδράνειας",
+  "member.session.limit_revoked": "Ανάκληση παλαιότερης συνεδρίας μέλους",
   "member.save": "Δημιουργία / ενημέρωση μέλους",
   "member.erase": "Οριστική διαγραφή μέλους",
   "lead.status": "Αλλαγή κατάστασης lead",

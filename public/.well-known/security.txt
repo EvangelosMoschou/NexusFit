@@ -1,0 +1,18 @@
+# security.txt — RFC 9116 (https://www.rfc-editor.org/rfc/rfc9116)
+#
+# Served statically by Next.js from `public/.well-known/security.txt`, i.e. at
+# https://<your-domain>/.well-known/security.txt after deployment.
+#
+# BEFORE GOING LIVE: replace the two placeholder values below
+#   * Contact  -> the real security mailbox for the deployment
+#   * Canonical -> the real HTTPS URL of this file
+# and re-issue the file before `Expires` (at least once every 12 months).
+# See SECURITY.md for the full disclosure policy.
+
+Contact: mailto:security@nexusfit.example
+Contact: https://github.com/EvangelosMoschou/NexusFit/security/advisories/new
+Expires: 2027-12-31T23:59:59.000Z
+Preferred-Languages: el, en
+Canonical: https://nexusfit.example/.well-known/security.txt
+Policy: https://github.com/EvangelosMoschou/NexusFit/blob/main/SECURITY.md
+Acknowledgments: https://github.com/EvangelosMoschou/NexusFit/security/advisories

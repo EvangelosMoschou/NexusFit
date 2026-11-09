@@ -36,6 +36,11 @@ site/dist/
 # Local database backups (Docker sidecar)
 deploy/backups/
 
+# Security scan output — generated in CI (see docs/security/supply-chain.md)
+sbom.json
+sbom.xml
+*.sarif
+
 # Agent/session artifacts
 .omo/
 .codegraph

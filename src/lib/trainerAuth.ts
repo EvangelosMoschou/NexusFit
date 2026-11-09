@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { TRAINER_COOKIE, SECURE_COOKIES } from "@/lib/cookies";
+import { TRAINER_COOKIE, buildSessionCookie } from "@/lib/cookies";
 import { getTenant } from "@/lib/tenants";
 import { verifyPin } from "@/lib/passwordHash";
 import { signTrainerSession, verifyTrainerSession } from "@/lib/session";
@@ -14,10 +14,7 @@ export function trainerCredentialsConfigured(tenantId: string): boolean {
   return Boolean(tenant?.trainerPasswordHash);
 }
 
-export async function verifyTrainerPassword(
-  tenantId: string,
-  password: string
-): Promise<boolean> {
+export async function verifyTrainerPassword(tenantId: string, password: string): Promise<boolean> {
   const tenant = getTenant(tenantId);
   if (!tenant?.trainerPasswordHash) return false;
   return verifyPin(password, tenant.trainerPasswordHash);
@@ -29,18 +26,13 @@ export function buildTrainerSessionCookie(tenantId: string): string | null {
 
   const token = signTrainerSession(tenantId, passwordHash);
   if (!token) return null;
-  const secure = SECURE_COOKIES ? "; Secure" : "";
-  return `${TRAINER_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800${secure}`;
+  return buildSessionCookie(TRAINER_COOKIE, token);
 }
 
 export function isLegacyTrainerRequest(req: NextRequest, tenantId: string): boolean {
   const passwordHash = getTenant(tenantId)?.trainerPasswordHash;
   if (!passwordHash) return false;
-  return verifyTrainerSession(
-    req.cookies.get(TRAINER_COOKIE)?.value,
-    tenantId,
-    passwordHash
-  );
+  return verifyTrainerSession(req.cookies.get(TRAINER_COOKIE)?.value, tenantId, passwordHash);
 }
 
 // Legacy shared TRAINER_PASSWORD accounts keep the original capabilities.

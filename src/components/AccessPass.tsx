@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Lock, QrCode, ShieldCheck } from "lucide-react";
+import { memberFetch } from "@/lib/memberFetch";
 
 interface AccessTokenData {
   token: string;
@@ -17,7 +18,7 @@ export const AccessPass: React.FC = () => {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/member/access-token", { cache: "no-store" });
+      const res = await memberFetch("/api/member/access-token", { cache: "no-store" });
       const json = await res.json();
       if (res.ok && json.success) {
         setData({
@@ -75,9 +76,7 @@ export const AccessPass: React.FC = () => {
             />
           </div>
           <div className="text-center">
-            <div className="text-[10px] font-mono text-tertiary">
-              {data.memberCode}
-            </div>
+            <div className="text-[10px] font-mono text-tertiary">{data.memberCode}</div>
             <p className="text-[10px] text-tertiary mt-1 leading-relaxed">
               Σάρωσε το QR στην είσοδο. Ανανεώνεται αυτόματα για ασφάλεια.
             </p>

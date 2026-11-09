@@ -1,0 +1,30 @@
+# Gitleaks configuration — https://github.com/gitleaks/gitleaks
+#
+# The default rule set is kept intact; this file only documents values that are
+# *knowingly* fake so the secret-scanning gate stays green on a clean tree
+# without weakening detection anywhere else.
+#
+# Add an allowlist entry only with a comment explaining why the value can never
+# be a real credential (placeholder from an example file, CI-only dummy, test
+# fixture). Everything else must be reported and rotated.
+
+[extend]
+# Keep gitleaks' built-in rules and add the allowlists below.
+useDefault = true
+
+[[allowlists]]
+description = "Example environment files ship placeholders (change_me_*) and are not secrets"
+paths = [
+  '''deploy/\.env\.production\.example$''',
+  '''(^|/)\.env\.[a-z0-9.]+\.example$''',
+  '''(^|/)\.env\.example$''',
+]
+
+[[allowlists]]
+description = "Dummy credentials used only by the CI pipeline — never valid on a deployment"
+regexTarget = "match"
+regexes = [
+  '''ci-session-secret-1234567890''',
+  '''ci-admin-password''',
+  '''ci-trainer-password''',
+]

@@ -14,6 +14,7 @@ interface NavbarProps {
   onGoHome: () => void;
   member?: MemberUser | null;
   onLogout?: () => void;
+  onLogoutAll?: () => void;
   onSelectMemberTab?: (tab: PortalTab) => void;
 }
 
@@ -24,6 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onGoHome,
   member,
   onLogout,
+  onLogoutAll,
   onSelectMemberTab,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -41,7 +43,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const memberMenu =
     member && onLogout && onSelectMemberTab ? (
-      <MemberMenu member={member} onSelectTab={onSelectMemberTab} onLogout={onLogout} />
+      <MemberMenu
+        member={member}
+        onSelectTab={onSelectMemberTab}
+        onLogout={onLogout}
+        onLogoutAll={onLogoutAll}
+      />
     ) : null;
 
   return (

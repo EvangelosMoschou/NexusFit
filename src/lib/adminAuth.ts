@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { SECURE_COOKIES } from "@/lib/cookies";
+import { ADMIN_COOKIE, buildSessionCookie } from "@/lib/cookies";
 import { getTenant } from "@/lib/tenants";
 import { verifyPin } from "@/lib/passwordHash";
 
-export const ADMIN_COOKIE = "nexusfit_admin";
+// Re-exported so existing imports keep working; the name itself lives with the
+// other session cookies in src/lib/cookies.ts (where the `__Host-` prefix and
+// the cookie attributes are decided).
+export { ADMIN_COOKIE };
 
 // The admin session token is derived from the *tenant's* password hash, so a
 // session issued for one gym is never accepted by another. Without that binding,
@@ -22,10 +25,7 @@ export function adminCredentialsConfigured(tenantId: string): boolean {
   return getTenant(tenantId) !== null;
 }
 
-export async function verifyAdminPassword(
-  tenantId: string,
-  password: string
-): Promise<boolean> {
+export async function verifyAdminPassword(tenantId: string, password: string): Promise<boolean> {
   const tenant = getTenant(tenantId);
   if (!tenant) return false;
   return verifyPin(password, tenant.adminPasswordHash);
@@ -39,6 +39,5 @@ export function isAdminRequest(req: NextRequest, tenantId: string): boolean {
 export function buildAdminSessionCookie(tenantId: string): string | null {
   const tok = adminSessionToken(tenantId);
   if (!tok) return null;
-  const secure = SECURE_COOKIES ? "; Secure" : "";
-  return `${ADMIN_COOKIE}=${tok}; Path=/; HttpOnly; SameSite=Lax; Max-Age=28800${secure}`;
+  return buildSessionCookie(ADMIN_COOKIE, tok);
 }

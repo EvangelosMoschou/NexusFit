@@ -2,15 +2,9 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  AlertTriangle,
-  Bell,
-  CalendarClock,
-  CheckCheck,
-  Megaphone,
-  X,
-} from "lucide-react";
+import { AlertTriangle, Bell, CalendarClock, CheckCheck, Megaphone, X } from "lucide-react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { memberFetch } from "@/lib/memberFetch";
 
 interface MemberNotificationItem {
   id: string;
@@ -60,7 +54,7 @@ export const MemberNotificationsModal: React.FC<MemberNotificationsModalProps> =
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/member/notifications", { cache: "no-store" });
+      const res = await memberFetch("/api/member/notifications", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || "Δεν ήταν δυνατή η φόρτωση των ειδοποιήσεων.");
@@ -86,7 +80,7 @@ export const MemberNotificationsModal: React.FC<MemberNotificationsModalProps> =
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/member/notifications", {
+      const res = await memberFetch("/api/member/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markAll: true }),
@@ -111,7 +105,7 @@ export const MemberNotificationsModal: React.FC<MemberNotificationsModalProps> =
   const markOne = async (item: MemberNotificationItem) => {
     if (item.read_at) return;
     try {
-      const res = await fetch("/api/member/notifications", {
+      const res = await memberFetch("/api/member/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: item.id }),
@@ -121,9 +115,7 @@ export const MemberNotificationsModal: React.FC<MemberNotificationsModalProps> =
 
       const now = new Date().toISOString();
       setNotifications((prev) =>
-        prev.map((entry) =>
-          entry.id === item.id ? { ...entry, read_at: now } : entry
-        )
+        prev.map((entry) => (entry.id === item.id ? { ...entry, read_at: now } : entry))
       );
       setUnreadCount(typeof data.unreadCount === "number" ? data.unreadCount : 0);
       notifyChanged();
@@ -149,9 +141,7 @@ export const MemberNotificationsModal: React.FC<MemberNotificationsModalProps> =
               Ειδοποιήσεις
             </h2>
             <p className="text-[10px] text-tertiary mt-0.5">
-              {unreadCount > 0
-                ? `${unreadCount} μη αναγνωσμένες`
-                : "Όλες διαβασμένες"}
+              {unreadCount > 0 ? `${unreadCount} μη αναγνωσμένες` : "Όλες διαβασμένες"}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -205,25 +195,17 @@ export const MemberNotificationsModal: React.FC<MemberNotificationsModalProps> =
                   <div className="flex items-start gap-3">
                     <div
                       className={`p-1.5 rounded-lg shrink-0 ${
-                        unread
-                          ? "bg-accent text-accent-ink"
-                          : "bg-surface-elevated text-secondary"
+                        unread ? "bg-accent text-accent-ink" : "bg-surface-elevated text-secondary"
                       }`}
                     >
                       <NotificationIcon type={item.type} />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-primary">
-                          {item.title}
-                        </span>
-                        {unread && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
-                        )}
+                        <span className="text-xs font-bold text-primary">{item.title}</span>
+                        {unread && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
                       </div>
-                      <p className="text-[11px] text-secondary mt-1 leading-relaxed">
-                        {item.body}
-                      </p>
+                      <p className="text-[11px] text-secondary mt-1 leading-relaxed">{item.body}</p>
                       <div className="text-[10px] text-tertiary font-mono mt-1.5">
                         {formatDate(item.created_at)}
                       </div>

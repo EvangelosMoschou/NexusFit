@@ -96,7 +96,10 @@ function parseBody(init: RequestInit | undefined, request: Request | null): any 
 
 export function installMockApi(): void {
   if (typeof window === "undefined") return;
-  const browserWindow = window as unknown as { __nexusfitMockInstalled?: boolean; fetch: typeof fetch };
+  const browserWindow = window as unknown as {
+    __nexusfitMockInstalled?: boolean;
+    fetch: typeof fetch;
+  };
   if (browserWindow.__nexusfitMockInstalled) return;
   browserWindow.__nexusfitMockInstalled = true;
 
@@ -136,6 +139,30 @@ export function installMockApi(): void {
     if (url.pathname === "/api/auth/logout" && method === "POST") {
       currentMemberCode = null;
       return json({ success: true });
+    }
+
+    // Demo-only session list (the real app stores these server-side).
+    if (url.pathname === "/api/member/sessions" && method === "GET") {
+      return json({
+        success: true,
+        sessions: currentMemberCode
+          ? [
+              {
+                id: "demo-current-session",
+                createdAt: Date.now(),
+                lastSeenAt: Date.now(),
+                expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+                ip: null,
+                userAgent: navigator.userAgent,
+                current: true,
+              },
+            ]
+          : [],
+      });
+    }
+
+    if (url.pathname === "/api/member/sessions" && method === "DELETE") {
+      return json({ success: true, revokedCurrent: true });
     }
 
     // Lead form

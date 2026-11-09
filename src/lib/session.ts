@@ -22,18 +22,39 @@ function sign(value: string, secret: string): string {
   return createHmac("sha256", secret).update(value).digest("hex");
 }
 
-// The signed payload carries the tenant as well as the member id. Without the
-// tenant, a cookie issued by one gym would authenticate an identically named
-// member id in another gym on the same multi-tenant deployment.
-export function signMemberSession(tenantId: string, memberId: string): string | null {
+// The signed payload carries the tenant, member id, random server-side session
+// id and absolute expiry. The tenant prevents cross-gym replay; the session id
+// is what makes revocation possible (the DB stores only its SHA-256 hash).
+export interface MemberSessionToken {
+  memberId: string;
+  sessionId: string;
+  expiresAt: number;
+}
+
+export function signMemberSession(
+  tenantId: string,
+  memberId: string,
+  sessionId: string,
+  expiresAt: number
+): string | null {
   const secret = memberSessionSecret();
   if (!secret) return null;
 
-  const encoded = Buffer.from(`${tenantId}:${memberId}`, "utf8").toString("base64url");
+  const payload = JSON.stringify({
+    v: 1,
+    t: tenantId,
+    m: memberId,
+    s: sessionId,
+    e: expiresAt,
+  });
+  const encoded = Buffer.from(payload, "utf8").toString("base64url");
   return `${encoded}.${sign(encoded, secret)}`;
 }
 
-export function verifyMemberSession(value: string | undefined, tenantId: string): string | null {
+export function parseMemberSession(
+  value: string | undefined,
+  tenantId: string
+): MemberSessionToken | null {
   const secret = memberSessionSecret();
   if (!secret || !value) return null;
 
@@ -47,19 +68,26 @@ export function verifyMemberSession(value: string | undefined, tenantId: string)
   if (provided.length !== expected.length) return null;
   if (!timingSafeEqual(provided, expected)) return null;
 
-  const payload = Buffer.from(encoded, "base64url").toString("utf8");
-  // Tenant ids never contain "@", so this can never be a member payload. It
-  // stops staff/trainer tokens from being interpreted as a member session.
-  if (payload.startsWith("@")) return null;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+  if (!payload || typeof payload !== "object") return null;
 
-  const colon = payload.indexOf(":");
-  if (colon <= 0) return null;
+  const token = payload as Record<string, unknown>;
+  if (token.v !== 1 || token.t !== tenantId) return null;
+  if (typeof token.m !== "string" || !token.m) return null;
+  if (typeof token.s !== "string" || !token.s) return null;
+  if (typeof token.e !== "number" || !Number.isFinite(token.e)) return null;
+  if (token.e <= Date.now()) return null;
 
-  const tokenTenant = payload.slice(0, colon);
-  const memberId = payload.slice(colon + 1);
-  if (tokenTenant !== tenantId || !memberId) return null;
-
-  return memberId;
+  return {
+    memberId: token.m,
+    sessionId: token.s,
+    expiresAt: token.e,
+  };
 }
 
 // Trainer sessions are a separate, tenant-bound role. They use the same secret
@@ -74,10 +102,7 @@ function trainerSessionKey(passwordHash: string): string | null {
   return `${secret}:${passwordHash}`;
 }
 
-export function signTrainerSession(
-  tenantId: string,
-  passwordHash: string
-): string | null {
+export function signTrainerSession(tenantId: string, passwordHash: string): string | null {
   const key = trainerSessionKey(passwordHash);
   if (!key) return null;
 
@@ -126,10 +151,7 @@ export function signStaffSession(
   const key = staffSessionKey(passwordHash);
   if (!key) return null;
 
-  const encoded = Buffer.from(
-    `${STAFF_ROLE}:${tenantId}:${staffId}`,
-    "utf8"
-  ).toString("base64url");
+  const encoded = Buffer.from(`${STAFF_ROLE}:${tenantId}:${staffId}`, "utf8").toString("base64url");
   return `${encoded}.${sign(encoded, key)}`;
 }
 

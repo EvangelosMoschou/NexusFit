@@ -39,6 +39,14 @@ import {
   getInsideMembers,
   getOccupancy,
   getMemberAccess,
+  createMemberSession,
+  getMemberSession,
+  touchMemberSession,
+  revokeMemberSession,
+  revokeAllMemberSessions,
+  listMemberSessions,
+  enforceMemberSessionLimit,
+  purgeMemberSessions,
   touchMemberVisit,
   closeIdleVisits,
   listStaffAccounts,
@@ -121,7 +129,9 @@ describe("sqliteDb", () => {
 
   it("rejects invalid plan payloads", async () => {
     const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
-    expect(saveWorkoutPlanToDb(member!.id, { ...samplePlan(""), splitName: "" } as GeneratedWorkoutPlan)).toBe(false);
+    expect(
+      saveWorkoutPlanToDb(member!.id, { ...samplePlan(""), splitName: "" } as GeneratedWorkoutPlan)
+    ).toBe(false);
   });
 
   it("lists members without exposing pin hashes", () => {
@@ -250,7 +260,9 @@ describe("sqliteDb", () => {
     expect(saveLeadInquiryToDb({ fullName: "Case User", email })).toBe(true);
 
     expect(deleteLeadsByEmail(email.toLowerCase())).toBeGreaterThanOrEqual(1);
-    expect(getAllLeadsAdmin().some((l) => l.email.toLowerCase() === email.toLowerCase())).toBe(false);
+    expect(getAllLeadsAdmin().some((l) => l.email.toLowerCase() === email.toLowerCase())).toBe(
+      false
+    );
     // Deleting an address with no leads is a no-op, not an error.
     expect(deleteLeadsByEmail("nobody@example.com")).toBe(0);
   });
@@ -577,5 +589,139 @@ describe("sqliteDb", () => {
 
     expect(deleteMediaAdmin(saved!.id)).toBe(true);
     expect(getMediaWithData(saved!.id)).toBeNull();
+  });
+});
+
+describe("member sessions", () => {
+  async function demoMember() {
+    const member = await getMemberByCredentials(memberCreds.identifier, memberCreds.pin);
+    expect(member).not.toBeNull();
+    return member!;
+  }
+
+  function sessionInput(memberId: string, hash: string, now = Date.now()) {
+    return {
+      sessionIdHash: hash,
+      memberId,
+      createdAt: now,
+      lastSeenAt: now,
+      expiresAt: now + 60_000,
+      ip: "127.0.0.1",
+      userAgent: "vitest",
+    };
+  }
+
+  it("stores the hash, touches activity and revokes one session", async () => {
+    const member = await demoMember();
+    const now = Date.now();
+    const hash = `test-session-${now}`;
+
+    expect(createMemberSession(sessionInput(member.id, hash, now))).toBe(true);
+    expect(getMemberSession(hash)?.member_id).toBe(member.id);
+    expect(getMemberSession(hash)?.ip).toBe("127.0.0.1");
+    expect(getMemberSession("raw-session-id")).toBeNull();
+
+    expect(touchMemberSession(hash, now + 1_000)).toBe(true);
+    expect(touchMemberSession(hash, now + 2_000)).toBe(true);
+    expect(listMemberSessions(member.id, now - 1_000, now + 3_000)).toHaveLength(1);
+
+    expect(revokeMemberSession(hash, "another-member", now + 3_000)).toBe(false);
+    expect(revokeMemberSession(hash, member.id, now + 3_000)).toBe(true);
+    expect(listMemberSessions(member.id, now - 1_000, now + 4_000)).toHaveLength(0);
+  });
+
+  it("revokes all sessions, optionally keeping one", async () => {
+    const member = await demoMember();
+    const now = Date.now();
+    const first = `test-session-a-${now}`;
+    const second = `test-session-b-${now}`;
+
+    expect(createMemberSession(sessionInput(member.id, first, now))).toBe(true);
+    expect(createMemberSession(sessionInput(member.id, second, now))).toBe(true);
+
+    expect(revokeAllMemberSessions(member.id, now + 1_000, undefined, first)).toBe(1);
+    expect(getMemberSession(first)?.revoked_at).toBeNull();
+    expect(getMemberSession(second)?.revoked_at).toBe(now + 1_000);
+
+    expect(revokeAllMemberSessions(member.id, now + 2_000)).toBe(1);
+    expect(getMemberSession(first)?.revoked_at).toBe(now + 2_000);
+  });
+
+  it("caps active sessions and revokes the oldest", async () => {
+    const member = await demoMember();
+    const now = Date.now();
+    await revokeAllMemberSessions(member.id, now);
+    const hashes = [1, 2, 3].map((index) => `test-session-cap-${now}-${index}`);
+
+    for (const hash of hashes) {
+      expect(createMemberSession(sessionInput(member.id, hash, now + hashes.indexOf(hash)))).toBe(
+        true
+      );
+    }
+
+    expect(enforceMemberSessionLimit(member.id, 2, now + 10)).toBe(1);
+    expect(getMemberSession(hashes[0])?.revoked_at).toBe(now + 10);
+    expect(getMemberSession(hashes[1])?.revoked_at).toBeNull();
+    expect(getMemberSession(hashes[2])?.revoked_at).toBeNull();
+  });
+
+  it("revokes all sessions when an admin changes a member PIN", async () => {
+    const now = Date.now();
+    const code = `NX-PIN-${now}`;
+    const email = `pin-change-${now}@example.com`;
+    const base = {
+      memberCode: code,
+      fullName: "PIN Change Test",
+      email,
+      pinCode: "1234",
+      tierName: "Standard",
+      hasAIAccess: false,
+      subscriptionStatus: "active",
+      expiresAt: "2030-01-01",
+    };
+
+    expect(await upsertMemberAdmin(base)).toBe(true);
+    const member = (await getMemberByCredentials(code, "1234"))!;
+    const hash = `test-session-pin-${now}`;
+    expect(createMemberSession(sessionInput(member.id, hash, now))).toBe(true);
+
+    expect(await upsertMemberAdmin({ ...base, pinCode: "1234" })).toBe(true);
+    expect(getMemberSession(hash)?.revoked_at).toBeNull();
+
+    expect(await upsertMemberAdmin({ ...base, pinCode: "5678" })).toBe(true);
+    expect(getMemberSession(hash)?.revoked_at).not.toBeNull();
+  });
+
+  it("purges expired sessions and cascades on member deletion", async () => {
+    const member = await demoMember();
+    const now = Date.now();
+    const expired = `test-session-expired-${now}`;
+    expect(
+      createMemberSession({
+        ...sessionInput(member.id, expired, now - 10_000),
+        expiresAt: now - 1,
+      })
+    ).toBe(true);
+    expect(purgeMemberSessions(now)).toBeGreaterThanOrEqual(1);
+    expect(getMemberSession(expired)).toBeNull();
+
+    const code = `NX-DEL-${now}`;
+    expect(
+      await upsertMemberAdmin({
+        memberCode: code,
+        fullName: "Delete Session Test",
+        email: `delete-session-${now}@example.com`,
+        pinCode: "1234",
+        tierName: "Standard",
+        hasAIAccess: false,
+        subscriptionStatus: "active",
+        expiresAt: "2030-01-01",
+      })
+    ).toBe(true);
+    const created = (await getMemberByCredentials(code, "1234"))!;
+    const cascadeHash = `test-session-cascade-${now}`;
+    expect(createMemberSession(sessionInput(created.id, cascadeHash, now))).toBe(true);
+    expect(deleteMemberAdmin(created.id)).toBe(true);
+    expect(getMemberSession(cascadeHash)).toBeNull();
   });
 });

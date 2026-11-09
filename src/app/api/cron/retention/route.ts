@@ -32,6 +32,8 @@ export async function POST(req: NextRequest) {
   let idleVisitsClosed = 0;
   let auditPurged = 0;
   let accessEventsPurged = 0;
+  let memberSessionsPurged = 0;
+  const now = Date.now();
   for (const tenant of tenants) {
     const repo = getRepository(tenant.id);
     removed += await repo.purgeExpiredLeads();
@@ -39,6 +41,7 @@ export async function POST(req: NextRequest) {
     visitsClosed += await repo.closeStaleVisits();
     auditPurged += await repo.purgeAudit(365);
     accessEventsPurged += await repo.purgeAccessEvents(365);
+    memberSessionsPurged += await repo.purgeMemberSessions(now);
   }
 
   return NextResponse.json({
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest) {
     idleVisitsClosed,
     auditPurged,
     accessEventsPurged,
+    memberSessionsPurged,
     tenants: tenants.length,
   });
 }

@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
-import { verifyMemberSession } from "@/lib/session";
-import { MEMBER_COOKIE } from "@/lib/cookies";
+import { authenticateMemberSession } from "@/lib/memberSessions";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { accessControlConfigured, signAccessToken } from "@/lib/accessToken";
 
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantIdFromHeaders(req.headers);
-  const memberId = verifyMemberSession(
-    req.cookies.get(MEMBER_COOKIE)?.value,
-    tenantId
-  );
-
-  if (!memberId) {
+  const session = await authenticateMemberSession(req, tenantId);
+  if (!session) {
     return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
   }
+  const memberId = session.memberId;
 
   if (!accessControlConfigured()) {
     return NextResponse.json(
