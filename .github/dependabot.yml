@@ -47,20 +47,17 @@ updates:
     # deployment on the branch red. Remove an entry as soon as the blocker
     # clears; minor and patch updates are unaffected.
     ignore:
-      # eslint 10: eslint-plugin-jsx-a11y is the blocker. Its latest release
-      # (6.10.2 — the version we and eslint-config-next both depend on) still
-      # declares peerDependencies.eslint "^3 || ... || ^9", so installing
-      # eslint 10 fails with ERESOLVE. Re-enable when jsx-a11y ships 10.
-      - dependency-name: "eslint"
-        update-types: ["version-update:semver-major"]
-      # typescript 7: typescript-eslint (pulled in by eslint-config-next)
-      # declares peerDependencies.typescript ">=4.8.4 <6.1.0", so TS 7 is
-      # outside the range the lint stack supports.
+      # typescript 7: typescript-eslint (pulled in by eslint-config-next) hard
+      # refuses to load against the TS 7 native compiler ("typescript-eslint
+      # does not support TS 7.0") and declares peerDependencies.typescript
+      # ">=4.8.4 <6.1.0". We therefore run the official Microsoft side-by-side
+      # setup: `typescript` is the TS 6.0 API package (what the linter and
+      # Next's build-time type check load) and `@typescript/native` is the
+      # alias that provides the TS 7 `tsc` used by `npm run typecheck`. Keep
+      # `typescript` on 6.0.x until typescript-eslint supports TS 7.1+
+      # (https://github.com/typescript-eslint/typescript-eslint/issues/10940);
+      # then collapse both aliases back into a plain `typescript@^7` bump.
       - dependency-name: "typescript"
-        update-types: ["version-update:semver-major"]
-      # @types/node must track the runtime, and `engines` pins node 22.x.
-      # @types/node 26 would describe APIs Node 22 does not have.
-      - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
     groups:
       # These move as a unit: a Next.js bump frequently requires matching React

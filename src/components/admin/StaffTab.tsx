@@ -227,12 +227,12 @@ export const StaffTab: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-2.5 rounded bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
+        <div className="p-2.5 rounded-sm bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
           {error}
         </div>
       )}
       {success && (
-        <div className="p-2.5 rounded bg-emerald-950/40 border border-emerald-800/60 text-[11px] text-emerald-300 flex items-center gap-1.5">
+        <div className="p-2.5 rounded-sm bg-emerald-950/40 border border-emerald-800/60 text-[11px] text-emerald-300 flex items-center gap-1.5">
           <CheckCircle2 className="w-3.5 h-3.5" />
           {success}
         </div>
@@ -251,7 +251,7 @@ export const StaffTab: React.FC = () => {
               required
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+              className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
             />
           </div>
           <div>
@@ -261,7 +261,7 @@ export const StaffTab: React.FC = () => {
               type="email"
               value={form.email}
               onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+              className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
             />
           </div>
           <div>
@@ -274,7 +274,7 @@ export const StaffTab: React.FC = () => {
                   role: e.target.value as "admin" | "trainer",
                 }))
               }
-              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+              className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
             >
               <option value="trainer">Γυμναστής</option>
               <option value="admin">Διαχειριστής</option>
@@ -290,7 +290,7 @@ export const StaffTab: React.FC = () => {
               minLength={8}
               value={form.password}
               onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-mono"
+              className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs font-mono"
             />
           </div>
         </div>
@@ -358,7 +358,7 @@ export const StaffTab: React.FC = () => {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-bold text-primary">{account.name}</span>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
+                      className={`px-2 py-0.5 rounded-sm text-[10px] font-mono font-semibold border ${
                         account.role === "admin"
                           ? "bg-accent/15 text-accent border-accent/40"
                           : "bg-surface-elevated text-secondary border-border"
@@ -367,7 +367,7 @@ export const StaffTab: React.FC = () => {
                       {account.role === "admin" ? "Διαχειριστής" : "Γυμναστής"}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                      className={`px-2 py-0.5 rounded-sm text-[10px] font-semibold border ${
                         account.active
                           ? "bg-emerald-950/60 text-emerald-300 border-emerald-800"
                           : "bg-red-950/50 text-red-300 border-red-800"
@@ -448,13 +448,13 @@ export const StaffTab: React.FC = () => {
                     onChange={(e) =>
                       setPasswordDrafts((prev) => ({ ...prev, [account.id]: e.target.value }))
                     }
-                    className="px-2.5 py-1.5 rounded bg-background border border-border text-primary text-[11px] font-mono w-44"
+                    className="px-2.5 py-1.5 rounded-sm bg-background border border-border text-primary text-[11px] font-mono w-44"
                   />
                   <button
                     type="button"
                     onClick={() => void resetPassword(account.id)}
                     disabled={busyId === account.id || (passwordDrafts[account.id] ?? "").length < 8}
-                    className="px-2.5 py-1.5 rounded bg-surface-elevated hover:bg-border border border-border text-primary text-[11px] font-semibold disabled:opacity-40"
+                    className="px-2.5 py-1.5 rounded-sm bg-surface-elevated hover:bg-border border border-border text-primary text-[11px] font-semibold disabled:opacity-40"
                   >
                     Αλλαγή
                   </button>

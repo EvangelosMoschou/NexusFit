@@ -76,7 +76,7 @@ export const PWAInstallPrompt: React.FC = () => {
       {!isIOS && deferredPrompt && (
         <button
           onClick={handleInstallClick}
-          className="w-full py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+          className="w-full py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
         >
           <Download className="w-3.5 h-3.5" />
           <span>Εγκατάσταση Τώρα</span>

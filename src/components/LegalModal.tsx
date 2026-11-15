@@ -36,7 +36,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ type, onClose }) => {
           <button
             onClick={onClose}
             aria-label="Κλείσιμο"
-            className="p-1.5 rounded text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
+            className="p-1.5 rounded-sm text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -53,7 +53,7 @@ export const LegalModal: React.FC<LegalModalProps> = ({ type, onClose }) => {
         <div className="mt-6 pt-4 border-t border-border flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-surface-elevated hover:bg-border text-primary text-xs font-semibold rounded transition-colors"
+            className="px-4 py-2 bg-surface-elevated hover:bg-border text-primary text-xs font-semibold rounded-sm transition-colors"
           >
             Κλείσιμο
           </button>

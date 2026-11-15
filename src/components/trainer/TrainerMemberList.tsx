@@ -72,13 +72,13 @@ export const TrainerMemberList: React.FC = () => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Αναζήτηση μέλους..."
             aria-label="Αναζήτηση μέλους"
-            className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light"
+            className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light"
           />
         </div>
       </div>
 
       {error && (
-        <div className="p-2.5 rounded bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
+        <div className="p-2.5 rounded-sm bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
           {error}
         </div>
       )}
@@ -112,7 +112,7 @@ export const TrainerMemberList: React.FC = () => {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
+                  className={`px-2 py-0.5 rounded-sm text-[10px] font-mono font-semibold border ${
                     member.has_ai_access === 1
                       ? "bg-emerald-950/60 text-emerald-300 border-emerald-800"
                       : "bg-surface-elevated text-secondary border-border"

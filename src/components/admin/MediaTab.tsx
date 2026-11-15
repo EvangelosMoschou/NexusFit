@@ -155,7 +155,7 @@ export const MediaTab: React.FC = () => {
               type="file"
               accept="image/jpeg,image/png,image/webp,image/avif"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs file:mr-3 file:px-2.5 file:py-1 file:rounded file:border-0 file:bg-surface-elevated file:text-primary file:text-[11px] file:font-semibold"
+              className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs file:mr-3 file:px-2.5 file:py-1 file:rounded-sm file:border-0 file:bg-surface-elevated file:text-primary file:text-[11px] file:font-semibold"
             />
           </div>
 
@@ -170,13 +170,13 @@ export const MediaTab: React.FC = () => {
               maxLength={160}
               onChange={(e) => setAlt(e.target.value)}
               placeholder="π.χ. Η αίθουσα γιόγκα"
-              className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none focus:border-border-light"
+              className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light"
             />
           </div>
         </div>
 
         {error && (
-          <div className="p-2.5 rounded bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
+          <div className="p-2.5 rounded-sm bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
             {error}
           </div>
         )}
@@ -188,7 +188,7 @@ export const MediaTab: React.FC = () => {
           <button
             type="submit"
             disabled={uploading}
-            className="px-4 py-2 rounded bg-accent hover:bg-accent-hover disabled:opacity-50 text-accent-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+            className="px-4 py-2 rounded-sm bg-accent hover:bg-accent-hover disabled:opacity-50 text-accent-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>{uploading ? "Μεταφόρτωση..." : "Μεταφόρτωση"}</span>
@@ -223,7 +223,7 @@ export const MediaTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleDelete(item.id)}
-                  className="mt-1 px-2 py-1 rounded bg-surface-elevated hover:bg-border text-red-400 text-[10px] font-semibold border border-border flex items-center gap-1 transition-colors"
+                  className="mt-1 px-2 py-1 rounded-sm bg-surface-elevated hover:bg-border text-red-400 text-[10px] font-semibold border border-border flex items-center gap-1 transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                   Διαγραφή

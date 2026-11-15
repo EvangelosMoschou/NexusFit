@@ -44,7 +44,7 @@ export const FloatingContact: React.FC = () => {
             <button
               onClick={() => setOpen(false)}
               aria-label="Κλείσιμο φόρμας"
-              className="p-1 rounded text-secondary hover:text-primary"
+              className="p-1 rounded-sm text-secondary hover:text-primary"
             >
               <X className="w-4 h-4" />
             </button>
@@ -70,7 +70,7 @@ export const FloatingContact: React.FC = () => {
                   placeholder="name@example.com"
                   value={senderEmail}
                   onChange={(e) => setSenderEmail(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded bg-background border border-border text-primary text-xs outline-none focus:border-border-light"
+                  className="w-full px-3 py-1.5 rounded-sm bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light"
                 />
               </div>
 
@@ -84,13 +84,13 @@ export const FloatingContact: React.FC = () => {
                   placeholder="Γράψτε την απορία σας..."
                   value={msg}
                   onChange={(e) => setMsg(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded bg-background border border-border text-primary text-xs outline-none focus:border-border-light resize-none"
+                  className="w-full px-3 py-1.5 rounded-sm bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light resize-none"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2 rounded bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full py-2 rounded-sm bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
               >
                 <Send className="w-3.5 h-3.5" />
                 <span>Αποστολή Μηνύματος</span>

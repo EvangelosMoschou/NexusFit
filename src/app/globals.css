@@ -1,6 +1,61 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind 4. The old `@tailwind base/components/utilities` directives are a
+   single import now, and the theme that used to live in tailwind.config.ts is
+   declared here in CSS (`@theme`).
+
+   `source(none)` switches off automatic content detection so the scan stays
+   exactly as narrow as the old config's `content` globs: the Next app only. The
+   Vite demo under site/ is built separately and must not leak classes here. */
+@import "tailwindcss" source(none);
+@source "../components/**/*.{js,ts,jsx,tsx,mdx}";
+@source "./**/*.{js,ts,jsx,tsx,mdx}";
+/* The GitHub Pages demo (site/) imports this same stylesheet, so its sources
+   are scanned too. The extra utilities it contributes are inert in the Next
+   build. */
+@source "../../site/index.html";
+@source "../../site/src/**/*.{js,ts,jsx,tsx}";
+
+/* The palette is driven by the `data-theme` attribute on <html>, not by
+   prefers-color-scheme. No component currently uses `dark:` variants, but the
+   class-based variant is kept so the attribute keeps working with them. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Themeable palette.
+   Every colour resolves to an RGB triplet held in a CSS variable, so the whole
+   site can be recoloured by switching `data-theme` on <html> without touching
+   a single component. Opacity modifiers such as `bg-surface/50` keep working:
+   Tailwind 4 resolves them with color-mix() against the variable. */
+@theme {
+  --color-background: rgb(var(--bg-rgb));
+  --color-surface: rgb(var(--surface-rgb));
+  --color-surface-card: rgb(var(--surface-card-rgb));
+  --color-surface-elevated: rgb(var(--surface-elevated-rgb));
+  --color-border: rgb(var(--border-rgb));
+  --color-border-light: rgb(var(--border-light-rgb));
+
+  --color-foreground: rgb(var(--ink-rgb));
+  --color-primary: rgb(var(--ink-rgb));
+  --color-secondary: rgb(var(--muted-rgb));
+  --color-tertiary: rgb(var(--faint-rgb));
+
+  --color-accent: rgb(var(--accent-rgb));
+  --color-accent-hover: rgb(var(--accent-hover-rgb));
+  --color-accent-ink: rgb(var(--accent-ink-rgb));
+  --color-accent-warm: #f59e0b;
+  --color-accent-emerald: #10b981;
+
+  --color-btn: rgb(var(--btn-rgb));
+  --color-btn-hover: rgb(var(--btn-hover-rgb));
+  --color-btn-ink: rgb(var(--btn-ink-rgb));
+
+  /* Tailwind 4 renamed the radius scale (its `rounded` is 0.25rem and
+     `rounded-sm` is the old `rounded`). These keep the original 8/10/12/16/20px
+     geometry that tailwind.config.ts used to set. */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+}
 
 * {
   box-sizing: border-box;

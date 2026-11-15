@@ -160,7 +160,7 @@ export const MemberNotificationsModal: React.FC<MemberNotificationsModalProps> =
               type="button"
               onClick={onClose}
               aria-label="Κλείσιμο"
-              className="p-1.5 rounded text-secondary hover:text-primary hover:bg-surface-elevated"
+              className="p-1.5 rounded-sm text-secondary hover:text-primary hover:bg-surface-elevated"
             >
               <X className="w-4 h-4" />
             </button>

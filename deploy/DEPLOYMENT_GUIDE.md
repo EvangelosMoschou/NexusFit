@@ -20,7 +20,7 @@ NexusFit/
 ├── package-lock.json
 ├── next.config.ts          # Security Headers & βελτιστοποιήσεις
 ├── tsconfig.json
-├── tailwind.config.ts
+├── src/app/globals.css     # Tailwind 4 entry + theme tokens
 ├── postcss.config.mjs
 ├── .env.local              # (Δημιουργείται στον server με τα κλειδιά)
 └── deploy/                 # Dockerfile & scripts
@@ -62,7 +62,7 @@ NexusFit/
 
 ## ⚡ ΕΠΙΛΟΓΗ 3: Ανέβασμα σε Linux VPS χωρίς Docker (με PM2)
 
-1. Εγκατάσταση Node.js 22.13+ στον server (απαιτείται για το `node:sqlite`).
+1. Εγκατάσταση Node.js 26+ στον server (απαιτείται για το `node:sqlite`).
 2. Μπαίνετε στον φάκελο και εκτελείτε:
    ```bash
    npm install
@@ -92,7 +92,7 @@ NexusFit/
 
 1. Στο `.env` δίπλα στο compose αρχείο ορίζετε `SITE_DOMAIN=nexusathletics.gr` — το Caddy εκδίδει αυτόματα Let's Encrypt πιστοποιητικά στον τομέα σας.
 2. Η θύρα **3000 είναι πλέον localhost-only** (`127.0.0.1:3000`) — η πρόσβαση από το internet γίνεται μόνο μέσω Caddy στις θύρες 80/443.
-3. Το service **db_backup** (`node:22-alpine`) τρέχει μέσα στο compose stack και γράφει **consistent snapshots** (`VACUUM INTO`) όλων των βάσεων στο `deploy/backups/`, με **14-day retention** — χωρίς cron, με απλό container loop.
+3. Το service **db_backup** (`node:26-alpine`) τρέχει μέσα στο compose stack και γράφει **consistent snapshots** (`VACUUM INTO`) όλων των βάσεων στο `deploy/backups/`, με **14-day retention** — χωρίς cron, με απλό container loop.
 4. Για standalone (PM2, Option 3) χρησιμοποιήστε το script `deploy/backup-db.sh` — ίδια λογική, χωρίς Docker.
 5. **Επαναφορά (restore):**
    ```bash

@@ -121,7 +121,7 @@ export const CheckInKiosk: React.FC = () => {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="π.χ. NX-8492"
-                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-primary text-base font-mono outline-none focus:border-border-light"
+                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-primary text-base font-mono outline-hidden focus:border-border-light"
               />
             </div>
 
@@ -138,7 +138,7 @@ export const CheckInKiosk: React.FC = () => {
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="••••"
-                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-primary text-base font-mono tracking-widest outline-none focus:border-border-light"
+                className="w-full px-4 py-3 rounded-lg bg-background border border-border text-primary text-base font-mono tracking-widest outline-hidden focus:border-border-light"
               />
             </div>
 

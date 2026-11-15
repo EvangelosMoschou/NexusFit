@@ -57,7 +57,7 @@ function DemoBanner() {
       <span className="font-mono text-tertiary">Σύνδεση: NX-8492 / 1234</span>
       <button
         onClick={resetDemo}
-        className="px-2 py-0.5 rounded bg-surface-elevated hover:bg-border text-primary font-semibold"
+        className="px-2 py-0.5 rounded-sm bg-surface-elevated hover:bg-border text-primary font-semibold"
       >
         Επαναφορά
       </button>

@@ -5,13 +5,14 @@ NEXUSFIT - ΛΙΣΤΑ ΑΡΧΕΙΩΝ ΓΙΑ ΑΝΕΒΑΣΜΑ ΣΤΟΝ HOST (PROJ
 📁 ΑΡΧΕΙΑ ΠΟΥ ΑΝΕΒΑΖΟΥΜΕ ΣΤΟΝ SERVER / GIT:
 ------------------------------------------------------------------------------
 Κώδικας & διαμόρφωση
-  ✅ src/                     (components, API routes, lib, SQLite layer, proxy)
+  ✅ src/                     (components, API routes, lib, SQLite layer, proxy,
+                               app/globals.css = Tailwind 4 entry + design tokens)
   ✅ public/                  (icons, manifest.webmanifest, .well-known/security.txt)
   ✅ package.json             (scripts & dependencies)
   ✅ package-lock.json        (κλειδωμένες εκδόσεις — απαραίτητο για `npm ci`)
   ✅ next.config.ts           (standalone output, security headers)
   ✅ tsconfig.json            (TypeScript config)
-  ✅ tailwind.config.ts       (design tokens)
+  ✅ .npmrc                   (legacy-peer-deps — βλ. README toolchain notes)
   ✅ postcss.config.mjs       (PostCSS)
   ✅ vitest.config.ts         (tests)
   ✅ eslint.config.mjs        (lint)

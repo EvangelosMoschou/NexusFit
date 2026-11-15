@@ -28,7 +28,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="text"
             value={config.gymName}
             onChange={(e) => setField("gymName", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-bold"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs font-bold"
           />
         </div>
 
@@ -38,7 +38,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="email"
             value={config.email}
             onChange={(e) => setField("email", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -48,7 +48,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="tel"
             value={config.phone ?? ""}
             onChange={(e) => setField("phone", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -60,7 +60,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="text"
             value={config.address}
             onChange={(e) => setField("address", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -70,7 +70,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             type="text"
             value={config.city}
             onChange={(e) => setField("city", e.target.value)}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -88,7 +88,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
                 value === "" || !Number.isFinite(parsed) ? undefined : parsed
               );
             }}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-mono"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs font-mono"
           />
         </div>
 
@@ -106,7 +106,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
                 value === "" || !Number.isFinite(parsed) ? undefined : parsed
               );
             }}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-mono"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs font-mono"
           />
         </div>
 
@@ -132,7 +132,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
                 Math.max(0, Number(e.target.value) || 0)
               )
             }
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
           <p className="text-[10px] text-tertiary mt-1 leading-relaxed">
             Default 0 = απενεργοποιημένο. Όταν είναι 0, οι γρήγορες
@@ -152,7 +152,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
                 workingHours: { ...prev.workingHours, weekdays: e.target.value },
               }))
             }
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -167,7 +167,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
                 workingHours: { ...prev.workingHours, saturday: e.target.value },
               }))
             }
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -181,7 +181,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             max={1000}
             value={config.capacity}
             onChange={(e) => setField("capacity", Math.max(0, Number(e.target.value) || 0))}
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
         </div>
 
@@ -197,7 +197,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
             onChange={(e) =>
               setField("idleCheckoutMinutes", Math.max(0, Number(e.target.value) || 0))
             }
-            className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+            className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
           />
           <p className="text-[10px] text-tertiary mt-1 leading-relaxed">
             0 = απενεργοποιημένο. Μεγαλύτερη τιμή = λιγότερα λάθος check-out όταν
@@ -212,7 +212,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({ config, setConfig }) => {
           rows={3}
           value={config.description}
           onChange={(e) => setField("description", e.target.value)}
-          className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs"
+          className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs"
         />
       </div>
     </div>

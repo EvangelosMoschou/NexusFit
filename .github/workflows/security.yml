@@ -35,7 +35,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "22"
+  NODE_VERSION: "26"
   # Bump deliberately in a dedicated PR (and read the release notes): the
   # downloaded binary is verified against the published checksums file.
   GITLEAKS_VERSION: "8.30.1"

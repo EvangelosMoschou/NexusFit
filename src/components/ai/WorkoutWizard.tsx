@@ -110,7 +110,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
               ΜΗΧΑΝΗ ΠΡΟΓΡΑΜΜΑΤΩΝ NEXUSFIT
             </span>
             <div className="flex items-center gap-4">
-              <span className="text-xs font-mono text-secondary bg-surface-elevated px-2.5 py-1 rounded border border-border">
+              <span className="text-xs font-mono text-secondary bg-surface-elevated px-2.5 py-1 rounded-sm border border-border">
                 Βήμα {step} / 4
               </span>
               <button
@@ -325,7 +325,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                 <button
                   type="button"
                   onClick={() => setStep(step + 1)}
-                  className="px-4 py-2 rounded-lg bg-btn text-btn-ink font-bold text-xs hover:bg-btn-hover transition-colors shadow-sm"
+                  className="px-4 py-2 rounded-lg bg-btn text-btn-ink font-bold text-xs hover:bg-btn-hover transition-colors shadow-xs"
                 >
                   Επόμενο
                 </button>
@@ -333,7 +333,7 @@ export const WorkoutWizard: React.FC<WorkoutWizardProps> = ({ onPlanGenerated, o
                 <button
                   type="button"
                   onClick={handleGenerate}
-                  className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs transition-colors shadow-sm"
+                  className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs transition-colors shadow-xs"
                 >
                   Παραγωγή Προγράμματος
                 </button>

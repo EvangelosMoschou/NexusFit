@@ -57,7 +57,7 @@ services:
 
   # Consistent snapshots of every SQLite database (registry + all tenants).
   db_backup:
-    image: node:22-alpine
+    image: node:26-alpine
     container_name: nexusfit_db_backup
     restart: unless-stopped
     environment:

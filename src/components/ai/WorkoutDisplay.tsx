@@ -94,7 +94,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
                 Generated Workout Plan
               </span>
               {savedLocally && (
-                <span className="text-[10px] bg-surface-elevated text-secondary px-1.5 py-0.5 rounded border border-border font-mono">
+                <span className="text-[10px] bg-surface-elevated text-secondary px-1.5 py-0.5 rounded-sm border border-border font-mono">
                   Αποθηκεύτηκε στη συσκευή
                 </span>
               )}
@@ -111,7 +111,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
           <div className="flex items-center gap-2 print:hidden">
             <button
               onClick={handleCopy}
-              className="px-3 py-1.5 rounded bg-surface-elevated hover:bg-border text-xs font-semibold text-primary border border-border flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 rounded-sm bg-surface-elevated hover:bg-border text-xs font-semibold text-primary border border-border flex items-center gap-1.5 transition-colors"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-accent" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? "Αντιγράφηκε" : "Αντιγραφή"}</span>
@@ -119,7 +119,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
 
             <button
               onClick={handlePrint}
-              className="px-3 py-1.5 rounded bg-surface-elevated hover:bg-border text-xs font-semibold text-primary border border-border flex items-center gap-1.5 transition-colors"
+              className="px-3 py-1.5 rounded-sm bg-surface-elevated hover:bg-border text-xs font-semibold text-primary border border-border flex items-center gap-1.5 transition-colors"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Εκτύπωση</span>
@@ -128,7 +128,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
             <button
               onClick={onReset}
               aria-label="Κλείσιμο"
-              className="p-1.5 rounded text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
+              className="p-1.5 rounded-sm text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
               title="Κλείσιμο"
             >
               <X className="w-5 h-5" />
@@ -137,7 +137,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
         </div>
 
         {/* Coach Advice */}
-        <div className="p-3.5 rounded bg-surface-card border border-border mb-6 text-xs text-secondary leading-relaxed">
+        <div className="p-3.5 rounded-sm bg-surface-card border border-border mb-6 text-xs text-secondary leading-relaxed">
           <strong className="text-primary">Προπονητική Οδηγία: </strong>
           {plan.coachAdvice}
         </div>
@@ -148,7 +148,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
             <button
               key={idx}
               onClick={() => setActiveDayIdx(idx)}
-              className={`px-3.5 py-1.5 rounded text-xs font-semibold whitespace-nowrap transition-colors ${
+              className={`px-3.5 py-1.5 rounded-sm text-xs font-semibold whitespace-nowrap transition-colors ${
                 activeDayIdx === idx
                   ? "bg-btn text-btn-ink font-bold"
                   : "bg-surface-card border border-border text-secondary hover:text-primary"
@@ -160,7 +160,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
         </div>
 
         {/* Active Day Table with Progressive Overload Cookie Logger */}
-        <div className="bg-background rounded border border-border overflow-hidden mb-6">
+        <div className="bg-background rounded-sm border border-border overflow-hidden mb-6">
           <div className="p-3.5 bg-surface-card border-b border-border flex items-center justify-between">
             <div className="text-xs font-bold text-primary">{activeDay.dayName}</div>
             <div className="text-[11px] text-tertiary">Εστίαση: {activeDay.focus}</div>
@@ -191,12 +191,12 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2.5 shrink-0 font-mono text-[11px]">
-                    <div className="bg-surface-card px-2 py-1 rounded border border-border">
+                    <div className="bg-surface-card px-2 py-1 rounded-sm border border-border">
                       <span className="text-tertiary">Σετ: </span>
                       <span className="text-primary font-bold">{ex.sets} x {ex.reps}</span>
                     </div>
 
-                    <div className="bg-surface-card px-2 py-1 rounded border border-border">
+                    <div className="bg-surface-card px-2 py-1 rounded-sm border border-border">
                       <span className="text-tertiary">Διάλειμμα: </span>
                       <span className="text-accent font-bold">{ex.restSeconds}s</span>
                     </div>
@@ -222,7 +222,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
 
         {/* Warmup & Cardio */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 text-xs">
-          <div className="p-3 rounded bg-surface border border-border space-y-1">
+          <div className="p-3 rounded-sm bg-surface border border-border space-y-1">
             <div className="font-semibold text-primary">Προθέρμανση</div>
             <ul className="text-tertiary text-[11px] space-y-1">
               {plan.warmupProtocol.map((item, idx) => (
@@ -231,7 +231,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
             </ul>
           </div>
 
-          <div className="p-3 rounded bg-surface border border-border space-y-1">
+          <div className="p-3 rounded-sm bg-surface border border-border space-y-1">
             <div className="font-semibold text-primary">Αερόβια Άσκηση</div>
             <p className="text-tertiary text-[11px] leading-relaxed">
               {plan.weeklyCardioRecommendation}
@@ -249,7 +249,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
           </button>
           <button
             onClick={onOpenBooking}
-            className="px-4 py-2 rounded bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors"
+            className="px-4 py-2 rounded-sm bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors"
           >
             Επικοινωνία με τη Γραμματεία
           </button>

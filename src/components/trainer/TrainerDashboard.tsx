@@ -227,7 +227,7 @@ export const TrainerDashboard: React.FC = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="trainer@nexusathletics.gr"
-                className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono"
+                className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-mono"
               />
               <p className="text-[10px] text-tertiary mt-1">
                 Για τον παλιό κοινό κωδικό προσωπικού, άφησέ το κενό.
@@ -246,14 +246,14 @@ export const TrainerDashboard: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-3 pr-10 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono"
+                  className="w-full pl-3 pr-10 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((value) => !value)}
                   aria-label={showPassword ? "Απόκρυψη κωδικού" : "Εμφάνιση κωδικού"}
                   aria-pressed={showPassword}
-                  className="absolute right-2 top-2 p-1.5 rounded text-tertiary hover:text-primary transition-colors"
+                  className="absolute right-2 top-2 p-1.5 rounded-sm text-tertiary hover:text-primary transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -261,7 +261,7 @@ export const TrainerDashboard: React.FC = () => {
             </div>
 
             {error && (
-              <div className="p-2.5 rounded bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
+              <div className="p-2.5 rounded-sm bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
                 {error}
               </div>
             )}
@@ -369,7 +369,7 @@ export const TrainerDashboard: React.FC = () => {
                     onClick={() => setActiveTab(tab.key)}
                     className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 whitespace-nowrap ${
                       activeTab === tab.key
-                        ? "bg-btn text-btn-ink font-bold shadow-sm"
+                        ? "bg-btn text-btn-ink font-bold shadow-xs"
                         : "text-secondary hover:text-primary"
                     }`}
                   >
@@ -381,12 +381,12 @@ export const TrainerDashboard: React.FC = () => {
             </div>
 
             {error && (
-              <div className="p-2.5 rounded bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
+              <div className="p-2.5 rounded-sm bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
                 {error}
               </div>
             )}
             {configError && needsConfig && (
-              <div className="p-2.5 rounded bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
+              <div className="p-2.5 rounded-sm bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
                 {configError}
               </div>
             )}

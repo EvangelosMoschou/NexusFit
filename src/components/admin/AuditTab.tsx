@@ -185,7 +185,7 @@ export const AuditTab: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-2.5 rounded bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
+        <div className="p-2.5 rounded-sm bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
           {error}
         </div>
       )}
@@ -205,7 +205,7 @@ export const AuditTab: React.FC = () => {
             >
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                 <div className="flex items-start gap-2">
-                  <div className="p-1.5 rounded bg-surface-elevated text-accent mt-0.5">
+                  <div className="p-1.5 rounded-sm bg-surface-elevated text-accent mt-0.5">
                     {entry.actor_role === "admin" ? (
                       <ShieldCheck className="w-3.5 h-3.5" />
                     ) : (
@@ -215,11 +215,11 @@ export const AuditTab: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap text-xs">
                       <span className="font-bold text-primary">{entry.actor_name}</span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] border border-border bg-background text-secondary">
+                      <span className="px-1.5 py-0.5 rounded-sm text-[10px] border border-border bg-background text-secondary">
                         {roleLabel(entry.actor_role)}
                       </span>
                       {entry.actor_legacy && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] border border-border bg-surface-elevated text-tertiary">
+                        <span className="px-1.5 py-0.5 rounded-sm text-[10px] border border-border bg-surface-elevated text-tertiary">
                           παλαιός
                         </span>
                       )}
@@ -254,7 +254,7 @@ export const AuditTab: React.FC = () => {
                   <summary className="cursor-pointer hover:text-primary">
                     Τεχνικές λεπτομέρειες
                   </summary>
-                  <pre className="mt-2 p-2 rounded bg-background border border-border overflow-x-auto text-[10px] text-secondary">
+                  <pre className="mt-2 p-2 rounded-sm bg-background border border-border overflow-x-auto text-[10px] text-secondary">
                     {JSON.stringify(entry.details, null, 2)}
                   </pre>
                 </details>

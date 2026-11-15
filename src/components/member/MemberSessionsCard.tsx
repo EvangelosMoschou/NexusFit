@@ -138,7 +138,7 @@ export const MemberSessionsCard: React.FC<MemberSessionsCardProps> = ({
                     <div className="text-xs font-semibold text-primary flex items-center gap-2">
                       <span className="truncate">{deviceLabel(session.userAgent)}</span>
                       {session.current && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/70 font-mono">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-emerald-950/60 text-emerald-300 border border-emerald-800/70 font-mono">
                           Τρέχουσα
                         </span>
                       )}

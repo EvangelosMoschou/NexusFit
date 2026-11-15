@@ -246,7 +246,7 @@ export default function AdminPortalPage() {
                   placeholder="admin@nexusathletics.gr"
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-mono"
                 />
                 <Mail className="w-4 h-4 text-tertiary absolute left-3 top-3" />
               </div>
@@ -271,7 +271,7 @@ export default function AdminPortalPage() {
                   placeholder="••••••••"
                   value={adminPin}
                   onChange={(e) => setAdminPin(e.target.value)}
-                  className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono"
+                  className="w-full pl-9 pr-10 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-mono"
                 />
                 <Lock className="w-4 h-4 text-tertiary absolute left-3 top-3" />
                 <button
@@ -279,7 +279,7 @@ export default function AdminPortalPage() {
                   onClick={() => setShowAdminPassword((visible) => !visible)}
                   aria-label={showAdminPassword ? "Απόκρυψη κωδικού" : "Εμφάνιση κωδικού"}
                   aria-pressed={showAdminPassword}
-                  className="absolute right-2 top-2 p-1.5 rounded text-tertiary hover:text-primary transition-colors"
+                  className="absolute right-2 top-2 p-1.5 rounded-sm text-tertiary hover:text-primary transition-colors"
                 >
                   {showAdminPassword ? (
                     <EyeOff className="w-4 h-4" />
@@ -292,7 +292,7 @@ export default function AdminPortalPage() {
 
             <button
               type="submit"
-              className="w-full py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors shadow-sm"
+              className="w-full py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors shadow-xs"
             >
               Είσοδος στον Πίνακα Ελέγχου
             </button>
@@ -342,13 +342,13 @@ export default function AdminPortalPage() {
       <header className="bg-surface border-b border-border sticky top-0 z-40 backdrop-blur-md py-4">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm">
+            <Link href="/" className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-xs">
               <Dumbbell className="w-4 h-4 stroke-[2.5]" />
             </Link>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm text-primary">{config.gymName}</span>
-                <span className="text-[10px] font-mono bg-accent/20 text-accent px-2 py-0.5 rounded font-bold">
+                <span className="text-[10px] font-mono bg-accent/20 text-accent px-2 py-0.5 rounded-sm font-bold">
                   Διαχείριση
                 </span>
               </div>
@@ -366,7 +366,7 @@ export default function AdminPortalPage() {
             <button
               onClick={handleSaveConfig}
               disabled={isSaving}
-              className="px-4 py-2 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              className="px-4 py-2 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <Save className="w-3.5 h-3.5" />
               <span>{isSaving ? "Αποθήκευση..." : "Αποθήκευση Αλλαγών"}</span>
@@ -417,7 +417,7 @@ export default function AdminPortalPage() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.key ? "bg-btn text-btn-ink font-bold shadow-sm" : "text-secondary hover:text-primary"
+                  activeTab === tab.key ? "bg-btn text-btn-ink font-bold shadow-xs" : "text-secondary hover:text-primary"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />

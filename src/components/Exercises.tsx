@@ -53,7 +53,7 @@ export const Exercises: React.FC = () => {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Αναζήτηση άσκησης..."
               aria-label="Αναζήτηση άσκησης"
-              className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light"
+              className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light"
             />
           </div>
         </div>
@@ -108,7 +108,7 @@ export const Exercises: React.FC = () => {
                       {ex.greekName}
                     </h3>
                   </div>
-                  <span className="text-[10px] font-mono uppercase text-tertiary border border-border rounded px-1.5 py-0.5 whitespace-nowrap">
+                  <span className="text-[10px] font-mono uppercase text-tertiary border border-border rounded-sm px-1.5 py-0.5 whitespace-nowrap">
                     {difficultyLabel(ex.difficulty)}
                   </span>
                 </div>

@@ -47,7 +47,7 @@ export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateSt
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-sm text-primary">{lead.full_name}</span>
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-sm border ${
                     lead.status === "pending"
                       ? "bg-amber-950/60 text-amber-400 border-amber-800"
                       : lead.status === "contacted"
@@ -65,7 +65,7 @@ export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateSt
                   <div className="text-accent text-[11px]">Ενδιαφέρον για: {lead.preferred_plan}</div>
                 )}
                 {lead.notes && (
-                  <div className="text-tertiary bg-background p-2 rounded text-[11px] mt-1 max-w-xl">
+                  <div className="text-tertiary bg-background p-2 rounded-sm text-[11px] mt-1 max-w-xl">
                     &quot;{lead.notes}&quot;
                   </div>
                 )}
@@ -78,7 +78,7 @@ export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateSt
                 {lead.status !== "contacted" && (
                   <button
                     onClick={() => onUpdateStatus(lead.id, "contacted")}
-                    className="px-2.5 py-1.5 rounded bg-surface-elevated hover:bg-border text-primary text-[11px] font-semibold border border-border"
+                    className="px-2.5 py-1.5 rounded-sm bg-surface-elevated hover:bg-border text-primary text-[11px] font-semibold border border-border"
                   >
                     Σημείωση: Επικοινωνήσαμε
                   </button>
@@ -86,7 +86,7 @@ export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateSt
                 {lead.status !== "registered" && (
                   <button
                     onClick={() => onUpdateStatus(lead.id, "registered")}
-                    className="px-2.5 py-1.5 rounded bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-[11px] font-semibold border border-emerald-800"
+                    className="px-2.5 py-1.5 rounded-sm bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 text-[11px] font-semibold border border-emerald-800"
                   >
                     Εγγραφή στο Γυμναστήριο
                   </button>
@@ -95,7 +95,7 @@ export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateSt
                   onClick={() => onDelete(lead.id)}
                   aria-label="Διαγραφή αιτήματος"
                   title="Διαγραφή αιτήματος"
-                  className="p-1.5 rounded bg-surface-elevated hover:bg-red-950/60 text-secondary hover:text-red-300 border border-border transition-colors"
+                  className="p-1.5 rounded-sm bg-surface-elevated hover:bg-red-950/60 text-secondary hover:text-red-300 border border-border transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

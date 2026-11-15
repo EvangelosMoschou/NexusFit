@@ -43,10 +43,10 @@ docker run --detach \
 docker exec -it gitea-runner act_runner register \
   --instance https://your-gitea-host \
   --token <REGISTRATION_TOKEN> \
-  --labels ubuntu-latest:docker://node:22-bookworm
+  --labels ubuntu-latest:docker://node:26-bookworm
 ```
 
-The workflow uses the `ubuntu-latest` label, mapped above to a Node 22 image so
+The workflow uses the `ubuntu-latest` label, mapped above to a Node 26 image so
 `actions/setup-node` has a compatible base.
 
 ## Forgejo note

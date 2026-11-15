@@ -88,7 +88,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
               }`}
             >
               {msg.sender === "agent" && (
-                <div className="w-6 h-6 rounded bg-surface-elevated text-accent flex items-center justify-center shrink-0 mt-0.5 border border-border">
+                <div className="w-6 h-6 rounded-sm bg-surface-elevated text-accent flex items-center justify-center shrink-0 mt-0.5 border border-border">
                   <Bot className="w-3.5 h-3.5" />
                 </div>
               )}
@@ -96,7 +96,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
               <div
                 className={`max-w-[82%] p-3.5 rounded-xl space-y-2 ${
                   msg.sender === "user"
-                    ? "bg-btn text-btn-ink font-medium rounded-tr-none shadow-sm"
+                    ? "bg-btn text-btn-ink font-medium rounded-tr-none shadow-xs"
                     : "bg-surface border border-border text-primary rounded-tl-none"
                 }`}
               >
@@ -112,7 +112,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
                       {msg.matchedExercises.map((ex) => (
                         <div
                           key={ex.id}
-                          className="p-2 rounded bg-surface-elevated/70 border border-border/80 flex items-center justify-between text-[11px]"
+                          className="p-2 rounded-sm bg-surface-elevated/70 border border-border/80 flex items-center justify-between text-[11px]"
                         >
                           <div>
                             <div className="font-semibold text-primary">{ex.greekName}</div>
@@ -137,7 +137,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
               </div>
 
               {msg.sender === "user" && (
-                <div className="w-6 h-6 rounded bg-accent text-accent-ink flex items-center justify-center shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-sm bg-accent text-accent-ink flex items-center justify-center shrink-0 mt-0.5">
                   <User className="w-3.5 h-3.5" />
                 </div>
               )}
@@ -165,12 +165,12 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
             placeholder="Ρωτήστε τον ψηφιακό προπονητή (π.χ. 'Πονάει ο ώμος μου, τι να κάνω;')..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="flex-1 px-3.5 py-2 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light placeholder:text-tertiary"
+            className="flex-1 px-3.5 py-2 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light placeholder:text-tertiary"
           />
           <button
             type="submit"
             disabled={!input.trim() || loading}
-            className="p-2.5 rounded-lg bg-btn hover:bg-btn-hover disabled:opacity-50 text-btn-ink font-bold transition-colors shadow-sm"
+            className="p-2.5 rounded-lg bg-btn hover:bg-btn-hover disabled:opacity-50 text-btn-ink font-bold transition-colors shadow-xs"
             aria-label="Αποστολή"
           >
             <Send className="w-3.5 h-3.5" />

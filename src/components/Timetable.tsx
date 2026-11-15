@@ -88,7 +88,7 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
               onClick={() => setSelectedDay(d.key)}
               className={`px-4 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
                 selectedDay === d.key
-                  ? "bg-btn text-btn-ink font-bold shadow-sm"
+                  ? "bg-btn text-btn-ink font-bold shadow-xs"
                   : "bg-surface text-secondary hover:text-primary border border-border"
               }`}
             >
@@ -120,7 +120,7 @@ export const Timetable: React.FC<TimetableProps> = ({ onOpenBooking }) => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-surface-elevated text-secondary border border-border">
+                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-sm bg-surface-elevated text-secondary border border-border">
                     Ένταση: {INTENSITY_LABELS[item.intensity] ?? item.intensity}
                   </span>
                   <button

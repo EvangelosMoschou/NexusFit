@@ -72,11 +72,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
             placeholder="Αναζήτηση ασκήσεων, ομαδικών μαθημάτων ή εγκαταστάσεων..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent text-primary text-xs outline-none placeholder:text-tertiary"
+            className="flex-1 bg-transparent text-primary text-xs outline-hidden placeholder:text-tertiary"
           />
           <button
             onClick={onClose}
-            className="text-[11px] font-mono text-tertiary px-1.5 py-0.5 rounded border border-border hover:text-primary"
+            className="text-[11px] font-mono text-tertiary px-1.5 py-0.5 rounded-sm border border-border hover:text-primary"
           >
             ESC
           </button>
@@ -98,7 +98,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                       onSelectExercise(ex.id);
                       onClose();
                     }}
-                    className="p-2.5 rounded hover:bg-surface-elevated cursor-pointer flex items-center justify-between text-xs transition-colors"
+                    className="p-2.5 rounded-sm hover:bg-surface-elevated cursor-pointer flex items-center justify-between text-xs transition-colors"
                   >
                     <div>
                       <div className="font-semibold text-primary">{ex.greekName}</div>
@@ -125,7 +125,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSel
                 {filteredClasses.map((cl) => (
                   <div
                     key={cl.id}
-                    className="p-2.5 rounded hover:bg-surface-elevated flex items-center justify-between text-xs"
+                    className="p-2.5 rounded-sm hover:bg-surface-elevated flex items-center justify-between text-xs"
                   >
                     <div>
                       <div className="font-semibold text-primary">{cl.className}</div>

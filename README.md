@@ -21,7 +21,7 @@ another gym without touching components.
 
 ## Quick start
 
-Requires **Node.js 22+** (the app uses the built-in `node:sqlite`).
+Requires **Node.js 26+** (the app uses the built-in `node:sqlite`).
 
 ```bash
 npm ci
@@ -170,19 +170,46 @@ security and deployment.
 
 | Layer | Choice |
 |---|---|
-| Framework | **Next.js 16.4.3** (App Router, React Server Components, Turbopack, `output: "standalone"`) |
-| UI | **React 19.3**, **TailwindCSS 3.4**, **lucide-react** icons |
-| Language | **TypeScript 5** (strict) |
+| Framework | **Next.js 16.4.6** (App Router, React Server Components, Turbopack, `output: "standalone"`) |
+| UI | **React 19.3**, **TailwindCSS 4.3** (CSS-first `@theme`, no JS config), **lucide-react** icons |
+| Language | **TypeScript 7** compiler (`tsc` is the native port) over the TypeScript 6.0 API package that `typescript-eslint` still requires — see [Toolchain notes](#toolchain-notes) |
 | Database | **`node:sqlite`** (`DatabaseSync`) — Node's built-in SQLite, no external driver |
 | AI | **Google Gemini** (`gemini-2.0-flash-lite`) with a local deterministic fallback |
 | Testing | **Vitest 5** (Node environment) |
 | Demo | **Vite 8** static build with an in-browser mock API (GitHub Pages) |
-| Lint | ESLint 9 + `eslint-config-next` (flat config, `eslint.config.mjs`) |
-| Runtime | **Node.js 22** (Docker image is `node:22-alpine`) |
+| Lint | ESLint 10 + `eslint-config-next` (flat config, `eslint.config.mjs`) |
+| Runtime | **Node.js 26** (Docker image is `node:26-alpine`) |
 
 There are only **four** runtime dependencies (`next`, `react`, `react-dom`,
 `lucide-react`). No ORM, no auth library, no state manager, no CSS-in-JS — the
 whole platform is deliberately dependency-light and self-hostable.
+
+### Toolchain notes
+
+Three toolchain details look unusual on purpose; changing them without the
+follow-up described here breaks the build.
+
+- **`.npmrc` sets `legacy-peer-deps=true`.** ESLint 10 is installed, but the
+  three plugins `eslint-config-next` pulls in (`eslint-plugin-jsx-a11y`,
+  `eslint-plugin-react`, `eslint-plugin-import`) still declare a peer range that
+  stops at ESLint 9, and none of them has published a release that accepts 10.
+  They do run correctly on ESLint 10 — `eslint .` reports the same files,
+  messages and rule ids on 9.39.5 and 10.15.0 — so the setting only silences a
+  stale metadata check. It also switches off npm's peer validation for the whole
+  tree, so remove it as soon as all three plugins ship ESLint 10 support (the
+  comment in `.npmrc` carries the upstream links).
+- **TypeScript runs side-by-side.** The `typescript` package is
+  `@typescript/typescript6` (the last release with a JavaScript compiler API)
+  because `typescript-eslint` refuses to load against the TypeScript 7 native
+  compiler. `@typescript/native` is an npm alias for `typescript@7`, and it is
+  what provides the `tsc` binary, so `npm run typecheck` uses TypeScript 7.
+  This is the arrangement Microsoft documents in the TypeScript 7 release notes.
+  Collapse both aliases into a plain `typescript@^7` dependency once
+  [typescript-eslint supports TS 7.1+](https://github.com/typescript-eslint/typescript-eslint/issues/10940).
+- **Tailwind is CSS-first.** There is no `tailwind.config.ts`; the palette,
+  radii and content sources live in `src/app/globals.css` (`@theme`, `@source`)
+  and PostCSS uses `@tailwindcss/postcss`. The demo under `site/` imports the
+  same stylesheet.
 
 ---
 
@@ -236,9 +263,9 @@ NexusFit/
 ├── LICENSE                       GNU AGPL-3.0
 ├── NOTICE                        Commercial licensing & trademark notice
 ├── SECURITY.md                   Vulnerability disclosure + response policy
-├── package.json                  Scripts & the five runtime deps
+├── package.json                  Scripts & the four runtime deps
 ├── next.config.ts                Standalone output, security headers, lucide tree-shaking
-├── tailwind.config.ts            CSS-variable theme tokens (charcoal / sky-cyan default)
+├── src/app/globals.css           Tailwind 4 entry + CSS-variable theme tokens (charcoal / sky-cyan default)
 ├── vitest.config.ts              Node env, "@" → src alias
 ├── eslint.config.mjs             eslint-config-next + jsx-a11y + prettier
 ├── tsconfig.json
@@ -254,7 +281,7 @@ NexusFit/
 │   └── .well-known/security.txt  RFC 9116 contact (replace the placeholders)
 │
 ├── deploy/                       Production assets (see Deployment)
-│   ├── Dockerfile                Multi-stage node:22-alpine → standalone runner
+│   ├── Dockerfile                Multi-stage node:26-alpine → standalone runner
 │   ├── docker-compose.yml        app + Caddy TLS + db-backup + retention sidecars
 │   ├── Caddyfile                 TLS reverse proxy
 │   ├── ecosystem.config.js       PM2 cluster config
@@ -273,6 +300,8 @@ NexusFit/
 │   ├── security/                 Disclosure policy + supply-chain gates
 │   │   ├── README.md             Standards map and pre-deploy checklist
 │   │   └── supply-chain.md       Gitleaks · Semgrep · CodeQL · Trivy · SBOM
+│   ├── features/                 Feature design docs
+│   │   └── gym-floor-plan.md     Portable gym floor-plan module: design + plan
 │   └── 50_RULES_WEBSITE_CHECKLIST.txt  30 anti-patterns + 20 essential features
 │
 ├── scripts/
@@ -320,6 +349,8 @@ NexusFit/
     ├── config/gymConfig.ts       defaultGymConfig — the white-label source of truth
     ├── data/exercisesData.ts     23 exercises (GR/EN names, muscle group, injury risks)
     ├── lib/                      Business logic & data access (see below)
+    ├── modules/                  Portable, dependency-free add-ons
+    │   └── gym-floor-plan/       Grid floor plan: types · model · render · tests · README
     ├── proxy.ts                  CSRF guard for mutating /api/* requests
     └── types/
         ├── index.ts              All shared TypeScript types
@@ -376,8 +407,8 @@ NexusFit/
 
 ## Getting Started
 
-**Requirements:** Node.js **22+** (the project uses the built-in `node:sqlite`, which
-requires Node 22+), npm.
+**Requirements:** Node.js **26+** (the project uses the built-in `node:sqlite`, which
+requires Node 26+), npm.
 
 ```bash
 # 1. Install dependencies
@@ -899,6 +930,13 @@ on every push to `main` (`.github/workflows/pages.yml`).
 | `src/lib/storage.test.ts` | localStorage helpers and their consent gating. |
 | `src/lib/auth.test.ts` | Client member-session storage and plan-history writes (including the quota/private-mode failure path). |
 
+**Gym floor plan module** (`src/modules/gym-floor-plan` — portable, no host imports)
+
+| Test file | Coverage |
+|---|---|
+| `src/modules/gym-floor-plan/model.test.ts` | Plan and floor CRUD, grid resize (out-of-bounds cells discarded, `countCellsOutsideBounds` for the confirmation dialog), category CRUD with explicit reassignment of affected cells, cell and paint operations, validation and limits, canonical serialization and the schema-version migration loop. |
+| `src/modules/gym-floor-plan/render.test.ts` | Pure render model: CSS Grid template, WCAG contrast-safe ink, pattern backgrounds, legend with the fixed void entry, screen-reader floor summary. |
+
 **API & client**
 
 | Test file | Coverage |
@@ -930,13 +968,13 @@ Three supported paths, all detailed in `deploy/DEPLOYMENT_GUIDE.md`.
 **Docker Compose (recommended for a VPS)** — `deploy/docker-compose.yml` brings up
 four services:
 
-- `nexusfit_app` — the app built from `deploy/Dockerfile` (multi-stage `node:22-alpine`,
+- `nexusfit_app` — the app built from `deploy/Dockerfile` (multi-stage `node:26-alpine`,
   runs as a non-root user, executes the standalone `server.js`), bound to
   `127.0.0.1:3000` with the SQLite file on the named volume `nexusfit_data`.
   It has a `/api/health` healthcheck and capped Docker logs.
 - `caddy` — TLS termination, compression and reverse proxy on ports 80/443
   (`deploy/Caddyfile`).
-- `db_backup` — a `node:22-alpine` sidecar that writes a **consistent** snapshot
+- `db_backup` — a `node:26-alpine` sidecar that writes a **consistent** snapshot
   (`VACUUM INTO`) of every database daily and keeps 14 days.
 - `retention_cron` — calls the GDPR retention endpoint daily.
 
@@ -964,7 +1002,7 @@ A Vercel deployment is a **smoke test only**: serverless instances are ephemeral
 do not share `/tmp`, so data written by one request may be invisible to the next.
 
 1. Import the repository in Vercel (framework is auto-detected as Next.js; `engines.node`
-   pins Node 22, which is required for the built-in `node:sqlite`).
+   pins Node 26, which is required for the built-in `node:sqlite`).
 2. **Demo instance:** add a single variable, `DEMO_MODE=1`, scoped to Production
    *and* Preview. It seeds the demo members, sets the admin password to `admin1`
    and signs member sessions with a known demo secret, so nothing else is needed.

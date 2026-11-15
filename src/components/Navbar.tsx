@@ -77,7 +77,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             aria-label={`${config.gymName} - Επιστροφή στην αρχική σελίδα`}
             className="flex items-center gap-2.5 group"
           >
-            <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-xs group-hover:scale-105 transition-transform">
               <Dumbbell className="w-4 h-4 stroke-[2.5]" />
             </div>
             <span className="font-bold text-base tracking-tight text-primary uppercase whitespace-nowrap">
@@ -125,7 +125,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={onOpenContact}
-              className="px-4 py-2 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs tracking-tight transition-colors shadow-sm"
+              className="px-4 py-2 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs tracking-tight transition-colors shadow-xs"
             >
               Επικοινωνία & Επίσκεψη
             </button>

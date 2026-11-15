@@ -108,7 +108,7 @@ export const MemberDetailModal: React.FC<MemberDetailModalProps> = ({
           type="button"
           onClick={onClose}
           aria-label="Κλείσιμο"
-          className="absolute top-4 right-4 p-1.5 rounded text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
+          className="absolute top-4 right-4 p-1.5 rounded-sm text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
         >
           <X className="w-5 h-5" />
         </button>

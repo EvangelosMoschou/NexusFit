@@ -147,7 +147,7 @@ export const OccupancyForecast: React.FC = () => {
                     aria-label={`${day.dayGreek} ${hourLabel(point.hour)}: ${point.avg} άτομα`}
                   >
                     <div
-                      className={`w-full rounded-t transition-colors ${
+                      className={`w-full rounded-t-sm transition-colors ${
                         point.avg > 0 ? "bg-accent" : "bg-border/70"
                       }`}
                       style={{

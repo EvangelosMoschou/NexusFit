@@ -136,7 +136,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             aria-label={`${config.gymName} - Επιστροφή στην αρχική σελίδα`}
             className="flex items-center gap-3 group"
           >
-            <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-xs group-hover:scale-105 transition-transform">
               <Dumbbell className="w-4 h-4 stroke-[2.5]" />
             </div>
             <div className="text-left">
@@ -207,7 +207,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
 
                 <button
                   onClick={onLaunchAIWizard}
-                  className="px-4 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs flex items-center gap-2 transition-colors shadow-sm"
+                  className="px-4 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs flex items-center gap-2 transition-colors shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Νέο Πρόγραμμα</span>
@@ -306,7 +306,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             onClick={() => setActiveTab("overview")}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               activeTab === "overview"
-                ? "bg-btn text-btn-ink font-bold shadow-sm"
+                ? "bg-btn text-btn-ink font-bold shadow-xs"
                 : "text-secondary hover:text-primary"
             }`}
           >
@@ -316,7 +316,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             onClick={() => setActiveTab("plans")}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               activeTab === "plans"
-                ? "bg-btn text-btn-ink font-bold shadow-sm"
+                ? "bg-btn text-btn-ink font-bold shadow-xs"
                 : "text-secondary hover:text-primary"
             }`}
           >
@@ -326,7 +326,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             onClick={() => setActiveTab("logs")}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               activeTab === "logs"
-                ? "bg-btn text-btn-ink font-bold shadow-sm"
+                ? "bg-btn text-btn-ink font-bold shadow-xs"
                 : "text-secondary hover:text-primary"
             }`}
           >
@@ -336,7 +336,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             onClick={() => setActiveTab("schedule")}
             className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               activeTab === "schedule"
-                ? "bg-btn text-btn-ink font-bold shadow-sm"
+                ? "bg-btn text-btn-ink font-bold shadow-xs"
                 : "text-secondary hover:text-primary"
             }`}
           >
@@ -415,7 +415,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                       {isAIActive && (
                         <button
                           onClick={onLaunchAIWizard}
-                          className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs transition-colors shadow-sm"
+                          className="px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink font-bold text-xs transition-colors shadow-xs"
                         >
                           Δημιουργία Προγράμματος
                         </button>
@@ -429,7 +429,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
             {/* Right Column: AI Coach / Actions Box */}
             <div className="lg:col-span-4 space-y-4">
               {isAIActive ? (
-                <div className="p-5 rounded-xl bg-surface-card border border-border-light space-y-4 shadow-sm">
+                <div className="p-5 rounded-xl bg-surface-card border border-border-light space-y-4 shadow-xs">
                   <div className="flex items-center gap-2 text-accent">
                     <Bot className="w-5 h-5" />
                     <h3 className="text-sm font-bold text-primary">Βοήθεια Ψηφιακού Προπονητή</h3>
@@ -541,7 +541,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                     <div className="text-sm font-bold text-primary flex items-center gap-2">
                       <span>{plan.splitName}</span>
                       {plan.splitType === "custom" && (
-                        <span className="text-[10px] bg-surface-elevated text-secondary px-1.5 py-0.5 rounded border border-border font-mono">
+                        <span className="text-[10px] bg-surface-elevated text-secondary px-1.5 py-0.5 rounded-sm border border-border font-mono">
                           Manual
                         </span>
                       )}
@@ -626,7 +626,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
                         </div>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-surface-elevated text-secondary border border-border">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-surface-elevated text-secondary border border-border">
                       {item.duration}
                     </span>
                   </div>

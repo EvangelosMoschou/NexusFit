@@ -76,7 +76,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
         <button
           onClick={onClose}
           aria-label="Κλείσιμο"
-          className="absolute top-5 right-5 p-1.5 rounded text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
+          className="absolute top-5 right-5 p-1.5 rounded-sm text-secondary hover:text-primary hover:bg-surface-elevated transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -94,7 +94,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
         </div>
 
         {/* Quick Demo Test Buttons */}
-        <div className="p-3 rounded bg-background border border-border space-y-2">
+        <div className="p-3 rounded-sm bg-background border border-border space-y-2">
           <div className="text-[10px] font-mono text-tertiary uppercase">
             Γρήγορη Δοκιμή (Δοκιμαστικά Στοιχεία):
           </div>
@@ -102,7 +102,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
             <button
               type="button"
               onClick={() => handleQuickDemo("NX-8492")}
-              className="py-1.5 px-2.5 rounded bg-surface-elevated hover:bg-border text-left text-xs text-primary border border-border flex items-center justify-between transition-colors"
+              className="py-1.5 px-2.5 rounded-sm bg-surface-elevated hover:bg-border text-left text-xs text-primary border border-border flex items-center justify-between transition-colors"
             >
               <span>Γ. Παπαδόπουλος (NX-8492)</span>
               <span className="text-[10px] font-mono text-accent">Ενεργή Πρόσβαση</span>
@@ -110,7 +110,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
             <button
               type="button"
               onClick={() => handleQuickDemo("NX-3109")}
-              className="py-1.5 px-2.5 rounded bg-surface-elevated hover:bg-border text-left text-xs text-secondary border border-border flex items-center justify-between transition-colors"
+              className="py-1.5 px-2.5 rounded-sm bg-surface-elevated hover:bg-border text-left text-xs text-secondary border border-border flex items-center justify-between transition-colors"
             >
               <span>Μ. Κωνσταντίνου (NX-3109)</span>
               <span className="text-[10px] font-mono text-tertiary">Βασική Πρόσβαση</span>
@@ -119,7 +119,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
         </div>
 
         {error && (
-          <div className="p-3 rounded bg-red-950/40 border border-red-800/60 text-xs text-red-300 flex items-start gap-2">
+          <div className="p-3 rounded-sm bg-red-950/40 border border-red-800/60 text-xs text-red-300 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
@@ -141,7 +141,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                 placeholder="π.χ. NX-8492 ή ηλεκτρονικό ταχυδρομείο"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono"
+                className="w-full pl-8 pr-3 py-2 rounded-sm bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-mono"
               />
               <User className="w-3.5 h-3.5 text-secondary absolute left-2.5 top-3" />
             </div>
@@ -163,7 +163,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                 placeholder="••••"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono tracking-widest"
+                className="w-full pl-8 pr-3 py-2 rounded-sm bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-mono tracking-widest"
               />
               <Lock className="w-3.5 h-3.5 text-secondary absolute left-2.5 top-3" />
             </div>
@@ -172,7 +172,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs tracking-tight transition-colors text-center mt-2"
+            className="w-full py-2.5 rounded-sm bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs tracking-tight transition-colors text-center mt-2"
           >
             {loading ? "Έλεγχος συνδρομής..." : "Σύνδεση στο Dashboard"}
           </button>

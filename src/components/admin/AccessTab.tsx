@@ -115,7 +115,7 @@ export const AccessTab: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-2.5 rounded bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
+        <div className="p-2.5 rounded-sm bg-red-950/40 border border-red-800/60 text-[11px] text-red-300">
           {error}
         </div>
       )}

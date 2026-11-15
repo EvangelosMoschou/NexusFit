@@ -58,7 +58,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               onClick={() => setBillingPeriod("month")}
               className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 billingPeriod === "month"
-                  ? "bg-btn text-btn-ink font-bold shadow-sm"
+                  ? "bg-btn text-btn-ink font-bold shadow-xs"
                   : "text-secondary hover:text-primary"
               }`}
             >
@@ -68,7 +68,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               onClick={() => setBillingPeriod("quarter")}
               className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 billingPeriod === "quarter"
-                  ? "bg-btn text-btn-ink font-bold shadow-sm"
+                  ? "bg-btn text-btn-ink font-bold shadow-xs"
                   : "text-secondary hover:text-primary"
               }`}
             >
@@ -78,7 +78,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               onClick={() => setBillingPeriod("year")}
               className={`px-3.5 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 billingPeriod === "year"
-                  ? "bg-btn text-btn-ink font-bold shadow-sm"
+                  ? "bg-btn text-btn-ink font-bold shadow-xs"
                   : "text-secondary hover:text-primary"
               }`}
             >
@@ -170,7 +170,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
             <div className="space-y-2">
               <button
                 onClick={() => onSelectPlan(aiPlan.name)}
-                className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink text-xs font-bold transition-colors text-center shadow-sm"
+                className="w-full py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-ink text-xs font-bold transition-colors text-center shadow-xs"
               >
                 Ενεργοποίηση στη Ρεσεψιόν ({formatEuro(periodTotal(aiPlan))})
               </button>

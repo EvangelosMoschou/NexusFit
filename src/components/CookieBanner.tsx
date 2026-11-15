@@ -50,13 +50,13 @@ export const CookieBanner: React.FC<CookieBannerProps> = ({ onOpenPrivacy }) => 
         <div className="flex items-center gap-2">
           <button
             onClick={handleAccept}
-            className="flex-1 py-1.5 px-3 rounded bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors"
+            className="flex-1 py-1.5 px-3 rounded-sm bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors"
           >
             Αποδοχή Όλων
           </button>
           <button
             onClick={handleDecline}
-            className="py-1.5 px-3 rounded bg-surface-elevated hover:bg-border text-secondary hover:text-primary text-xs font-medium transition-colors"
+            className="py-1.5 px-3 rounded-sm bg-surface-elevated hover:bg-border text-secondary hover:text-primary text-xs font-medium transition-colors"
           >
             Μόνο Απαραίτητα
           </button>

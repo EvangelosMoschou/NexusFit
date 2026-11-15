@@ -30,7 +30,7 @@ export function StatusPage({
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-6">
       <header className="max-w-6xl mx-auto w-full py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-sm">
+          <div className="w-8 h-8 rounded-lg bg-accent text-accent-ink font-extrabold flex items-center justify-center text-sm shadow-xs">
             <Dumbbell className="w-4 h-4 stroke-[2.5]" />
           </div>
           <span className="font-bold text-base tracking-tight text-primary uppercase">
@@ -59,7 +59,7 @@ export function StatusPage({
         <div className="pt-2">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs transition-colors shadow-xs"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Επιστροφή στην αρχική</span>

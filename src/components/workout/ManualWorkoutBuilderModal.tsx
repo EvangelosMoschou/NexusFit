@@ -185,7 +185,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                 required
                 value={splitName}
                 onChange={(e) => setSplitName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-medium"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-medium"
               />
             </div>
 
@@ -199,7 +199,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                 max={120}
                 value={sessionDuration}
                 onChange={(e) => setSessionDuration(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-primary text-xs outline-none focus:border-border-light font-mono"
+                className="w-full px-3 py-2 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-mono"
               />
             </div>
           </div>
@@ -234,14 +234,14 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                       updated[dayIdx].dayName = e.target.value;
                       setDays(updated);
                     }}
-                    className="bg-transparent text-sm font-bold text-primary outline-none border-b border-transparent focus:border-border-light px-1 flex-1"
+                    className="bg-transparent text-sm font-bold text-primary outline-hidden border-b border-transparent focus:border-border-light px-1 flex-1"
                   />
                   {days.length > 1 && (
                     <button
                       type="button"
                       onClick={() => handleRemoveDay(dayIdx)}
                       aria-label="Διαγραφή Ημέρας"
-                      className="p-1 rounded text-red-400 hover:bg-red-950/40"
+                      className="p-1 rounded-sm text-red-400 hover:bg-red-950/40"
                       title="Διαγραφή Ημέρας"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -263,7 +263,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                         <select
                           value={ex.exerciseId}
                           onChange={(e) => handleExerciseChange(dayIdx, exIdx, e.target.value)}
-                          className="w-full px-2.5 py-1.5 rounded bg-background border border-border text-primary text-xs outline-none"
+                          className="w-full px-2.5 py-1.5 rounded-sm bg-background border border-border text-primary text-xs outline-hidden"
                         >
                           {PLACEHOLDER_EXERCISES.map((dbEx) => (
                             <option key={dbEx.id} value={dbEx.id}>
@@ -286,7 +286,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                               updated[dayIdx].exercises[exIdx].sets = Number(e.target.value);
                               setDays(updated);
                             }}
-                            className="w-14 px-2 py-1 rounded bg-background border border-border text-primary text-center font-mono text-xs"
+                            className="w-14 px-2 py-1 rounded-sm bg-background border border-border text-primary text-center font-mono text-xs"
                           />
                         </div>
 
@@ -300,7 +300,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                               updated[dayIdx].exercises[exIdx].reps = e.target.value;
                               setDays(updated);
                             }}
-                            className="w-16 px-2 py-1 rounded bg-background border border-border text-primary text-center font-mono text-xs"
+                            className="w-16 px-2 py-1 rounded-sm bg-background border border-border text-primary text-center font-mono text-xs"
                           />
                         </div>
 
@@ -308,7 +308,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
                           type="button"
                           onClick={() => handleRemoveExercise(dayIdx, exIdx)}
                           aria-label="Αφαίρεση άσκησης"
-                          className="mt-4 p-1.5 rounded text-secondary hover:text-red-400"
+                          className="mt-4 p-1.5 rounded-sm text-secondary hover:text-red-400"
                           title="Αφαίρεση άσκησης"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -342,7 +342,7 @@ export const ManualWorkoutBuilderModal: React.FC<ManualWorkoutBuilderModalProps>
 
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm"
+              className="px-5 py-2.5 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <Save className="w-4 h-4" />
               <span>Αποθήκευση στο Ιστορικό μου</span>

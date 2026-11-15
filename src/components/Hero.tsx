@@ -41,7 +41,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenContact, onOpenLogin }) => {
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 onClick={onOpenContact}
-                className="px-5 py-3 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs tracking-tight transition-colors shadow-sm"
+                className="px-5 py-3 rounded-lg bg-btn hover:bg-btn-hover text-btn-ink font-bold text-xs tracking-tight transition-colors shadow-xs"
               >
                 Επίσκεψη & Πληροφορίες
               </button>

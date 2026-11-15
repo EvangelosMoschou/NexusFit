@@ -47,7 +47,7 @@ export const PricingTab: React.FC<PricingTabProps> = ({ config, setConfig }) => 
                 type="text"
                 value={plan.name}
                 onChange={(e) => updatePlan(planIdx, { name: e.target.value })}
-                className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs font-bold outline-none"
+                className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs font-bold outline-hidden"
               />
             </div>
 
@@ -58,7 +58,7 @@ export const PricingTab: React.FC<PricingTabProps> = ({ config, setConfig }) => 
                   type="number"
                   value={plan.priceMonth}
                   onChange={(e) => updatePlan(planIdx, { priceMonth: Number(e.target.value) })}
-                  className="w-full px-2.5 py-1.5 rounded bg-background border border-border text-primary text-xs font-mono"
+                  className="w-full px-2.5 py-1.5 rounded-sm bg-background border border-border text-primary text-xs font-mono"
                 />
               </div>
               <div>
@@ -67,7 +67,7 @@ export const PricingTab: React.FC<PricingTabProps> = ({ config, setConfig }) => 
                   type="number"
                   value={plan.priceQuarter || 0}
                   onChange={(e) => updatePlan(planIdx, { priceQuarter: Number(e.target.value) })}
-                  className="w-full px-2.5 py-1.5 rounded bg-background border border-border text-primary text-xs font-mono"
+                  className="w-full px-2.5 py-1.5 rounded-sm bg-background border border-border text-primary text-xs font-mono"
                 />
               </div>
               <div>
@@ -76,7 +76,7 @@ export const PricingTab: React.FC<PricingTabProps> = ({ config, setConfig }) => 
                   type="number"
                   value={plan.priceYear || 0}
                   onChange={(e) => updatePlan(planIdx, { priceYear: Number(e.target.value) })}
-                  className="w-full px-2.5 py-1.5 rounded bg-background border border-border text-primary text-xs font-mono"
+                  className="w-full px-2.5 py-1.5 rounded-sm bg-background border border-border text-primary text-xs font-mono"
                 />
               </div>
             </div>
@@ -87,7 +87,7 @@ export const PricingTab: React.FC<PricingTabProps> = ({ config, setConfig }) => 
                 rows={4}
                 value={plan.features.join("\n")}
                 onChange={(e) => updatePlan(planIdx, { features: e.target.value.split("\n").filter(Boolean) })}
-                className="w-full px-3 py-2 rounded bg-background border border-border text-primary text-xs outline-none font-sans"
+                className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs outline-hidden font-sans"
               />
             </div>
           </div>

@@ -104,8 +104,14 @@ case the raw SARIF is available as a workflow artifact.
 - `package-lock.json` is committed and CI always runs **`npm ci`** — never
   `npm install` — so the dependency tree in CI is exactly the reviewed one.
   `npm install` can silently rewrite the lockfile; `npm ci` fails instead.
-- `engines.node` pins the runtime to Node 22 and `actions/setup-node` requests
+- `engines.node` pins the runtime to Node 26 and `actions/setup-node` requests
   the same major, with npm cache enabled.
+- `.npmrc` is part of the install contract: it carries the documented
+  `legacy-peer-deps=true` setting that lets ESLint 10 resolve against plugins
+  whose peer ranges still stop at ESLint 9 (see the README's toolchain notes).
+  `deploy/Dockerfile` copies it into the build stage for the same reason. It
+  disables peer validation for the whole tree, so treat removing it as a
+  follow-up with a real deadline, not a nice-to-have.
 - Dependency count is a security feature here: the app ships four runtime
   dependencies (`next`, `react`, `react-dom`, `lucide-react`). Adding a runtime
   dependency needs a justification in the PR description (what it replaces, why
@@ -537,7 +543,7 @@ order of value:
    image with Trivy (`scan-type: image`, `image-ref: nexusfit-app:ci`) — this is
    the only way to see Alpine base-image packages and the standalone server's
    runtime layer. Add a `docker` ecosystem entry to Dependabot (or Renovate) so
-   the `node:22-alpine` digest is refreshed monthly.
+   the `node:26-alpine` digest is refreshed monthly.
 2. **Required checks + CODEOWNERS.** Apply the branch-protection settings above
    and add `.github/CODEOWNERS`.
 3. **Promote SAST to blocking.** Once the Semgrep baseline is triaged, add
