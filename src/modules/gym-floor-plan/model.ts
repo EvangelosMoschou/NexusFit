@@ -25,7 +25,6 @@ import {
   type CreateFloorInput,
   type CreatePlanOptions,
   type DeserializeResult,
-  type EmptyCell,
   type Floor,
   type FloorCell,
   type FloorPlanErrorCode,
@@ -34,6 +33,13 @@ import {
   type ValidationIssue,
   type ValidationResult,
 } from "./types";
+import {
+  EMPTY_CELL,
+  decodeFloorRows,
+  encodeFloorCells,
+  migrateV1PlanRecord,
+  scanMachineReferences,
+} from "./wire";
 
 const DEFAULT_ROWS = 12;
 const DEFAULT_COLS = 12;
@@ -43,9 +49,6 @@ const DEFAULT_FLOOR_NAME = "Ground floor";
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
 const PREFIX_PATTERN = /^[a-z][a-z0-9-]*$/;
-
-/** Shared immutable placeholder; callers must never mutate cells in place. */
-const EMPTY_CELL: Readonly<EmptyCell> = Object.freeze({ kind: "empty" });
 
 export class FloorPlanError extends Error {
   readonly code: FloorPlanErrorCode;
@@ -698,6 +701,13 @@ export function validatePlan(input: unknown): ValidationResult {
 
   // Categories -------------------------------------------------------------
   const categoryIds = new Set<string>();
+  /**
+   * Category ids by array position, so a v2 `m:<index>` token can be resolved
+   * back to an id. Entries stay `undefined` when the raw category at that
+   * position carries no id, which keeps indexes aligned with the serialized
+   * array (and lets the decoder report `unknown-category` for that index).
+   */
+  const categoryIdsByIndex: (string | undefined)[] = [];
   const categoryNames = new Map<string, { name: string; index: number }>();
   const categoryColors = new Map<string, string>();
   const categoryShortLabels = new Map<string, string>();
@@ -716,11 +726,13 @@ export function validatePlan(input: unknown): ValidationResult {
     input.categories.forEach((raw, index) => {
       const path = `categories[${index}]`;
       if (!isRecord(raw)) {
+        categoryIdsByIndex[index] = undefined;
         error("invalid-category", "Category must be an object.", path);
         return;
       }
 
       const id = raw.id;
+      categoryIdsByIndex[index] = typeof id === "string" ? id : undefined;
       if (typeof id !== "string" || !ID_PATTERN.test(id)) {
         error("invalid-id", `Category id must match ${ID_PATTERN}.`, `${path}.id`);
       } else if (categoryIds.has(id)) {
@@ -897,68 +909,38 @@ export function validatePlan(input: unknown): ValidationResult {
         );
       }
 
+      // Schema v2 stores token rows; the decoder also accepts the expanded cell
+      // objects so an in-memory plan stays valid input. `decodeFloorRows`
+      // reports malformed tokens (unknown token, run of 0, negative or
+      // non-integer run, overflowing run) as issues instead of throwing.
       let machineCount = 0;
-      cells.forEach((rowCells, rowIndex) => {
-        const rowPath = `${path}.cells[${rowIndex}]`;
-        if (!Array.isArray(rowCells)) {
-          error("invalid-cells", "Each cells row must be an array.", rowPath);
-          return;
-        }
-        if (colsValid && rowCells.length !== cols) {
-          error(
-            "invalid-cells",
-            `Row ${rowIndex} must have ${cols} cells (got ${rowCells.length}).`,
-            rowPath
-          );
-        }
-
-        rowCells.forEach((cell, colIndex) => {
-          const cellPath = `${rowPath}[${colIndex}]`;
-          if (!isRecord(cell)) {
-            error("invalid-cell", "Cell must be an object.", cellPath);
-            return;
-          }
-          const kind = cell.kind;
-          if (kind === "empty" || kind === "void") return;
-          if (kind !== "machine") {
-            error(
-              "invalid-cell",
-              `Cell kind must be "empty", "machine" or "void" (got ${describeValue(kind)}).`,
-              cellPath
-            );
-            return;
-          }
-
-          machineCount += 1;
-          const categoryId = cell.categoryId;
-          if (typeof categoryId !== "string" || categoryId.length === 0) {
-            error("invalid-cell", "Machine cell must reference a category id.", cellPath);
-          } else {
-            usedCategories.add(categoryId);
-            if (!categoryIds.has(categoryId)) {
-              error(
-                "unknown-category",
-                `Machine cell references unknown category "${categoryId}".`,
-                `${cellPath}.categoryId`
-              );
+      if (colsValid) {
+        const decoded = decodeFloorRows(
+          cells,
+          cols,
+          categoryIdsByIndex,
+          `${path}.cells`,
+          rowsValid ? rows : FLOOR_PLAN_LIMITS.maxRows
+        );
+        for (const issue of decoded.errors) errors.push(issue);
+        if (decoded.cells) {
+          for (const rowCells of decoded.cells) {
+            for (const cell of rowCells) {
+              if (cell.kind !== "machine") continue;
+              machineCount += 1;
+              usedCategories.add(cell.categoryId);
             }
           }
-
-          const label = cell.label;
-          if (
-            label !== undefined &&
-            (typeof label !== "string" ||
-              label.trim().length === 0 ||
-              label.trim().length > FLOOR_PLAN_LIMITS.maxCellLabelLength)
-          ) {
-            error(
-              "invalid-cell",
-              `Machine label must be a non-empty string of at most ${FLOOR_PLAN_LIMITS.maxCellLabelLength} characters.`,
-              `${cellPath}.label`
-            );
-          }
-        });
-      });
+        }
+      } else {
+        // Columns are unknown, so token rows cannot be expanded into cells; the
+        // machine scan still feeds the `floor-empty` and `category-unused`
+        // warnings. Unknown indexes are not reported here because `decodeFloorRows`
+        // already covers them on every floor whose dimensions are valid.
+        const scanned = scanMachineReferences(cells, categoryIdsByIndex);
+        machineCount = scanned.machineCount;
+        for (const categoryId of scanned.categoryIds) usedCategories.add(categoryId);
+      }
 
       if (machineCount === 0) {
         warning(
@@ -987,18 +969,16 @@ export function validatePlan(input: unknown): ValidationResult {
 // Serialization and migrations
 // ---------------------------------------------------------------------------
 
-function serializeCell(cell: FloorCell): Record<string, unknown> {
-  if (cell.kind === "empty") return { kind: "empty" };
-  if (cell.kind === "void") return { kind: "void" };
-  return cell.label === undefined
-    ? { kind: "machine", categoryId: cell.categoryId }
-    : { kind: "machine", categoryId: cell.categoryId, label: cell.label };
-}
-
 /**
  * Serializes to a canonical JSON string: known fields only, fixed key order,
  * current schema version. Validation runs first so an invalid plan never
  * reaches storage.
+ *
+ * Since schema v2 each floor's `cells` is a list of token rows rather than a
+ * list of cell objects (see `wire.ts`): `"e"`, `"v"`, `"m:<categoryIndex>"`,
+ * `"m:<categoryIndex>:<label>"`, and `["e"|"v", n]` runs. The decoder expands
+ * them back to the same `FloorCell[][]`, so this function is the only place
+ * that knows about the wire shape.
  */
 export function serializePlan(plan: GymFloorPlan): string {
   const result = validatePlan(plan);
@@ -1009,6 +989,13 @@ export function serializePlan(plan: GymFloorPlan): string {
       `Cannot serialize an invalid floor plan: ${first?.message ?? "unknown error"}`
     );
   }
+
+  // Category tokens carry an index into this array, so the map is built from
+  // the exact array that is written below.
+  const categoryIndex = new Map<string, number>();
+  plan.categories.forEach((category, index) => {
+    categoryIndex.set(category.id, index);
+  });
 
   const canonical = {
     schemaVersion: FLOOR_PLAN_SCHEMA_VERSION,
@@ -1025,7 +1012,7 @@ export function serializePlan(plan: GymFloorPlan): string {
       name: floor.name,
       rows: floor.rows,
       cols: floor.cols,
-      cells: floor.cells.map((rowCells) => rowCells.map(serializeCell)),
+      cells: encodeFloorCells(floor.cells, categoryIndex),
     })),
   };
 
@@ -1040,13 +1027,22 @@ export type PlanMigrationTable = Readonly<Record<number, PlanMigration>>;
 /**
  * Migrations keyed by the version they migrate FROM.
  *
- * Adding schema v2 is a three-step change:
- *   1. bump `FLOOR_PLAN_SCHEMA_VERSION` to 2;
- *   2. register `PLAN_MIGRATIONS[1]` that returns a v2-shaped record;
+ * v1 -> v2 converts `cells` from arrays of cell objects to run-length encoded
+ * token rows. The category index is the position of the v1 `categoryId` in the
+ * plan's own `categories` array, so nothing is regenerated and category order
+ * is preserved. A v1 record with an unknown `categoryId` is passed through
+ * unconverted and then rejected by validation (`unknown-category`) — silently
+ * dropping squares would lose owner data.
+ *
+ * Adding a future schema version is a three-step change:
+ *   1. bump `FLOOR_PLAN_SCHEMA_VERSION`;
+ *   2. register `PLAN_MIGRATIONS[previousVersion]` returning the new shape;
  *   3. extend validation for the new fields.
  * Old stored plans then migrate on read, before validation.
  */
-const PLAN_MIGRATIONS: PlanMigrationTable = {};
+const PLAN_MIGRATIONS: PlanMigrationTable = {
+  1: migrateV1PlanRecord,
+};
 
 function migratePlan(
   raw: unknown,
@@ -1120,6 +1116,73 @@ function migratePlan(
  * parameter exists so tests can exercise the migration loop and so a host with
  * a custom schema lineage can supply its own table.
  */
+/**
+ * Rebuilds a typed `GymFloorPlan` from a validated v2 record.
+ *
+ * Validation ran first, so every field below is the right type and every token
+ * decodes; the decoder is called anyway and its (empty) error list is returned
+ * so a logic error cannot silently produce a scrambled grid. Only known fields
+ * survive, which keeps `parsePlanValue` symmetric with `serializePlan`.
+ */
+function materializePlan(
+  raw: Record<string, unknown>
+): { ok: true; plan: GymFloorPlan } | { ok: false; issues: ValidationIssue[] } {
+  const rawCategories = raw.categories as Record<string, unknown>[];
+  const categoryIdsByIndex = rawCategories.map((category) =>
+    typeof category.id === "string" ? category.id : undefined
+  );
+
+  const categories: Category[] = rawCategories.map((category) => ({
+    id: category.id as string,
+    name: category.name as string,
+    color: category.color as string,
+    shortLabel: category.shortLabel as string,
+    pattern: category.pattern as CellPattern,
+  }));
+
+  const issues: ValidationIssue[] = [];
+  const floors: Floor[] = (raw.floors as Record<string, unknown>[]).map((floor, index) => {
+    const decoded = decodeFloorRows(
+      floor.cells as unknown[],
+      floor.cols as number,
+      categoryIdsByIndex,
+      `floors[${index}].cells`,
+      floor.rows as number
+    );
+    issues.push(...decoded.errors);
+    return {
+      id: floor.id as string,
+      name: floor.name as string,
+      rows: floor.rows as number,
+      cols: floor.cols as number,
+      cells: decoded.cells ?? [],
+    };
+  });
+
+  if (issues.length > 0) return { ok: false, issues };
+
+  return {
+    ok: true,
+    plan: {
+      schemaVersion: FLOOR_PLAN_SCHEMA_VERSION,
+      title: raw.title as string,
+      categories,
+      floors,
+    },
+  };
+}
+
+/**
+ * Validates and migrates an already-parsed value (for hosts that keep the plan
+ * inside a larger JSON blob, like NexusFit's `gym_config`).
+ *
+ * `migrations` is normally omitted: the module ships its own table. The
+ * parameter exists so tests can exercise the migration loop and so a host with
+ * a custom schema lineage can supply its own table.
+ *
+ * The returned plan is always the in-memory shape (`FloorCell[][]`), whatever
+ * wire version was read: v1 records migrate to v2, then token rows expand.
+ */
 export function parsePlanValue(
   value: unknown,
   migrations: PlanMigrationTable = PLAN_MIGRATIONS
@@ -1129,7 +1192,11 @@ export function parsePlanValue(
 
   const result = validatePlan(migrated.value);
   if (!result.valid) return { ok: false, issues: result.errors };
-  return { ok: true, plan: migrated.value as GymFloorPlan, warnings: result.warnings };
+
+  const materialized = materializePlan(migrated.value as Record<string, unknown>);
+  if (!materialized.ok) return materialized;
+
+  return { ok: true, plan: materialized.plan, warnings: result.warnings };
 }
 
 export function deserializePlan(

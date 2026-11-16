@@ -31,6 +31,7 @@ import {
   type FloorCell,
   type GymFloorPlan,
 } from "./types";
+import { migrateV1PlanRecord } from "./wire";
 
 /** Asserts a model operation throws a FloorPlanError with a specific code. */
 function expectCode(fn: () => unknown, code: string): void {
@@ -541,9 +542,9 @@ describe("validatePlan", () => {
     expect(validatePlan({ ...plan, schemaVersion: undefined }).errors[0].code).toBe(
       "invalid-schema-version"
     );
-    expect(validatePlan({ ...plan, schemaVersion: 2 }).errors[0].code).toBe(
-      "unsupported-schema-version"
-    );
+    expect(
+      validatePlan({ ...plan, schemaVersion: FLOOR_PLAN_SCHEMA_VERSION + 1 }).errors[0].code
+    ).toBe("unsupported-schema-version");
   });
 
   it("rejects unknown category references", () => {
@@ -789,15 +790,19 @@ describe("serialization", () => {
         },
       ],
     };
+    // Version 0 is hypothetical, so the test supplies its own step; the real
+    // 1 -> 2 step is chained in afterwards to prove the loop keeps walking.
     const migrations = {
       0: (raw: Record<string, unknown>) => ({ ...raw, schemaVersion: 1 }),
+      1: migrateV1PlanRecord,
     };
 
     const result = parsePlanValue(legacy, migrations);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.plan.schemaVersion).toBe(1);
+    expect(result.plan.schemaVersion).toBe(FLOOR_PLAN_SCHEMA_VERSION);
     expect(result.plan.title).toBe("Legacy plan");
+    expect(result.plan.floors[0].cells).toEqual([[{ kind: "empty" }]]);
   });
 
   it("returns validation issues for a structurally invalid parsed value", () => {

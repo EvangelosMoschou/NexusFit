@@ -33,7 +33,7 @@ The TypeScript source of truth is
 
 ```ts
 interface GymFloorPlan {
-  schemaVersion: number; // 1
+  schemaVersion: number; // 2 (v1 plans still load: see section 8)
   title: string;
   categories: Category[]; // display order
   floors: Floor[]; // display order
@@ -63,14 +63,18 @@ type FloorCell =
 
 ### 2.1 Decisions
 
-**Dense, row-major grid (`cells[row][col]`) instead of a sparse map.**
-The plan is inherently rectangular; irregularity is modelled by void squares,
-not by missing keys. A dense array renders directly (`cells[row][col]`), needs
-no key parsing, makes resize a crop/pad and makes hand-inspection of the JSON
-obvious. The cost is serializing empty squares; the limits keep the worst case
-around 170 KB for six 40 × 40 floors, which is acceptable for a config blob.
-A sparse `Record<"r,c", cell>` would save bytes but add key validation, ragged
-data and a second representation to keep in sync.
+**Dense, row-major grid (`cells[row][col]`) in memory, run-length encoded on the
+wire.** The plan is inherently rectangular; irregularity is modelled by void
+squares, not by missing keys. A dense array renders directly
+(`cells[row][col]`), needs no key parsing, makes resize a crop/pad and keeps
+validation simple. A sparse `Record<"r,c", cell>` would add key validation,
+ragged data and a second representation to keep in sync.
+
+The one real cost of a dense grid is serialization, and that is paid at the
+boundary instead of in the model: schema v2 (section 8) writes each row as
+run-length encoded tokens, so empty floor and void collapse to a couple of
+bytes and a realistic plan is about 7× smaller than the dense v1 JSON (51× on
+an empty 40 × 40 × 6 grid). The in-memory `FloorCell[][]` is unchanged.
 
 **Row 0 is the top, column 0 is the left.** This matches reading order, CSS
 Grid and the resize anchor (top-left). The UI may label rows/columns 1-based.
@@ -98,11 +102,14 @@ if it wants one.
 
 ### 2.2 JSON example
 
-A 3 × 5 ground floor with a void notch, two categories and one named machine:
+A 3 × 5 ground floor with a void notch, three categories and one named machine.
+Each row is a list of tokens (section 8): a string is one square, a
+`[kind, count]` array is a run of empty (`"e"`) or void (`"v"`) squares, and
+`"m:<index>"` points at the category *position* in `categories`, not its id:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "title": "NexusFit floor plan",
   "categories": [
     {
@@ -134,27 +141,9 @@ A 3 × 5 ground floor with a void notch, two categories and one named machine:
       "rows": 3,
       "cols": 5,
       "cells": [
-        [
-          { "kind": "machine", "categoryId": "cat-1", "label": "Chest press" },
-          { "kind": "machine", "categoryId": "cat-1" },
-          { "kind": "empty" },
-          { "kind": "machine", "categoryId": "cat-2" },
-          { "kind": "void" }
-        ],
-        [
-          { "kind": "machine", "categoryId": "cat-1" },
-          { "kind": "empty" },
-          { "kind": "empty" },
-          { "kind": "machine", "categoryId": "cat-2" },
-          { "kind": "void" }
-        ],
-        [
-          { "kind": "machine", "categoryId": "cat-3" },
-          { "kind": "machine", "categoryId": "cat-3" },
-          { "kind": "empty" },
-          { "kind": "empty" },
-          { "kind": "void" }
-        ]
+        ["m:0:Chest press", "m:0", "e", "m:1", "v"],
+        ["m:0", ["e", 2], "m:1", "v"],
+        ["m:2", "m:2", ["e", 2], "v"]
       ]
     }
   ]
@@ -420,8 +409,8 @@ Supporting rules:
 
 | Limit | Value | Why |
 | --- | --- | --- |
-| Rows / columns | 1–40 each | 1 600 squares renders comfortably as DOM cells; keeps JSON bounded. Beyond this, use SVG/canvas and pan/zoom. |
-| Floors | 1–6 | Realistic building; six 40 × 40 floors ≈ 170 KB worst case. |
+| Rows / columns | 1–40 each | 1 600 squares renders comfortably as DOM cells; keeps JSON bounded even when fully painted. Beyond this, use SVG/canvas and pan/zoom. |
+| Floors | 1–6 | Realistic building; six 40 × 40 floors is ~3 KB when empty and ~59 KB when fully painted (v2). |
 | Categories | 0–20 | Legend readability and distinguishable palette. |
 | Plan title | 1–80 chars | Fits the admin header and config JSON. |
 | Floor name | 1–40 chars | Fits a tab. |
@@ -456,31 +445,118 @@ Supporting rules:
 
 ## 8. Serialization and migrations
 
-- `serializePlan` validates first, then writes **canonical JSON**: known fields
-  only, fixed key order, current `schemaVersion`, no `undefined`. Unknown fields
-  are stripped, so storage is stable and diffable.
-- `deserializePlan(string)` parses, migrates and validates. `parsePlanValue` does
-  the same for an already-parsed value (NexusFit's nested config blob).
-- Both return `{ ok: true, plan, warnings }` or `{ ok: false, issues }`; they
-  never throw on bad input.
-- `schemaVersion` is a required top-level field. A plan newer than the module is
-  rejected with an actionable message; an older plan runs through
-  `PLAN_MIGRATIONS` before validation.
+`serializePlan` validates first, then writes **canonical JSON**: known fields
+only, fixed key order, current `schemaVersion`, no `undefined`. Unknown fields
+are stripped, so storage is stable and diffable. `title`, `categories` and each
+floor's `id`/`name`/`rows`/`cols` are written as-is; `cells` is the only field
+whose shape schema v2 changed.
 
-Adding v2:
+### 8.1 The v2 cell format
+
+In memory a floor is still a dense `FloorCell[][]`. On the wire each row is an
+array of **tokens**, in left-to-right order:
+
+| Token | Meaning |
+| --- | --- |
+| `"e"` | exactly one open-floor (empty) square |
+| `"v"` | exactly one void square |
+| `"m:<index>"` | one machine square of `categories[index]` |
+| `"m:<index>:<label>"` | one machine square with a per-square label |
+| `["e", n]` | `n` consecutive empty squares (run-length encoded) |
+| `["v", n]` | `n` consecutive void squares (run-length encoded) |
+
+A run of one is written as the bare token (`"e"`, 3 bytes) rather than
+`["e", 1]` (9 bytes), so the encoder never emits a degenerate run.
+
+Three decisions worth recording:
+
+- **Category by index, not by id.** A token is `"m:0"`, not
+  `"m:cat-1"`; the repeated ~8-byte `categoryId` string is gone from every
+  painted square and the `categories` array carries each id once. The index is
+  the position in `categories`, which is also display order, so it is stable for
+  a given plan. Consequence: reordering or deleting a category changes the
+  mapping, and a stored plan must be re-serialized by `serializePlan` rather
+  than hand-edited.
+- **Machines are never run-length encoded.** Their labels differ and every
+  painted square is meaningful; a run token would have to carry per-cell labels
+  anyway. One short token each is both smaller and simpler.
+- **Runs must be exact.** A run that overflows the row, a length of `0`, a
+  negative or non-integer length, a non-numeric length, an unknown token, a run
+  carrying a machine kind or a machine token whose index is outside
+  `categories` is reported as a validation **issue** — never thrown, never
+  clamped, never silently truncated. A decoder must be able to reconstruct
+  exactly the same `FloorCell[][]` it encoded.
+
+The decoder also accepts the expanded v1-style cell objects
+(`{"kind":"empty"}`, `{"kind":"machine","categoryId":"cat-1"}`) inside a v2
+row. That keeps `validatePlan(plan)` valid for an in-memory plan (a host may
+call it directly on a live `GymFloorPlan`), lets a tiny fixture be written by
+hand, and means the encoder is the only place that must know the token grammar.
+
+The format is implemented in `wire.ts`
+([`src/modules/gym-floor-plan/wire.ts`](../../src/modules/gym-floor-plan/wire.ts)):
+`encodeFloorCells`, `decodeFloorRows`, `collapseEmptyAndVoidRuns` and the
+migration. `model.ts` consumes it and remains the only public entry point.
+
+### 8.2 Measured size
+
+Bytes of the canonical JSON string, same plans measured with the v1 dense format
+and the v2 RLE format (`wire-size.test.ts` asserts these ratios so they cannot
+silently regress):
+
+| Plan | v1 (dense) | v2 (RLE) | Saving |
+| --- | --- | --- | --- |
+| 12 × 12, empty (default plan) | 2 703 B | 363 B | 7.4× |
+| 40 × 40, all machine | 64 311 B | 9 911 B | 6.5× |
+| 40 × 40 × 6, all machine | 385 031 B | 58 631 B | 6.6× |
+| 40 × 40 × 6, all empty | 164 231 B | 3 191 B | 51.5× |
+| 40 × 40 × 6, labelled machines (worst case) | 596 231 B | 173 831 B | 3.4× |
+
+Reading the table: an all-machine floor is the case v2 helps least (it is one
+token per painted square in both formats, minus the repeated category id),
+realistic plans are mostly open floor and void and land around 7×, and the
+empty/void extremes — the ones that previously dominated the `gym_config` blob —
+gain more than 50×. The worst case for the module's own limits (six 40 × 40
+floors, every square a labelled machine) still fits comfortably in a SQLite text
+value at ~174 KB.
+
+### 8.3 Reading, migrating, compatibility
+
+- `deserializePlan(string)` parses, migrates and validates.
+  `parsePlanValue(value)` does the same for an already-parsed value (NexusFit's
+  nested `gym_config` blob).
+- Both return `{ ok: true, plan, warnings }` or `{ ok: false, issues }`; they
+  never throw on bad input. Both keep their original signatures.
+- Both accept **v1 and v2** input. A v1 record is migrated forward, then
+  expanded, so callers always receive the same in-memory `FloorCell[][]` and
+  never see a token. No consumer of the module needs to know the wire format.
+- `schemaVersion` is a required top-level field. A plan newer than the module is
+  rejected with an actionable message (`unsupported-schema-version`); an older
+  plan runs through `PLAN_MIGRATIONS` before validation.
+
+`PLAN_MIGRATIONS[1]` is the v1 → v2 step. It converts each v1 cell object to a
+token, deriving the machine's category index from the position of its
+`categoryId` in the plan's own `categories` array, and collapses adjacent
+`"e"`/`"v"` tokens into runs. Two failure modes are deliberate:
+
+- **Unknown `categoryId` in a v1 plan.** Validation reports
+  `unknown-category` and the plan fails to load. The migration does not drop
+  the square, invent a category or fall back to empty: losing owner data
+  silently is worse than refusing to load.
+- **A v2 record mislabelled as `schemaVersion: 1`.** The migration rejects any
+  v1 cell that is not an object, so token strings cannot masquerade as v1 cells.
+
+The reverse direction is not supported: a v1-shaped decoder cannot read v2
+output (it would see strings where it expects cell objects), which is exactly
+why the version field is checked before anything else.
+
+Future versions follow the same three-step recipe:
 
 ```ts
-// 1. Bump FLOOR_PLAN_SCHEMA_VERSION to 2.
+// 1. Bump FLOOR_PLAN_SCHEMA_VERSION.
 // 2. Register a migration keyed by the version it migrates FROM.
-PLAN_MIGRATIONS[1] = (raw) => ({
-  ...raw,
-  schemaVersion: 2,
-  categories: (raw.categories as unknown[]).map((category) => ({
-    ...(category as Record<string, unknown>),
-    description: "",
-  })),
-});
-// 3. Extend validation for the new field.
+PLAN_MIGRATIONS[2] = (raw) => ({ ...raw, schemaVersion: 3 /* ... */ });
+// 3. Extend validation for the new fields.
 ```
 
 There is no v0 migration: the feature is new, so an unversioned or version-0
@@ -490,7 +566,8 @@ ships with a different shape, add the migration then.
 `parsePlanValue` and `deserializePlan` accept an optional migration table
 (second argument). Hosts normally omit it and use the module's own table; the
 parameter exists so the migration loop is testable and so a host with a custom
-schema lineage can supply its own.
+schema lineage can supply its own. If a host supplies a table it must still
+include the `1` entry, or v1 records stop loading.
 
 ## 9. Integration plan for NexusFit
 
@@ -550,8 +627,10 @@ The module is ready; the following steps touch existing files and are therefore
 
 - No new SQLite table and no migration: the plan rides in `gym_config`, so
   tenant isolation, backup and restore already cover it.
-- Size: a default 12 × 12 plan is ~3 KB; the worst case (6 × 40 × 40) is
-  ~170 KB. Check the config POST body limit before enabling the maximum grid.
+- Size: a default 12 × 12 empty plan is ~360 B and a realistic sparse plan
+  under 1 KB (schema v2 RLE); the worst case (6 × 40 × 40, every square a
+  labelled machine) is ~174 KB, and 6 × 40 × 40 empty is ~3 KB. Check the config
+  POST body limit only if the maximum grid is expected to be densely painted.
 - Rendering: `setCell` copies only the changed row, so a React editor can memo
   row components by row-array reference; a paint stroke re-renders one row, not
   the whole floor. Measure with React DevTools before optimizing further.

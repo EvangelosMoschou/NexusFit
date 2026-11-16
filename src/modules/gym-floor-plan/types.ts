@@ -11,18 +11,28 @@
  * what makes it safe to store in a config blob, diff, export and migrate.
  */
 
-/** Current serialized schema version. Bump whenever the JSON shape changes. */
-export const FLOOR_PLAN_SCHEMA_VERSION = 1;
+/**
+ * Current serialized schema version. Bump whenever the JSON shape changes.
+ *
+ * v1 stored `cells` as `[{ kind: "empty" }, ...]` — ~16 bytes for an empty
+ * square, which dominated the size of any realistic plan. v2 keeps the same
+ * in-memory `FloorCell[][]` but serializes each row as a list of run-length
+ * encoded tokens (see `wire.ts` and `serializePlan`). A v1 plan still loads: it
+ * goes through `PLAN_MIGRATIONS[1]` before validation.
+ */
+export const FLOOR_PLAN_SCHEMA_VERSION = 2;
 
 /**
  * Hard limits.
  *
  * They keep one plan small enough to live inside a JSON config blob and small
  * enough to render as DOM cells without pan/zoom. At 40 × 40 a floor is 1 600
- * squares; six such floors serialize to roughly 170 KB of JSON, which is
- * still a reasonable SQLite text value. Anything larger needs a different
- * renderer (SVG/canvas) and a separate storage table, so it is rejected rather
- * than silently degrading the editor.
+ * squares. Because schema v2 run-length encodes empty floor and void, six such
+ * floors of mostly empty plan JSON serialize to a few kilobytes rather than the
+ * ~160 KB the dense v1 form cost (a fully painted floor is still bounded: one
+ * short token per machine square). Anything larger needs a different renderer
+ * (SVG/canvas) and a separate storage table, so it is rejected rather than
+ * silently degrading the editor.
  */
 export const FLOOR_PLAN_LIMITS = {
   minRows: 1,
