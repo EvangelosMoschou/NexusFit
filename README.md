@@ -958,6 +958,11 @@ on every push to `main` (`.github/workflows/pages.yml`).
 | `src/modules/gym-floor-plan/wireBinary.test.ts` | Schema v3 packed binary format: 24-byte header with magic/version/length/FNV-1a checksum, 2-bit cell kinds with a per-plan category index width, a zero-cost label side table, rejection of truncated or tampered payloads, the v1 → v2 → v3 migration chain, and the measured v2-vs-v3 byte table. |
 | `src/components/GymFloorPlan.test.tsx` | Public read-only display: renders the legend and every square for a plan, renders nothing for `plan: null` or an invalid payload, floor tabs. |
 | `src/components/admin/FloorPlanTab.test.tsx` | Admin editor: load/save/clear against `/api/admin/floor-plan`, dirty flag survives a rejected save, validation issues surface, a paint stroke issues one update. |
+| `src/components/floor-plan/api.test.ts` | Client for the floor-plan endpoints: response mapping, 304 and `invalid` handling, and the 400 issue shape surfaced as a typed error. |
+| `src/components/floor-plan/cellStyle.test.ts` | Brush → cell and brush → style mapping, the `--fp-*` theme properties, and grid/cell inline styles. |
+| `src/components/floor-plan/dimensions.test.ts` | Grid dimension parsing and bounds errors, and the axis label used by the size controls. |
+| `src/components/floor-plan/labels.test.ts` | Greek labels, the square-count declension in both grammatical cases, and the curated colour palette. |
+| `src/app/api/admin/floor-plan/legacyUpgrade.test.ts` | Upgrade path: a database written by the pre-gzip build is migrated on boot and its schema-v2 TEXT row still loads through both route handlers, then is rewritten as the current binary form on the next save. |
 | `src/components/floor-plan/stroke.test.ts` | Pure Bresenham stroke: a dragged stroke covers the expected squares and a single point stays a single cell. |
 | `src/components/floor-plan/theme.test.ts` | CSS-variable → hex adapter: `"R G B"` triples, `r,g,b`, existing hex, and the per-field fallback when a variable is missing. |
 

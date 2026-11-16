@@ -434,6 +434,74 @@ describe("FloorPlanTab (admin editor)", () => {
     expect(spy.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
   });
 
+  it("hands keyboard control to the grid when a square is clicked", async () => {
+    // `onKeyDown` is attached to the grid element, so the grid must be the
+    // focus target: a click on a square would otherwise leave
+    // `document.activeElement` on BODY and every keyboard shortcut (paint,
+    // Space, Delete) would go nowhere. The squares carry the roving tabindex,
+    // so the grid itself is focusable with -1 and stays out of the tab order.
+    mockApi({ plan: buildPlan() });
+    const { container } = render(<FloorPlanTab />);
+    await waitFor(() => expect(cells(container)).toHaveLength(12));
+
+    const grid = container.querySelector<HTMLElement>('[role="group"]')!;
+    expect(grid.tabIndex).toBe(-1);
+
+    const square = container.querySelector<HTMLElement>('[data-row="1"][data-col="1"]')!;
+    // Do NOT focus the square ourselves: that would mask the bug. A real click
+    // starts with focus on BODY, and the handler's job is to move it into the
+    // grid so the attached `onKeyDown` actually receives subsequent keys.
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).toBe(document.body);
+
+    fireEvent.pointerDown(square, { button: 0, bubbles: true });
+    fireEvent.pointerUp(window);
+
+    expect(document.activeElement).not.toBe(document.body);
+    expect(grid.contains(document.activeElement)).toBe(true);
+  });
+
+  it("does not carry a draft across a tenant change", async () => {
+    // The draft cache exists to survive a tab remount WITHIN one tenant. A
+    // multi-tenant admin session must not hand gym A's unsaved plan to gym B's
+    // tab: saving there would write A's plan into B's database. The server
+    // resolves the tenant from the `Host` header, so the browser host is the key.
+    const original = window.location.host;
+    try {
+      mockApi({ plan: buildPlan() });
+      const first = render(<FloorPlanTab />);
+      await waitFor(() =>
+        expect(first.container.querySelectorAll("[data-row][data-col]")).toHaveLength(12)
+      );
+      const at = (row: number, col: number) =>
+        first.container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
+      fireEvent.pointerDown(at(2, 3), { button: 0, bubbles: true });
+      fireEvent.pointerUp(window);
+      await waitFor(() => expect(at(2, 3).textContent).toBe("IM"));
+      first.unmount();
+
+      // Same page session, different tenant.
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...window.location, host: "other-gym.example" },
+      });
+
+      const second = render(<FloorPlanTab />);
+      await waitFor(() =>
+        expect(second.container.querySelectorAll("[data-row][data-col]")).toHaveLength(12)
+      );
+      // The other tenant's tab starts from its OWN stored plan, not A's draft.
+      expect(
+        second.container.querySelector<HTMLElement>('[data-row="2"][data-col="3"]')?.textContent
+      ).toBe("");
+    } finally {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...window.location, host: original },
+      });
+    }
+  });
+
   it("adds, renames and deletes floors", async () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
