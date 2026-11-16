@@ -33,7 +33,7 @@ The TypeScript source of truth is
 
 ```ts
 interface GymFloorPlan {
-  schemaVersion: number; // 2 (v1 plans still load: see section 8)
+  schemaVersion: number; // 3 (v1 and v2 plans still load: see section 8)
   title: string;
   categories: Category[]; // display order
   floors: Floor[]; // display order
@@ -109,7 +109,7 @@ Each row is a list of tokens (section 8): a string is one square, a
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "title": "NexusFit floor plan",
   "categories": [
     {
@@ -173,6 +173,8 @@ from its own files — never `@/lib/db`, `@/config` or `@/types`.
 | `getCell` / `setCell` / `paintCells` | Immutable cell writes; `paintCells` is one brush stroke. |
 | `validatePlan(value)` | Never throws; returns `{ valid, errors, warnings }` for `unknown` input. |
 | `serializePlan(plan)` | Validates, then canonical JSON with the current schema version. |
+| `encodePlanBytes(plan)` | Validates, then the packed schema v3 binary payload (`Uint8Array`). Throws `FloorPlanError("invalid-plan")`. |
+| `decodePlanBytes(bytes)` | Reads a packed binary payload (`Uint8Array` or `ArrayBuffer`); never throws, accepts only the current binary version. |
 | `deserializePlan(string)` / `parsePlanValue(value)` | Parse/migrate/validate untrusted input; returns a result object. |
 | `nextId`, `deriveShortLabel`, `findFloor` | Deterministic helpers. |
 
@@ -445,16 +447,30 @@ Supporting rules:
 
 ## 8. Serialization and migrations
 
-`serializePlan` validates first, then writes **canonical JSON**: known fields
-only, fixed key order, current `schemaVersion`, no `undefined`. Unknown fields
-are stripped, so storage is stable and diffable. `title`, `categories` and each
-floor's `id`/`name`/`rows`/`cols` are written as-is; `cells` is the only field
-whose shape schema v2 changed.
+The plan has **two wire forms**, both owned by this module:
 
-### 8.1 The v2 cell format
+| Form | API | What it is |
+| --- | --- | --- |
+| Text (JSON) | `serializePlan` / `deserializePlan` / `parsePlanValue` | Canonical JSON. `cells` is the run-length token grammar from §8.1. Diffable, hand-inspectable, what a host stores if it keeps text. |
+| Binary (packed) | `encodePlanBytes` / `decodePlanBytes` | The storage payload: a big-endian header plus a bit-packed grid. §8.2. |
 
-In memory a floor is still a dense `FloorCell[][]`. On the wire each row is an
-array of **tokens**, in left-to-right order:
+Both validate through the same `validatePlan` / `parsePlanValue` path, so they
+accept and reject exactly the same plans. `serializePlan` keeps returning
+canonical JSON (unchanged signature, unchanged validation behaviour): the binary
+form is **added**, not substituted, so a host that stores text keeps working.
+Storage holds the binary payload; the JSON form is the migration source, the
+debug/export form and the format a `TEXT` column would hold.
+
+`serializePlan` writes **canonical JSON**: known fields only, fixed key order,
+current `schemaVersion`, no `undefined`. Unknown fields are stripped, so storage
+is stable and diffable. `title`, `categories` and each floor's
+`id`/`name`/`rows`/`cols` are written as-is; `cells` is the only field whose
+shape schema v2 changed, and schema v3 leaves that text grammar alone.
+
+### 8.1 The v2 text cell format (still the JSON form in v3)
+
+In memory a floor is a dense `FloorCell[][]`. On the wire each row is an array of
+**tokens**, in left-to-right order:
 
 | Token | Meaning |
 | --- | --- |
@@ -487,22 +503,158 @@ Three decisions worth recording:
   clamped, never silently truncated. A decoder must be able to reconstruct
   exactly the same `FloorCell[][]` it encoded.
 
-The decoder also accepts the expanded v1-style cell objects
-(`{"kind":"empty"}`, `{"kind":"machine","categoryId":"cat-1"}`) inside a v2
+The text decoder also accepts the expanded v1-style cell objects
+(`{"kind":"empty"}`, `{"kind":"machine","categoryId":"cat-1"}`) inside a token
 row. That keeps `validatePlan(plan)` valid for an in-memory plan (a host may
 call it directly on a live `GymFloorPlan`), lets a tiny fixture be written by
 hand, and means the encoder is the only place that must know the token grammar.
 
-The format is implemented in `wire.ts`
+The text format is implemented in `wire.ts`
 ([`src/modules/gym-floor-plan/wire.ts`](../../src/modules/gym-floor-plan/wire.ts)):
 `encodeFloorCells`, `decodeFloorRows`, `collapseEmptyAndVoidRuns` and the
-migration. `model.ts` consumes it and remains the only public entry point.
+v1 → v2 migration.
 
-### 8.2 Measured size
+### 8.2 The v3 binary format
 
-Bytes of the canonical JSON string, same plans measured with the v1 dense format
-and the v2 RLE format (`wire-size.test.ts` asserts these ratios so they cannot
-silently regress):
+Implemented in `wireBinary.ts`
+([`src/modules/gym-floor-plan/wireBinary.ts`](../../src/modules/gym-floor-plan/wireBinary.ts));
+the public validating entry points are `encodePlanBytes` / `decodePlanBytes` in
+`model.ts`, because they must reuse `validatePlan` and `parsePlanValue`.
+
+Text costs bytes for punctuation, not information: `"m:0"` is five bytes to say
+"machine, category 0" — two bits of meaning. The binary form packs the cells
+directly.
+
+**Why 2 bits + an index only on machine cells.** A square is one of three kinds
+(empty / void / machine), which is 2 bits. The category index is needed **only
+on a machine square**: the two bits that distinguish square kinds are all an
+empty square has to cost. At a realistic 40% machine density this is ~20% smaller
+than a fixed `2 + indexBits` stride and, unlike a fixed stride, a mostly-open
+plan (the common case) pays almost nothing.
+
+#### Header (24 bytes, big-endian)
+
+| Offset | Size | Field |
+| --- | --- | --- |
+| 0 | 2 | magic `"NF"` = `0x4E 0x46` |
+| 2 | 1 | payload version (3) |
+| 3 | 1 | flags: bit0 `HAS_LABELS`, bits 1–7 reserved (must be 0) |
+| 4 | 1 | floor count (1–6) |
+| 5 | 1 | category index bit width (1–5) |
+| 6 | 2 | max rows across floors (1–40) |
+| 8 | 2 | max cols across floors (1–40) |
+| 10 | 2 | category count |
+| 12 | 2 | label count (0 ⇒ no label section at all) |
+| 14 | 4 | total payload byte length, header included |
+| 18 | 4 | FNV-1a 32-bit checksum of the body |
+| 22 | 2 | reserved, must be 0 |
+
+The width is `ceil(log2(max(2, categoryCount)))`: 1 bit for 0–2 categories, 2 for
+3–4, 3 for 5–8, 4 for 9–16, 5 for up to 20. It is chosen **once per plan** and
+recorded, so a plan with one category pays one index bit rather than five.
+
+#### Body (offset 24 onward)
+
+```
+title                varint byteLength + UTF-8 bytes
+categoryCount times: varint+bytes id
+                     varint+bytes name
+                     3 bytes RGB (expanded back to "#RRGGBB")
+                     varint+bytes shortLabel
+                     1 byte pattern index into CELL_PATTERNS
+floorCount times:    varint+bytes id
+                     varint+bytes name
+                     uint16 rows, uint16 cols
+                     varint gridByteLength
+                     packed grid (that many bytes)
+labelCount times:    varint cellOrdinal
+                     varint byteLength
+                     UTF-8 label bytes
+```
+
+"varint" is unsigned LEB128. No JSON, no zlib, no text framing anywhere.
+
+#### Grid
+
+Row-major, most-significant-bit first. Every cell starts with 2 kind bits
+(`0` empty, `1` void, `2` machine, `3` reserved/invalid); a **machine cell is
+immediately followed by `categoryBits` index bits**, and empty/void cells carry
+no index. Each floor's grid is padded to a whole byte with zero bits, and the
+decoder requires the leftover bits to be zero, so a hand-edited grid length is
+an issue rather than a silent desync.
+
+The grid is therefore a sequential bit stream and its byte length varies with
+the machine count, which is why each floor carries an explicit
+`gridByteLength` varint. The decoder bounds-checks that length against
+`ceil(rows*cols*2/8) ≤ length ≤ ceil(rows*cols*(2+bits)/8)` **before**
+allocation: a corrupt length cannot over-allocate.
+
+#### Label side table
+
+A per-square label ("Lat pulldown") must not inflate every cell, so labels live
+in a side table after the floors and are addressed by a single flat ordinal:
+
+```
+cellOrdinal = floorOffset + row * cols + col
+```
+
+where `floorOffset` is the sum of `rows*cols` of the preceding floors. Entries
+are written in ascending cell order and the decoder requires strictly ascending
+ordinals (a repeat would silently drop a label). The consequences:
+
+- **A plan with no labels pays ZERO label bytes** — no count prefix, no
+  per-cell "has label" bit. Only `labelCount = 0` in the header.
+- A single label costs `1 + 1 + utf8Length` bytes (ordinal varint + length
+  varint + bytes) on a maximally-packed grid.
+
+#### Integrity
+
+1. magic + version + reserved/flags — a blob from another feature, another
+   version or a hand-edited header is rejected by name
+   (`invalid-binary-header`, `unsupported-schema-version`);
+2. the declared total length must equal the actual length, so truncation and
+   trailing garbage are caught **before** per-floor allocation
+   (`invalid-binary-length`);
+3. an FNV-1a 32-bit checksum over the body, so a flipped cell bit is
+   `invalid-binary-checksum` instead of a silently different gym.
+
+`decodePlanBytes` never throws: structural failures come back as
+`{ ok: false, issues }` with the same issue shape `parsePlanValue` uses. Anything
+that decodes structurally is then run through the same validation and
+materialization path, so both entry points agree on what is valid.
+
+### 8.3 Measured size
+
+Bytes, same plans, same deterministic fixture (`wireBinary.test.ts` pins every
+number below). "Realistic" = ~40% machines, ~8% void, 4 categories:
+
+| Plan | v2 (JSON tokens) | v3 (binary) | Ratio |
+| --- | --- | --- | --- |
+| 40 × 40 × 6 | 42 470 | 3 615 | 11.7× |
+| 80 × 80 × 3 | 83 309 | 6 915 | 12.0× |
+| 128 × 128 × 2 | 140 608 | 11 626 | 12.1× |
+| 256 × 256 × 1 | 278 933 | 23 056 | 12.1× |
+
+The index width is the only thing that moves the ratio with the category count
+(40 × 40 × 6, same plan shape):
+
+| Categories | Index bits | v2 | v3 | Ratio |
+| --- | --- | --- | --- | --- |
+| 2 | 1 | 42 296 | 3 093 | 13.7× |
+| 4 | 2 | 42 470 | 3 615 | 11.7× |
+| 8 | 3 | 42 824 | 4 184 | 10.2× |
+
+Grids larger than 40 × 40 are outside the module's own editor limits; they are
+measured through the structural packer to show how the format scales, not
+because the editor will store them.
+
+For comparison, the v1 dense form of the same 40 × 40 × 6 plan is 164 231 B for
+the all-empty case and 385 031 B for the all-machine case (§8.4).
+
+### 8.4 Text vs binary, and which to store
+
+`wire-size.test.ts` still measures the text form against the v1 dense form, and
+these are the numbers it asserts:
 
 | Plan | v1 (dense) | v2 (RLE) | Saving |
 | --- | --- | --- | --- |
@@ -512,24 +664,35 @@ silently regress):
 | 40 × 40 × 6, all empty | 164 231 B | 3 191 B | 51.5× |
 | 40 × 40 × 6, labelled machines (worst case) | 596 231 B | 173 831 B | 3.4× |
 
-Reading the table: an all-machine floor is the case v2 helps least (it is one
-token per painted square in both formats, minus the repeated category id),
-realistic plans are mostly open floor and void and land around 7×, and the
-empty/void extremes — the ones that previously dominated the `gym_config` blob —
-gain more than 50×. The worst case for the module's own limits (six 40 × 40
-floors, every square a labelled machine) still fits comfortably in a SQLite text
-value at ~174 KB.
+An all-machine floor is the case the text RLE helps least (one token per painted
+square either way, minus the repeated category id); realistic plans are mostly
+open floor and void and land around 7×; the empty/void extremes gain more than
+50×.
 
-### 8.3 Reading, migrating, compatibility
+The binary form beats all of those and is what a `BLOB` column should hold. Two
+things to know before storing text instead:
+
+- The binary payload is **not** self-contained metadata-wise: it carries the
+  title, category definitions and floor geometry, so a binary payload is the
+  whole plan. That is deliberate — one column, one decode.
+- The text form is the migration source. A `TEXT` column holding v2 JSON still
+  loads, but it is ~12× larger on disk than the binary payload.
+
+### 8.5 Reading, migrating, compatibility
 
 - `deserializePlan(string)` parses, migrates and validates.
   `parsePlanValue(value)` does the same for an already-parsed value (NexusFit's
   nested `gym_config` blob).
-- Both return `{ ok: true, plan, warnings }` or `{ ok: false, issues }`; they
-  never throw on bad input. Both keep their original signatures.
-- Both accept **v1 and v2** input. A v1 record is migrated forward, then
-  expanded, so callers always receive the same in-memory `FloorCell[][]` and
-  never see a token. No consumer of the module needs to know the wire format.
+- `decodePlanBytes(bytes)` reads the packed payload. It accepts **only the
+  current binary version**: v1 and v2 plans are JSON, so they go through
+  `deserializePlan` / `parsePlanValue`, which migrate them forward.
+- All three return `{ ok: true, plan, warnings }` or `{ ok: false, issues }`;
+  they never throw on bad input. `deserializePlan` and `parsePlanValue` keep
+  their original signatures, and `encodePlanBytes` throws `FloorPlanError`
+  (`invalid-plan`) on an invalid plan exactly as `serializePlan` does.
+- A v1 record is migrated forward **and** a v2 record is migrated forward, so
+  callers always receive the same in-memory `FloorCell[][]` and never see a
+  token or a byte.
 - `schemaVersion` is a required top-level field. A plan newer than the module is
   rejected with an actionable message (`unsupported-schema-version`); an older
   plan runs through `PLAN_MIGRATIONS` before validation.
@@ -537,25 +700,41 @@ value at ~174 KB.
 `PLAN_MIGRATIONS[1]` is the v1 → v2 step. It converts each v1 cell object to a
 token, deriving the machine's category index from the position of its
 `categoryId` in the plan's own `categories` array, and collapses adjacent
-`"e"`/`"v"` tokens into runs. Two failure modes are deliberate:
+`"e"`/`"v"` tokens into runs.
+
+`PLAN_MIGRATIONS[2]` is the v2 → v3 step. v3 does not change the text grammar, so
+this step **normalises** a v2 record into canonical v3 form: it decodes each
+floor's rows (`decodeFloorRows` accepts the token grammar, runs *and* expanded
+cell objects), then re-encodes them with `encodeFloorCells`. The result is the
+one shape `serializePlan` emits, stamped `schemaVersion: 3`. A migrated v2 record
+is therefore byte-for-byte what `serializePlan` would have written, and it packs
+to the binary form without a second pass.
+
+Two failure modes are deliberate in both steps:
 
 - **Unknown `categoryId` in a v1 plan.** Validation reports
   `unknown-category` and the plan fails to load. The migration does not drop
   the square, invent a category or fall back to empty: losing owner data
   silently is worse than refusing to load.
-- **A v2 record mislabelled as `schemaVersion: 1`.** The migration rejects any
-  v1 cell that is not an object, so token strings cannot masquerade as v1 cells.
+- **A floor whose rows do not decode.** The migration passes that floor through
+  untouched rather than repairing it, so the good, actionable issue codes
+  (`invalid-cells`, `unknown-category`) come from the decoder where they already
+  live.
+- **A v2 record mislabelled as `schemaVersion: 1`.** The v1 migration rejects
+  any v1 cell that is not an object, so token strings cannot masquerade as v1
+  cells.
 
 The reverse direction is not supported: a v1-shaped decoder cannot read v2
-output (it would see strings where it expects cell objects), which is exactly
-why the version field is checked before anything else.
+output (it would see strings where it expects cell objects), and no text decoder
+can read a binary payload. That is exactly why the version is checked before
+anything else, in the JSON envelope and in the binary header alike.
 
 Future versions follow the same three-step recipe:
 
 ```ts
 // 1. Bump FLOOR_PLAN_SCHEMA_VERSION.
 // 2. Register a migration keyed by the version it migrates FROM.
-PLAN_MIGRATIONS[2] = (raw) => ({ ...raw, schemaVersion: 3 /* ... */ });
+PLAN_MIGRATIONS[3] = (raw) => ({ ...raw, schemaVersion: 4 /* ... */ });
 // 3. Extend validation for the new fields.
 ```
 
@@ -567,7 +746,7 @@ ships with a different shape, add the migration then.
 (second argument). Hosts normally omit it and use the module's own table; the
 parameter exists so the migration loop is testable and so a host with a custom
 schema lineage can supply its own. If a host supplies a table it must still
-include the `1` entry, or v1 records stop loading.
+include the `1` and `2` entries, or v1 and v2 records stop loading.
 
 ## 9. Integration plan for NexusFit
 

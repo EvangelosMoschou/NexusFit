@@ -12,15 +12,23 @@
  */
 
 /**
- * Current serialized schema version. Bump whenever the JSON shape changes.
+ * Current serialized schema version. Bump whenever the stored shape changes.
  *
  * v1 stored `cells` as `[{ kind: "empty" }, ...]` — ~16 bytes for an empty
  * square, which dominated the size of any realistic plan. v2 keeps the same
  * in-memory `FloorCell[][]` but serializes each row as a list of run-length
- * encoded tokens (see `wire.ts` and `serializePlan`). A v1 plan still loads: it
- * goes through `PLAN_MIGRATIONS[1]` before validation.
+ * encoded tokens (see `wire.ts` and `serializePlan`).
+ *
+ * v3 adds a **packed binary payload** (see `wireBinary.ts`, `encodePlanBytes`
+ * and `decodePlanBytes`): each cell costs `2 + categoryBits` bits instead of
+ * several bytes of JSON punctuation, which is what storage now holds. The JSON
+ * envelope keeps the v2 token grammar as its text form, so `serializePlan` /
+ * `deserializePlan` keep working unchanged for hosts that store text.
+ *
+ * Older plans still load: a v1 record goes through `PLAN_MIGRATIONS[1]` and a
+ * v2 record through `PLAN_MIGRATIONS[2]` before validation.
  */
-export const FLOOR_PLAN_SCHEMA_VERSION = 2;
+export const FLOOR_PLAN_SCHEMA_VERSION = 3;
 
 /**
  * Hard limits.

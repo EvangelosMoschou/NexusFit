@@ -11,6 +11,8 @@
  *   setCell,
  *   serializePlan,
  *   deserializePlan,
+ *   encodePlanBytes,
+ *   decodePlanBytes,
  *   buildFloorRenderModel,
  * } from "@/modules/gym-floor-plan";
  * ```
@@ -22,3 +24,4 @@
 export * from "./types";
 export * from "./model";
 export * from "./render";
+export * from "./wireBinary";

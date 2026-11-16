@@ -40,6 +40,7 @@ import {
   migrateV1PlanRecord,
   scanMachineReferences,
 } from "./wire";
+import { migrateV2PlanRecord, packPlanRecord, unpackPlanRecord } from "./wireBinary";
 
 const DEFAULT_ROWS = 12;
 const DEFAULT_COLS = 12;
@@ -1019,6 +1020,73 @@ export function serializePlan(plan: GymFloorPlan): string {
   return JSON.stringify(canonical);
 }
 
+/**
+ * Encodes a plan as the schema v3 **packed binary payload**.
+ *
+ * This is the byte API storage codes against: it is what a `BLOB` column holds
+ * and what `decodePlanBytes` reads back. Validation runs first, exactly as in
+ * `serializePlan`, so an invalid plan never reaches storage and the same
+ * `FloorPlanError("invalid-plan")` is thrown.
+ *
+ * A plan with no machine labels pays zero label bytes; a plan with labels pays
+ * only for the labels themselves (see the layout block in `wireBinary.ts`).
+ */
+export function encodePlanBytes(plan: GymFloorPlan): Uint8Array {
+  const result = validatePlan(plan);
+  if (!result.valid) {
+    const first = result.errors[0];
+    throw new FloorPlanError(
+      "invalid-plan",
+      `Cannot encode an invalid floor plan: ${first?.message ?? "unknown error"}`
+    );
+  }
+
+  // Validate returns a typed plan only structurally: drop unknown fields here so
+  // the payload cannot depend on a host extension.
+  const canonical: GymFloorPlan = {
+    schemaVersion: FLOOR_PLAN_SCHEMA_VERSION,
+    title: plan.title,
+    categories: plan.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      color: category.color,
+      shortLabel: category.shortLabel,
+      pattern: category.pattern,
+    })),
+    floors: plan.floors.map((floor) => ({
+      id: floor.id,
+      name: floor.name,
+      rows: floor.rows,
+      cols: floor.cols,
+      cells: floor.cells,
+    })),
+  };
+
+  return packPlanRecord(canonical);
+}
+
+/**
+ * Decodes a schema v3 packed binary payload.
+ *
+ * Same contract as `parsePlanValue`: it never throws and returns
+ * `{ ok: true, plan, warnings }` or `{ ok: false, issues }`. Structural problems
+ * (wrong magic, wrong version, truncation, bad checksum, a label on a non
+ * machine cell, an out-of-range category index, a category count that no longer
+ * matches the declared bit width) are reported as issues; anything that decodes
+ * structurally is then validated and materialized by the same code path the
+ * string API uses, so both entry points accept and reject exactly the same
+ * plans.
+ *
+ * Only the CURRENT binary version is accepted: v1 and v2 plans are JSON, so
+ * they go through `deserializePlan` / `parsePlanValue`, which migrate them
+ * forward.
+ */
+export function decodePlanBytes(bytes: Uint8Array | ArrayBuffer): DeserializeResult {
+  const unpacked = unpackPlanRecord(bytes);
+  if (!unpacked.ok) return unpacked;
+  return parsePlanValue(unpacked.record);
+}
+
 type PlanMigration = (raw: Record<string, unknown>) => Record<string, unknown>;
 
 /** Migration table keyed by the schema version each entry migrates FROM. */
@@ -1034,6 +1102,11 @@ export type PlanMigrationTable = Readonly<Record<number, PlanMigration>>;
  * unconverted and then rejected by validation (`unknown-category`) — silently
  * dropping squares would lose owner data.
  *
+ * v2 -> v3 decodes the token rows back into the expanded cell form (see
+ * `migrateV2PlanRecord` in `wireBinary.ts`). v3 is the packed-binary schema, but
+ * its JSON envelope is still the readable text form, so a stored v2 JSON plan
+ * migrates to a v3 value that validates and packs without further steps.
+ *
  * Adding a future schema version is a three-step change:
  *   1. bump `FLOOR_PLAN_SCHEMA_VERSION`;
  *   2. register `PLAN_MIGRATIONS[previousVersion]` returning the new shape;
@@ -1042,6 +1115,7 @@ export type PlanMigrationTable = Readonly<Record<number, PlanMigration>>;
  */
 const PLAN_MIGRATIONS: PlanMigrationTable = {
   1: migrateV1PlanRecord,
+  2: migrateV2PlanRecord,
 };
 
 function migratePlan(

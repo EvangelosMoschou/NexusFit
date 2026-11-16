@@ -32,6 +32,7 @@ import {
   type GymFloorPlan,
 } from "./types";
 import { migrateV1PlanRecord } from "./wire";
+import { migrateV2PlanRecord } from "./wireBinary";
 
 /** Asserts a model operation throws a FloorPlanError with a specific code. */
 function expectCode(fn: () => unknown, code: string): void {
@@ -791,10 +792,12 @@ describe("serialization", () => {
       ],
     };
     // Version 0 is hypothetical, so the test supplies its own step; the real
-    // 1 -> 2 step is chained in afterwards to prove the loop keeps walking.
+    // 1 -> 2 and 2 -> 3 steps are chained in afterwards to prove the loop keeps
+    // walking all the way to the current version.
     const migrations = {
       0: (raw: Record<string, unknown>) => ({ ...raw, schemaVersion: 1 }),
       1: migrateV1PlanRecord,
+      2: migrateV2PlanRecord,
     };
 
     const result = parsePlanValue(legacy, migrations);

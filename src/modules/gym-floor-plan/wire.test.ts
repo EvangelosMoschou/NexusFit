@@ -106,14 +106,14 @@ function decodeResult(rawRows: unknown[], cols: number): ReturnType<typeof decod
 // ---------------------------------------------------------------------------
 
 describe("schema v2 wire format", () => {
-  it("reports schema version 2 and keeps the human-readable fields", () => {
+  it("reports the current schema version and keeps the human-readable fields", () => {
     const plan = makePlan([[EMPTY, VOID, MACHINE]]);
     const parsed = JSON.parse(serialized(plan)) as Record<string, unknown> & {
       floors: Array<Record<string, unknown>>;
     };
 
-    expect(FLOOR_PLAN_SCHEMA_VERSION).toBe(2);
-    expect(parsed.schemaVersion).toBe(2);
+    expect(FLOOR_PLAN_SCHEMA_VERSION).toBe(3);
+    expect(parsed.schemaVersion).toBe(FLOOR_PLAN_SCHEMA_VERSION);
     expect(Object.keys(parsed)).toEqual(["schemaVersion", "title", "categories", "floors"]);
     expect(parsed.categories).toEqual(CATEGORIES);
     expect(parsed.floors[0]).toMatchObject({
@@ -671,7 +671,10 @@ describe("v2 serialization keeps the public contract", () => {
   });
 
   it("rejects a schema version newer than the module", () => {
-    const raw = { ...JSON.parse(serialized(makePlan([[EMPTY]]))), schemaVersion: 3 };
+    const raw = {
+      ...JSON.parse(serialized(makePlan([[EMPTY]]))),
+      schemaVersion: FLOOR_PLAN_SCHEMA_VERSION + 1,
+    };
     const result = parsePlanValue(raw);
 
     expect(result.ok).toBe(false);
