@@ -22,6 +22,7 @@ import {
   loadFloorPlan,
   saveFloorPlan,
   FloorPlanRequestError,
+  FLOOR_PLAN_LOAD_ERROR,
   type LoadedFloorPlan,
 } from "@/components/floor-plan/api";
 import { FloorPlanEditor } from "@/components/floor-plan/FloorPlanEditor";
@@ -38,7 +39,26 @@ export const FLOOR_PLAN_ADMIN_ENDPOINT = "/api/admin/floor-plan";
  * belongs to. It is never the source of truth: the server is, and the draft is
  * discarded as soon as a save or a clear succeeds.
  */
-let unsavedDraft: GymFloorPlan | null = null;
+let unsavedDraft: { tenant: string; plan: GymFloorPlan } | null = null;
+
+/**
+ * Which tenant this page session belongs to.
+ *
+ * The server resolves the tenant from the request `Host` header, so the host the
+ * browser is on IS the tenant key. Keying the draft by it is what stops a
+ * multi-tenant admin session from carrying gym A's unsaved plan onto gym B's tab
+ * and saving it there — the draft cache exists to survive a tab remount, not to
+ * cross a tenant boundary.
+ */
+function currentTenantKey(): string {
+  return typeof window === "undefined" ? "" : window.location.host.toLowerCase();
+}
+
+/** The draft for the current tenant, if any. */
+function draftForCurrentTenant(): GymFloorPlan | null {
+  if (!unsavedDraft) return null;
+  return unsavedDraft.tenant === currentTenantKey() ? unsavedDraft.plan : null;
+}
 
 /**
  * Clears the module-level draft cache.
@@ -106,8 +126,9 @@ export const FloorPlanTab: React.FC = () => {
     // A draft from this page session wins over the stored copy: the stored copy
     // is older by definition, and dropping the draft here is exactly what the
     // remount must not do.
-    if (unsavedDraft) {
-      setPlan(unsavedDraft);
+    const draft = draftForCurrentTenant();
+    if (draft) {
+      setPlan(draft);
       setSavedPlan(next);
     } else {
       setPlan(next);
@@ -126,9 +147,7 @@ export const FloorPlanTab: React.FC = () => {
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        setLoadError(
-          error instanceof Error ? error.message : "Δεν ήταν δυνατή η φόρτωση της κάτοψης."
-        );
+        setLoadError(error instanceof Error ? error.message : FLOOR_PLAN_LOAD_ERROR);
         setPhase("error");
       });
     return () => {
@@ -147,7 +166,7 @@ export const FloorPlanTab: React.FC = () => {
 
   const handleChange = (next: GymFloorPlan) => {
     setPlan(next);
-    unsavedDraft = next;
+    unsavedDraft = { tenant: currentTenantKey(), plan: next };
     setNotice(null);
     // Stale server issues describe the previous attempt, not the edited plan.
     setIssues([]);
@@ -224,7 +243,7 @@ export const FloorPlanTab: React.FC = () => {
       <div className="p-6 rounded-xl bg-surface border border-border space-y-3 text-center">
         <p className="text-xs text-red-300 flex items-center justify-center gap-1.5">
           <AlertCircle className="w-4 h-4" />
-          {loadError ?? "Δεν ήταν δυνατή η φόρτωση της κάτοψης."}
+          {loadError ?? FLOOR_PLAN_LOAD_ERROR}
         </p>
         <button
           type="button"

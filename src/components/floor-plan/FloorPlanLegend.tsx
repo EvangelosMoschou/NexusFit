@@ -10,6 +10,7 @@
 import React from "react";
 import { patternToBackground, type LegendEntry } from "@/modules/gym-floor-plan";
 import { CELL_BASE_STYLE } from "@/components/floor-plan/cellStyle";
+import { formatSquareCount } from "@/components/floor-plan/labels";
 
 interface FloorPlanLegendProps {
   entries: readonly LegendEntry[];
@@ -79,7 +80,7 @@ export const FloorPlanLegend: React.FC<FloorPlanLegendProps> = ({
             </span>
             <span className="text-primary flex-1 min-w-0 truncate">{entry.name}</span>
             <span className="text-tertiary font-mono text-[10px] shrink-0">
-              {entry.count} {entry.count === 1 ? "τετράγωνο" : "τετράγωνα"}
+              {formatSquareCount(entry.count)}
             </span>
           </>
         );

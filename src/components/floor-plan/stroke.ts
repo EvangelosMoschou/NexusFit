@@ -10,6 +10,7 @@
  */
 
 import type { CellCoord, FloorCell } from "@/modules/gym-floor-plan";
+import { cellKey } from "@/components/floor-plan/cellStyle";
 
 /**
  * Every integer cell on the straight line from `from` to `to`, inclusive,
@@ -56,7 +57,7 @@ export function addStrokePoint(
 ): Map<string, CellCoord> {
   const next = new Map(cells);
   const segment = from === null ? [to] : lineCells(from, to);
-  for (const cell of segment) next.set(`${cell.row}:${cell.col}`, cell);
+  for (const cell of segment) next.set(cellKey(cell.row, cell.col), cell);
   return next;
 }
 

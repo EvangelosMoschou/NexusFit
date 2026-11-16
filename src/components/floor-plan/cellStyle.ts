@@ -70,6 +70,18 @@ export function brushesEqual(a: Brush, b: Brush): boolean {
   return brushKey(a) === brushKey(b);
 }
 
+/**
+ * The brush to fall back to for a plan: its first category, or the eraser when
+ * the plan has no categories at all.
+ *
+ * The editor needs this answer twice — once to seed its brush state and once to
+ * repair a brush whose category was deleted underneath it — and both sites must
+ * agree, or a fresh editor and a repaired one would behave differently.
+ */
+export function defaultBrush(categories: ReadonlyArray<{ id: string }>): Brush {
+  return categories.length > 0 ? categoryBrush(categories[0].id) : ERASER_BRUSH;
+}
+
 /** The cell a brush writes. `paintCells` / `setCell` accept it directly. */
 export function brushToCell(brush: Brush): FloorCell {
   if (brush.kind === "machine") return { kind: "machine", categoryId: brush.categoryId };
@@ -79,6 +91,19 @@ export function brushToCell(brush: Brush): FloorCell {
 /** `"row:col"` key used to deduplicate a paint stroke. */
 export function cellKey(row: number, col: number): string {
   return `${row}:${col}`;
+}
+
+/**
+ * Clamps a coordinate onto a floor `axisLength` squares long.
+ *
+ * The editor keeps a raw cursor position and corrects it on render instead of
+ * repairing state in an effect (a floor or category can disappear underneath
+ * it), so the same `Math.min(length - 1, Math.max(0, value))` appeared for both
+ * axes in two places. Kept here so the "cursor never leaves the grid" rule is
+ * stated once and is testable without a DOM.
+ */
+export function clampToAxis(value: number, axisLength: number): number {
+  return Math.min(Math.max(0, value), Math.max(0, axisLength - 1));
 }
 
 /**

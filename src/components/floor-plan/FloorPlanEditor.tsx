@@ -46,10 +46,13 @@ import {
   type ValidationIssue,
 } from "@/modules/gym-floor-plan";
 import {
-  brushKey,
   brushToCell,
+  brushesEqual,
   categoryBrush,
+  cellKey,
   cellStyle,
+  clampToAxis,
+  defaultBrush,
   ERASER_BRUSH,
   type Brush,
   VOID_BRUSH,
@@ -114,9 +117,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
 }) => {
   const theme = useFloorPlanTheme();
   const [floorId, setFloorId] = useState<string>(plan.floors[0]?.id ?? "floor-1");
-  const [brushSelection, setBrush] = useState<Brush>(() =>
-    plan.categories.length > 0 ? categoryBrush(plan.categories[0].id) : ERASER_BRUSH
-  );
+  const [brushSelection, setBrush] = useState<Brush>(() => defaultBrush(plan.categories));
   /** Raw cursor position; clamped to the active floor on render. */
   const [pendingFocus, setFocusTarget] = useState<CellCoord>({ row: 0, col: 0 });
   const [strokeCells, setStrokeCells] = useState<ReadonlyMap<string, CellCoord> | null>(null);
@@ -139,8 +140,8 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
 
   const focusTarget = useMemo(
     () => ({
-      row: Math.min(pendingFocus.row, Math.max(0, activeFloor.rows - 1)),
-      col: Math.min(pendingFocus.col, Math.max(0, activeFloor.cols - 1)),
+      row: clampToAxis(pendingFocus.row, activeFloor.rows),
+      col: clampToAxis(pendingFocus.col, activeFloor.cols),
     }),
     [pendingFocus, activeFloor.rows, activeFloor.cols]
   );
@@ -149,7 +150,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
     if (brushSelection.kind !== "machine") return brushSelection;
     const known = plan.categories.some((category) => category.id === brushSelection.categoryId);
     if (known) return brushSelection;
-    return plan.categories.length > 0 ? categoryBrush(plan.categories[0].id) : ERASER_BRUSH;
+    return defaultBrush(plan.categories);
   }, [brushSelection, plan.categories]);
 
   // Move DOM focus to the roving square after a keyboard navigation.
@@ -174,6 +175,11 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
     const category = plan.categories.find((entry) => entry.id === brush.categoryId);
     return category ? `Πινέλο: ${category.name}` : "Πινέλο";
   }, [brush, plan.categories]);
+
+  // The two fixed brushes each drive both `aria-pressed` and two class names;
+  // computing them once keeps the three uses from drifting apart.
+  const eraserActive = brushesEqual(brush, ERASER_BRUSH);
+  const voidActive = brushesEqual(brush, VOID_BRUSH);
 
   const strokePreview = useMemo<StrokePreview | null>(() => {
     if (!strokeCells || strokeCells.size === 0) return null;
@@ -226,7 +232,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
 
   const beginStroke = (row: number, col: number) => {
     const point = { row, col };
-    strokeRef.current = new Map([[`${row}:${col}`, point]]);
+    strokeRef.current = new Map([[cellKey(row, col), point]]);
     lastPointRef.current = point;
     setStrokeCells(new Map(strokeRef.current));
     setFocusTarget(point);
@@ -257,8 +263,8 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
       event.preventDefault();
       shouldFocusRef.current = true;
       setFocusTarget((current) => ({
-        row: Math.min(activeFloor.rows - 1, Math.max(0, current.row + move[0])),
-        col: Math.min(activeFloor.cols - 1, Math.max(0, current.col + move[1])),
+        row: clampToAxis(current.row + move[0], activeFloor.rows),
+        col: clampToAxis(current.col + move[1], activeFloor.cols),
       }));
       return;
     }
@@ -457,9 +463,9 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setBrush(ERASER_BRUSH)}
-                aria-pressed={brushKey(brush) === brushKey(ERASER_BRUSH)}
+                aria-pressed={eraserActive}
                 className={`px-2 py-1.5 rounded-sm text-[11px] font-semibold border flex items-center justify-center gap-1 ${
-                  brushKey(brush) === brushKey(ERASER_BRUSH)
+                  eraserActive
                     ? "border-accent bg-accent/10 text-primary"
                     : "border-border text-secondary hover:text-primary"
                 }`}
@@ -470,9 +476,9 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
               <button
                 type="button"
                 onClick={() => setBrush(VOID_BRUSH)}
-                aria-pressed={brushKey(brush) === brushKey(VOID_BRUSH)}
+                aria-pressed={voidActive}
                 className={`px-2 py-1.5 rounded-sm text-[11px] font-semibold border flex items-center justify-center gap-1 ${
-                  brushKey(brush) === brushKey(VOID_BRUSH)
+                  voidActive
                     ? "border-accent bg-accent/10 text-primary"
                     : "border-border text-secondary hover:text-primary"
                 }`}
@@ -483,7 +489,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
 
             <div className="flex flex-wrap gap-1">
               {plan.categories.map((category) => {
-                const active = brushKey(brush) === brushKey(categoryBrush(category.id));
+                const active = brushesEqual(brush, categoryBrush(category.id));
                 return (
                   <button
                     key={category.id}
@@ -546,6 +552,17 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
             gridRef={gridRef}
             gridProps={{
               role: "group",
+              // Programmatically focusable so a click can hand keyboard control
+              // to the grid: `onKeyDown` is attached here, and a click on a
+              // square would otherwise leave `document.activeElement` on BODY.
+              // -1 keeps the grid itself out of the tab order; the squares carry
+              // the roving tabindex.
+              tabIndex: -1,
+              // Programmatically focusable so a click can hand keyboard control
+              // to the grid: `onKeyDown` is attached here, and a click on a
+              // square would otherwise leave `document.activeElement` on BODY.
+              // -1 keeps the grid itself out of the tab order; the squares carry
+              // the roving tabindex.
               "aria-label": `Πίνακας κάτοψης: ${activeFloor.name}, ${activeFloor.rows} σειρές επί ${activeFloor.cols} στήλες`,
               onKeyDown: handleKeyDown,
               onPointerDown: (event) => {

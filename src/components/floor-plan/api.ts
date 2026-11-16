@@ -29,6 +29,16 @@ export interface SavedFloorPlan {
   warnings: ValidationIssue[];
 }
 
+/**
+ * The Greek message shown when the plan could not be loaded and the server sent
+ * no explanation of its own.
+ *
+ * Exported because the admin tab needs the same sentence twice: as the message
+ * of a thrown-but-unrecognised error, and as the fallback of the error panel.
+ * Three independent copies used to exist and could drift apart in one edit.
+ */
+export const FLOOR_PLAN_LOAD_ERROR = "Δεν ήταν δυνατή η φόρτωση της κάτοψης.";
+
 /** A failed request, carrying the module's issues when the server sent them. */
 export class FloorPlanRequestError extends Error {
   readonly status: number;
@@ -104,7 +114,7 @@ export async function loadFloorPlan(
 
   if (!response.ok || envelope?.success !== true) {
     throw new FloorPlanRequestError(
-      describeFailure(envelope, "Δεν ήταν δυνατή η φόρτωση της κάτοψης."),
+      describeFailure(envelope, FLOOR_PLAN_LOAD_ERROR),
       response.status,
       isIssueArray(envelope?.issues) ? envelope.issues : []
     );

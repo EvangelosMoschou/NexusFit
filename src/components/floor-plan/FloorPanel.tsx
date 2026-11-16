@@ -15,6 +15,7 @@ import { Building2, Check, Plus, Trash2, X } from "lucide-react";
 import { FLOOR_PLAN_LIMITS, type Floor, type GymFloorPlan } from "@/modules/gym-floor-plan";
 import { FloorPlanTextField, FLOOR_PLAN_INPUT_CLASS } from "@/components/floor-plan/fields";
 import { ConfirmDialog } from "@/components/floor-plan/ConfirmDialog";
+import { axisLabel, dimensionError, parseDimension } from "@/components/floor-plan/dimensions";
 
 interface FloorPanelProps {
   plan: GymFloorPlan;
@@ -28,19 +29,17 @@ interface FloorPanelProps {
   onResize: (floorId: string, rows: number, cols: number) => void;
 }
 
-function parseDimension(raw: string): number {
-  const value = Number.parseInt(raw, 10);
-  return Number.isFinite(value) ? value : Number.NaN;
-}
-
-function dimensionError(value: number, axis: "rows" | "cols"): string | null {
-  const min = axis === "rows" ? FLOOR_PLAN_LIMITS.minRows : FLOOR_PLAN_LIMITS.minCols;
-  const max = axis === "rows" ? FLOOR_PLAN_LIMITS.maxRows : FLOOR_PLAN_LIMITS.maxCols;
-  if (!Number.isInteger(value) || value < min || value > max) {
-    return `${axis === "rows" ? "Γραμμές" : "Στήλες"}: ακέραιος από ${min} έως ${max}.`;
-  }
-  return null;
-}
+/**
+ * The two labels this panel repeats.
+ *
+ * `Όνομα ορόφου` names both the add form's name field and the rename field, and
+ * `Διαγραφή ορόφου` is used as the delete button's title, its `aria-label`
+ * prefix and the dialog's confirm label. Naming them once keeps the visible
+ * label and the accessible name from diverging, which is the failure mode a
+ * jsdom test asserting on `getByLabelText` would silently accept.
+ */
+const FLOOR_NAME_LABEL = "Όνομα ορόφου";
+const FLOOR_DELETE_LABEL = "Διαγραφή ορόφου";
 
 /**
  * Re-keys on the active floor so every draft (name, dimensions, add-form,
@@ -206,7 +205,7 @@ const FloorPanelBody: React.FC<FloorPanelProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <FloorPlanTextField
               id="fp-new-floor-name"
-              label="Όνομα ορόφου"
+              label={FLOOR_NAME_LABEL}
               value={newFloor.name}
               maxLength={FLOOR_PLAN_LIMITS.maxFloorNameLength}
               placeholder="π.χ. Όροφος 1"
@@ -214,7 +213,7 @@ const FloorPanelBody: React.FC<FloorPanelProps> = ({
             />
             <FloorPlanTextField
               id="fp-new-floor-rows"
-              label="Γραμμές"
+              label={axisLabel("rows")}
               type="number"
               min={FLOOR_PLAN_LIMITS.minRows}
               max={FLOOR_PLAN_LIMITS.maxRows}
@@ -223,7 +222,7 @@ const FloorPanelBody: React.FC<FloorPanelProps> = ({
             />
             <FloorPlanTextField
               id="fp-new-floor-cols"
-              label="Στήλες"
+              label={axisLabel("cols")}
               type="number"
               min={FLOOR_PLAN_LIMITS.minCols}
               max={FLOOR_PLAN_LIMITS.maxCols}
@@ -259,9 +258,9 @@ const FloorPanelBody: React.FC<FloorPanelProps> = ({
             type="button"
             onClick={() => setPendingDelete(activeFloor)}
             disabled={isLastFloor}
-            title={isLastFloor ? "Ο τελευταίος όροφος δεν διαγράφεται" : "Διαγραφή ορόφου"}
+            title={isLastFloor ? "Ο τελευταίος όροφος δεν διαγράφεται" : FLOOR_DELETE_LABEL}
             className="p-1.5 rounded-sm text-secondary hover:text-red-400 transition-colors disabled:opacity-40"
-            aria-label={`Διαγραφή ορόφου ${activeFloor.name}`}
+            aria-label={`${FLOOR_DELETE_LABEL} ${activeFloor.name}`}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -271,7 +270,7 @@ const FloorPanelBody: React.FC<FloorPanelProps> = ({
           <div className="space-y-2">
             <FloorPlanTextField
               id="fp-floor-rename"
-              label="Όνομα ορόφου"
+              label={FLOOR_NAME_LABEL}
               value={nameDraft}
               maxLength={FLOOR_PLAN_LIMITS.maxFloorNameLength}
               onChange={setNameDraft}
@@ -319,7 +318,7 @@ const FloorPanelBody: React.FC<FloorPanelProps> = ({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="fp-floor-rows" className="block text-[10px] text-tertiary mb-1">
-              Γραμμές
+              {axisLabel("rows")}
             </label>
             <input
               id="fp-floor-rows"
@@ -333,7 +332,7 @@ const FloorPanelBody: React.FC<FloorPanelProps> = ({
           </div>
           <div>
             <label htmlFor="fp-floor-cols" className="block text-[10px] text-tertiary mb-1">
-              Στήλες
+              {axisLabel("cols")}
             </label>
             <input
               id="fp-floor-cols"
@@ -379,8 +378,8 @@ const FloorPanelBody: React.FC<FloorPanelProps> = ({
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title={`Διαγραφή ορόφου «${pendingDelete?.name ?? ""}»`}
-        confirmLabel="Διαγραφή ορόφου"
+        title={`${FLOOR_DELETE_LABEL} «${pendingDelete?.name ?? ""}»`}
+        confirmLabel={FLOOR_DELETE_LABEL}
         destructive
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => {

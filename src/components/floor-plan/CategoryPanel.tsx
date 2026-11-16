@@ -25,6 +25,8 @@ import {
 import {
   FLOOR_PLAN_CATEGORY_PALETTE,
   FLOOR_PLAN_PATTERN_OPTIONS,
+  formatSquareCount,
+  squareNoun,
 } from "@/components/floor-plan/labels";
 import { LegendSwatch } from "@/components/floor-plan/FloorPlanLegend";
 import {
@@ -277,7 +279,7 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({
                   </span>
                   <span className="text-xs text-primary truncate flex-1">{category.name}</span>
                   <span className="text-[10px] text-tertiary font-mono shrink-0">
-                    {count} {count === 1 ? "τετράγωνο" : "τετράγωνα"}
+                    {formatSquareCount(count)}
                   </span>
                 </button>
                 <button
@@ -330,14 +332,14 @@ export const CategoryPanel: React.FC<CategoryPanelProps> = ({
         title={`Διαγραφή κατηγορίας «${pendingDelete?.name ?? ""}»`}
         confirmLabel={`${
           deleteTarget === "" ? "Καθαρισμός" : "Μετακίνηση"
-        } ${pendingUsage} ${pendingUsage === 1 ? "τετραγώνου" : "τετραγώνων"}`}
+        } ${formatSquareCount(pendingUsage, "genitive")}`}
         destructive
         onCancel={() => setPendingDelete(null)}
         onConfirm={confirmDelete}
       >
         <p>
-          Η κατηγορία χρησιμοποιείται σε <strong>{pendingUsage}</strong>{" "}
-          {pendingUsage === 1 ? "τετράγωνο" : "τετράγωνα"}. Διάλεξε τι θα γίνει με αυτά:
+          Η κατηγορία χρησιμοποιείται σε <strong>{pendingUsage}</strong> {squareNoun(pendingUsage)}.
+          Διάλεξε τι θα γίνει με αυτά:
         </p>
         <fieldset className="space-y-2">
           <legend className="sr-only">Τι θα γίνουν τα τετράγωνα της κατηγορίας</legend>

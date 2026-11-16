@@ -38,6 +38,35 @@ export const FLOOR_PLAN_PATTERN_LABELS: Record<CellPattern, string> = {
 export const FLOOR_PLAN_PATTERN_OPTIONS: ReadonlyArray<{ value: CellPattern; label: string }> =
   CELL_PATTERNS.map((pattern) => ({ value: pattern, label: FLOOR_PLAN_PATTERN_LABELS[pattern] }));
 
+/**
+ * The Greek noun for "square", declined by count.
+ *
+ * Greek needs a different ending for one and for many, so every count-bearing
+ * label used to hand-roll its own `count === 1 ? … : …`. The four call sites
+ * lived in three files and had already drifted into a second grammatical case
+ * (the delete dialog's `Καθαρισμός 1 τετραγώνου`), so the declension lives here
+ * once, next to the rest of the copy.
+ *
+ * `case` selects nominative (counting: "3 τετράγωνα") or genitive (partitive:
+ * "Καθαρισμός 3 τετραγώνων").
+ */
+export function squareNoun(
+  count: number,
+  grammaticalCase: "nominative" | "genitive" = "nominative"
+): string {
+  const singular = count === 1;
+  if (grammaticalCase === "genitive") return singular ? "τετραγώνου" : "τετραγώνων";
+  return singular ? "τετράγωνο" : "τετράγωνα";
+}
+
+/** `"3 τετράγωνα"` — a count and its declined noun, e.g. for the legend. */
+export function formatSquareCount(
+  count: number,
+  grammaticalCase: "nominative" | "genitive" = "nominative"
+): string {
+  return `${count} ${squareNoun(count, grammaticalCase)}`;
+}
+
 /** Suggested palette for a new category; the owner can still pick any colour. */
 export const FLOOR_PLAN_CATEGORY_PALETTE: ReadonlyArray<{ color: string; name: string }> = [
   { color: "#2563EB", name: "Μπλε" },

@@ -119,7 +119,6 @@ export const GymFloorPlan: React.FC = () => {
               floors={plan.floors}
               activeFloorId={selectedFloorId}
               onSelect={setActiveFloorId}
-              label="Όροφοι κάτοψης"
             />
           </div>
         )}

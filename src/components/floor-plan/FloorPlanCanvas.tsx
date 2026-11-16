@@ -24,6 +24,7 @@ import {
   type GymFloorPlan,
 } from "@/modules/gym-floor-plan";
 import {
+  cellKey,
   cellStyle,
   gridContainerStyle,
   themeVariablesStyle,
@@ -111,7 +112,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           }}
         >
           {model.cells.map((cell) => {
-            const key = `${cell.row}:${cell.col}`;
+            const key = cellKey(cell.row, cell.col);
 
             if (!interactive) {
               return (

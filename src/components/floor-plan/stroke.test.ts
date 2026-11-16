@@ -5,6 +5,7 @@ import {
   brushToCell,
   brushesEqual,
   categoryBrush,
+  defaultBrush,
   ERASER_BRUSH,
   VOID_BRUSH,
 } from "@/components/floor-plan/cellStyle";
@@ -100,5 +101,21 @@ describe("brushes", () => {
     expect(brushesEqual(categoryBrush("cat-1"), categoryBrush("cat-1"))).toBe(true);
     expect(brushesEqual(categoryBrush("cat-1"), categoryBrush("cat-2"))).toBe(false);
     expect(brushesEqual(ERASER_BRUSH, VOID_BRUSH)).toBe(false);
+  });
+});
+
+describe("defaultBrush", () => {
+  it("selects the first category when the plan has one", () => {
+    expect(defaultBrush([{ id: "cat-1" }])).toEqual(categoryBrush("cat-1"));
+  });
+
+  it("falls back to the eraser when there is no category to paint with", () => {
+    // An empty category list means there is no machine brush to offer, so the
+    // eraser is the only tool that cannot paint a dangling category id.
+    expect(defaultBrush([])).toEqual(ERASER_BRUSH);
+  });
+
+  it("picks the FIRST category in display order, not any category", () => {
+    expect(defaultBrush([{ id: "cat-7" }, { id: "cat-2" }])).toEqual(categoryBrush("cat-7"));
   });
 });
