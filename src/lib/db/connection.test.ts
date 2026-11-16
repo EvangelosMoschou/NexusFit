@@ -116,6 +116,7 @@ describe("schema", () => {
       expect.arrayContaining([
         "access_events",
         "audit_log",
+        "floor_plan",
         "lead_inquiries",
         "media",
         "member_notifications",

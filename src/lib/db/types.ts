@@ -63,6 +63,24 @@ export interface MediaWithData extends DbMedia {
   data: Uint8Array;
 }
 
+// The gym floor plan: one raw JSON string per tenant database.
+//
+// The data layer stays format-agnostic on purpose — the format is owned by the
+// portable `@/modules/gym-floor-plan` module, which this layer never imports.
+// Validation and canonical serialization happen at the HTTP boundary.
+export interface DbFloorPlan {
+  id: string;
+  plan_json: string;
+  updated_at: string;
+}
+
+export interface FloorPlanRecord {
+  /** The stored plan JSON, verbatim, or null when no plan has been saved. */
+  json: string | null;
+  /** ISO timestamp of the last save, or null when no plan has been saved. */
+  updatedAt: string | null;
+}
+
 // Gym occupancy: one row per visit, open while checked_out_at is null.
 export interface DbVisit {
   id: string;

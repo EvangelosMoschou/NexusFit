@@ -13,6 +13,7 @@ import {
   AuditFilters,
   AuditInput,
   AuditPage,
+  FloorPlanRecord,
   MemberAccess,
   MemberNotification,
   MemberNotificationInput,
@@ -63,6 +64,11 @@ export interface Repository {
   // Gym configuration (white-label content)
   getGymConfig(): Promise<GymConfig>;
   updateGymConfig(config: Partial<GymConfig>): Promise<boolean>;
+
+  // Gym floor plan (one raw JSON string per tenant; format owned by the module)
+  getFloorPlanJson(): Promise<FloorPlanRecord>;
+  saveFloorPlanJson(json: string): Promise<boolean>;
+  deleteFloorPlan(): Promise<boolean>;
 
   // Media library (gallery photos)
   listMedia(): Promise<DbMedia[]>;

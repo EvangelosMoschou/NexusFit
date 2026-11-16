@@ -38,6 +38,8 @@ export {
 
 export { getSavedGymConfig, updateSavedGymConfig } from "./db/gymConfig";
 
+export { deleteFloorPlan, getFloorPlanJson, saveFloorPlanJson } from "./db/floorPlan";
+
 export {
   createMemberSession,
   enforceMemberSessionLimit,

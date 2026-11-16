@@ -55,6 +55,12 @@ export const SCHEMA_SQL = `
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS floor_plan (
+      id TEXT PRIMARY KEY,
+      plan_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS media (
       id TEXT PRIMARY KEY,
       filename TEXT NOT NULL,
