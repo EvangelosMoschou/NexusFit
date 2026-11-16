@@ -8,6 +8,7 @@ import { Hero } from "@/components/Hero";
 import { Announcements } from "@/components/Announcements";
 import { ThemePreviewSwitcher } from "@/components/ThemePreviewSwitcher";
 import { Facilities } from "@/components/Facilities";
+import { GymFloorPlan } from "@/components/GymFloorPlan";
 import { Gallery } from "@/components/Gallery";
 import { Timetable } from "@/components/Timetable";
 import { Pricing } from "@/components/Pricing";
@@ -342,6 +343,9 @@ export default function Home() {
 
         {/* Facilities */}
         <Facilities />
+
+        {/* Gym floor plan (owner-drawn, read-only) */}
+        <GymFloorPlan />
 
         {/* Gallery */}
         <Gallery />

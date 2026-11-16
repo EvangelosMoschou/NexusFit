@@ -15,6 +15,7 @@ import {
   Calendar,
   Tag,
   Building2,
+  LayoutGrid,
   Mail,
   UserCog,
   History,
@@ -30,6 +31,7 @@ import { LeadsTab, LeadItem } from "@/components/admin/LeadsTab";
 import { MembersTab, MemberItem } from "@/components/admin/MembersTab";
 import { PricingTab } from "@/components/admin/PricingTab";
 import { ScheduleTab } from "@/components/admin/ScheduleTab";
+import { FloorPlanTab } from "@/components/admin/FloorPlanTab";
 import { InfoTab } from "@/components/admin/InfoTab";
 import { AnnouncementsTab } from "@/components/admin/AnnouncementsTab";
 import { MediaTab } from "@/components/admin/MediaTab";
@@ -56,6 +58,7 @@ export default function AdminPortalPage() {
     | "access"
     | "staff"
     | "audit"
+    | "floorplan"
   >("leads");
 
   // Data States
@@ -333,6 +336,7 @@ export default function AdminPortalPage() {
     { key: "media" as const, icon: Images, label: "Φωτογραφίες" },
     { key: "pricing" as const, icon: Tag, label: "Συνδρομές & Τιμοκατάλογος" },
     { key: "schedule" as const, icon: Calendar, label: "Ωρολόγιο Πρόγραμμα" },
+    { key: "floorplan" as const, icon: LayoutGrid, label: "Κάτοψη Γυμναστηρίου" },
     { key: "info" as const, icon: Building2, label: "Στοιχεία & Εγκαταστάσεις" },
   ];
 
@@ -456,6 +460,7 @@ export default function AdminPortalPage() {
             onSelectedDayChange={setSelectedDay}
           />
         )}
+        {activeTab === "floorplan" && <FloorPlanTab />}
         {activeTab === "info" && <InfoTab config={config} setConfig={setConfig} />}
       </div>
     </div>
