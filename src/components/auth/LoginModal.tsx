@@ -51,6 +51,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
         setError(data.error || "Λανθασμένος κωδικός μέλους ή PIN.");
         return;
       }
+
+      // Any other refusal — 429 from the login rate limiter, a 500 from the
+      // database, or a 200 whose envelope has no member — used to fall through
+      // with no error set, so the spinner just stopped and the member was left
+      // guessing. Show whatever the server said, with a safe fallback.
+      setError(
+        (typeof data?.error === "string" && data.error) || "Αποτυχία σύνδεσης. Δοκιμάστε ξανά."
+      );
     } catch {
       setError("Αποτυχία σύνδεσης.");
     } finally {

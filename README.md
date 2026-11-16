@@ -958,6 +958,21 @@ on every push to `main` (`.github/workflows/pages.yml`).
 | `src/modules/gym-floor-plan/wireBinary.test.ts` | Schema v3 packed binary format: 24-byte header with magic/version/length/FNV-1a checksum, 2-bit cell kinds with a per-plan category index width, a zero-cost label side table, rejection of truncated or tampered payloads, the v1 → v2 → v3 migration chain, and the measured v2-vs-v3 byte table. |
 | `src/components/GymFloorPlan.test.tsx` | Public read-only display: renders the legend and every square for a plan, renders nothing for `plan: null` or an invalid payload, floor tabs. |
 | `src/components/admin/FloorPlanTab.test.tsx` | Admin editor: load/save/clear against `/api/admin/floor-plan`, dirty flag survives a rejected save, validation issues surface, a paint stroke issues one update. |
+| `src/components/auth/LoginModal.test.tsx` | Member login: a wrong PIN, a 429 from the rate limiter, a 500 and a 200 with no member all surface an error instead of stopping the spinner in silence. |
+| `src/components/dashboard/MemberPortalPage.test.tsx` | Member portal tabs, the four stat cards, and the export/erase paths, including the 401 session-expired handling. |
+| `src/components/member/MemberSessionsCard.test.tsx` | Active devices: per-session revoke and logout-all, so one wrong click cannot log every device out. |
+| `src/components/CheckInKiosk.test.tsx` | Entrance tablet: PIN check-in/out replies and the failure copy a member actually sees. |
+| `src/components/MemberCheckIn.test.tsx` | Member check-in card: an explicit expired subscription closes the card, while a failed status read no longer tells an active member to renew. |
+| `src/components/Navbar.test.tsx` | Nav links and anchors follow the config, including the conditional announcements entry. |
+| `src/components/Announcements.test.tsx` | Renders only when the owner has announcements, and shows each level. |
+| `src/components/Pricing.test.tsx` | Both pricing cards resolve from the config (base and base-plus-assistant), the billing-period switch, the add-on difference, and the discount percentage per period. |
+| `src/components/Timetable.test.tsx` | Day filters and the class list for the selected day. |
+| `src/components/Exercises.test.tsx` | Exercise search and muscle-group filtering. |
+| `src/components/admin/MembersTab.test.tsx` | Admin member CRUD: create, the `hasAIAccess` flag, blank-field guard, delete, and the access-monitor flag. |
+| `src/components/admin/LeadsTab.test.tsx` | Admin leads: status transitions, delete, and refresh. |
+| `src/components/admin/StaffTab.test.tsx` | Admin staff accounts: create, permissions and deactivation. |
+| `src/components/admin/AccessTab.test.tsx` | Admin access-control alarms and the flagged members. |
+| `src/components/status/StatusPage.test.tsx` | The 401/403/404/500 shell, the way home, and the gym identity. |
 | `src/components/floor-plan/api.test.ts` | Client for the floor-plan endpoints: response mapping, 304 and `invalid` handling, and the 400 issue shape surfaced as a typed error. |
 | `src/components/floor-plan/cellStyle.test.ts` | Brush → cell and brush → style mapping, the `--fp-*` theme properties, and grid/cell inline styles. |
 | `src/components/floor-plan/dimensions.test.ts` | Grid dimension parsing and bounds errors, and the axis label used by the size controls. |

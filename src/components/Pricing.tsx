@@ -14,22 +14,32 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
   const { config } = useGymConfig();
   const [billingPeriod, setBillingPeriod] = useState<"month" | "quarter" | "year">("month");
 
-  const planById = (id: string): PricingPlan =>
-    config.pricing.find((p) => p.id === id) ?? config.pricing[0];
-  const basePlan = planById("gym-pass");
-  const aiPlan = planById("gym-plus-ai");
+  // The two cards are "base" and "base + digital assistant". The ids below are
+  // the ones the seeded config used historically; an owner-edited config can
+  // rename them (the admin PricingTab lets them change every field), so the
+  // lookup falls back to POSITION rather than to pricing[0] for both — the old
+  // `?? pricing[0]` made the second card a duplicate of the first, so the AI
+  // plan was never shown and the "+14€" add-on badge never rendered.
+  const planById = (id: string, fallbackIndex: number): PricingPlan =>
+    config.pricing.find((p) => p.id === id) ?? config.pricing[fallbackIndex] ?? config.pricing[0];
+  const basePlan = planById("gym-pass", 0);
+  const aiPlan = planById("gym-plus-ai", 1);
 
   const periodTotal = (plan: PricingPlan) =>
     billingPeriod === "month"
       ? plan.priceMonth
       : billingPeriod === "quarter"
-      ? plan.priceQuarter ?? plan.priceMonth * 3
-      : plan.priceYear ?? plan.priceMonth * 12;
+        ? (plan.priceQuarter ?? plan.priceMonth * 3)
+        : (plan.priceYear ?? plan.priceMonth * 12);
 
-  const periodLabel = billingPeriod === "month" ? "μήνα" : billingPeriod === "quarter" ? "τρίμηνο" : "έτος";
+  const periodLabel =
+    billingPeriod === "month" ? "μήνα" : billingPeriod === "quarter" ? "τρίμηνο" : "έτος";
 
-  const discountPct = (total: number | undefined, month: number) =>
-    total && month ? Math.max(0, Math.round(100 - (total / (month * 3)) * 100)) : 0;
+  // The discount is always "what a month costs x how many months this period
+  // covers". Using a fixed 3 months advertised "-0%" on the yearly card while
+  // the real saving was 28%, which is a consumer-facing price claim.
+  const discountPct = (total: number | undefined, month: number, months: number) =>
+    total && month ? Math.max(0, Math.round(100 - (total / (month * months)) * 100)) : 0;
 
   const aiAddonDiff = Math.max(0, aiPlan.priceMonth - basePlan.priceMonth);
 
@@ -72,7 +82,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
                   : "text-secondary hover:text-primary"
               }`}
             >
-              Τρίμηνη (-{discountPct(basePlan.priceQuarter, basePlan.priceMonth)}%)
+              Τρίμηνη (-{discountPct(basePlan.priceQuarter, basePlan.priceMonth, 3)}%)
             </button>
             <button
               onClick={() => setBillingPeriod("year")}
@@ -82,7 +92,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
                   : "text-secondary hover:text-primary"
               }`}
             >
-              Ετήσια (-{discountPct(basePlan.priceYear, basePlan.priceMonth)}%)
+              Ετήσια (-{discountPct(basePlan.priceYear, basePlan.priceMonth, 12)}%)
             </button>
           </div>
         </div>
@@ -95,9 +105,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
               <div className="text-[11px] font-mono uppercase text-tertiary mb-1">
                 Βασική Συνδρομή
               </div>
-              <h3 className="text-lg font-bold text-primary mb-2">
-                {basePlan.name}
-              </h3>
+              <h3 className="text-lg font-bold text-primary mb-2">{basePlan.name}</h3>
               <p className="text-secondary text-xs mb-6 leading-relaxed">
                 Πλήρης πρόσβαση σε όλους τους χώρους και τα ομαδικά μαθήματα.
               </p>
@@ -142,9 +150,7 @@ export const Pricing: React.FC<PricingProps> = ({ onSelectPlan, onOpenAIWizard }
                 )}
               </div>
 
-              <h3 className="text-lg font-bold text-primary mb-2">
-                {aiPlan.name}
-              </h3>
+              <h3 className="text-lg font-bold text-primary mb-2">{aiPlan.name}</h3>
               <p className="text-secondary text-xs mb-6 leading-relaxed">
                 Η συνδρομή γυμναστηρίου μαζί με το σύστημα παραγωγής εξατομικευμένων προγραμμάτων.
               </p>

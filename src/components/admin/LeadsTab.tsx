@@ -23,13 +23,20 @@ interface LeadsTabProps {
 }
 
 // TAB 1: LEADS & INQUIRIES
-export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateStatus, onDelete }) => {
+export const LeadsTab: React.FC<LeadsTabProps> = ({
+  leads,
+  onRefresh,
+  onUpdateStatus,
+  onDelete,
+}) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-base font-bold text-primary">Αιτήματα Επικοινωνίας & Δοκιμαστικών</h2>
-          <p className="text-xs text-secondary">Υποψήφιοι πελάτες που συμπλήρωσαν τη φόρμα ενδιαφέροντος στην ιστοσελίδα.</p>
+          <p className="text-xs text-secondary">
+            Υποψήφιοι πελάτες που συμπλήρωσαν τη φόρμα ενδιαφέροντος στην ιστοσελίδα.
+          </p>
         </div>
         <button
           onClick={onRefresh}
@@ -43,26 +50,43 @@ export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateSt
       {leads.length > 0 ? (
         <div className="divide-y divide-border border border-border rounded-xl bg-surface overflow-hidden">
           {leads.map((lead) => (
-            <div key={lead.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+            <div
+              key={lead.id}
+              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs"
+            >
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-sm text-primary">{lead.full_name}</span>
-                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-sm border ${
-                    lead.status === "pending"
-                      ? "bg-amber-950/60 text-amber-400 border-amber-800"
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-sm border ${
+                      lead.status === "pending"
+                        ? "bg-amber-950/60 text-amber-400 border-amber-800"
+                        : lead.status === "contacted"
+                          ? "bg-blue-950/60 text-blue-400 border-blue-800"
+                          : "bg-emerald-950/60 text-emerald-400 border-emerald-800"
+                    }`}
+                  >
+                    {lead.status === "pending"
+                      ? "Εκκρεμεί"
                       : lead.status === "contacted"
-                      ? "bg-blue-950/60 text-blue-400 border-blue-800"
-                      : "bg-emerald-950/60 text-emerald-400 border-emerald-800"
-                  }`}>
-                    {lead.status === "pending" ? "Εκκρεμεί" : lead.status === "contacted" ? "Έγινε Επαφή" : "Εγγράφηκε"}
+                        ? "Έγινε Επαφή"
+                        : "Εγγράφηκε"}
                   </span>
                 </div>
                 <div className="text-secondary flex items-center gap-3">
-                  <span>Ηλεκτρονικό Ταχυδρομείο: <strong className="text-primary">{lead.email}</strong></span>
-                  {lead.phone && <span>Τηλ: <strong className="text-primary">{lead.phone}</strong></span>}
+                  <span>
+                    Ηλεκτρονικό Ταχυδρομείο: <strong className="text-primary">{lead.email}</strong>
+                  </span>
+                  {lead.phone && (
+                    <span>
+                      Τηλ: <strong className="text-primary">{lead.phone}</strong>
+                    </span>
+                  )}
                 </div>
                 {lead.preferred_plan && (
-                  <div className="text-accent text-[11px]">Ενδιαφέρον για: {lead.preferred_plan}</div>
+                  <div className="text-accent text-[11px]">
+                    Ενδιαφέρον για: {lead.preferred_plan}
+                  </div>
                 )}
                 {lead.notes && (
                   <div className="text-tertiary bg-background p-2 rounded-sm text-[11px] mt-1 max-w-xl">
@@ -75,7 +99,11 @@ export const LeadsTab: React.FC<LeadsTabProps> = ({ leads, onRefresh, onUpdateSt
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                {lead.status !== "contacted" && (
+                {/* Only offered while the lead is still pending. A
+                    "registered" lead is terminal: showing "we contacted them"
+                    on it let one click move a converted lead BACK to
+                    `contacted`, quietly losing the conversion. */}
+                {lead.status === "pending" && (
                   <button
                     onClick={() => onUpdateStatus(lead.id, "contacted")}
                     className="px-2.5 py-1.5 rounded-sm bg-surface-elevated hover:bg-border text-primary text-[11px] font-semibold border border-border"

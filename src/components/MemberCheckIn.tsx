@@ -23,7 +23,11 @@ export const MemberCheckIn: React.FC = () => {
   const [occupancy, setOccupancy] = useState<Occupancy | null>(null);
   const [visits30d, setVisits30d] = useState<number | null>(null);
   const [locked, setLocked] = useState(false);
-  const [subscriptionActive, setSubscriptionActive] = useState(false);
+  // `null` means "the server has not told us yet". Defaulting this to false made
+  // a failed status read indistinguishable from a genuinely expired
+  // subscription, so an active member was told to renew when the GET merely
+  // 500'd. Only an explicit `false` from the server locks the card.
+  const [subscriptionActive, setSubscriptionActive] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +40,9 @@ export const MemberCheckIn: React.FC = () => {
         setInside(Boolean(data.inside));
         setSince(data.since ?? null);
         setLocked(Boolean(data.locked));
-        setSubscriptionActive(Boolean(data.subscriptionActive));
+        setSubscriptionActive(
+          typeof data.subscriptionActive === "boolean" ? data.subscriptionActive : null
+        );
         setOccupancy(data.occupancy ?? null);
         setVisits30d(typeof data.visits30d === "number" ? data.visits30d : null);
       }
@@ -107,7 +113,9 @@ export const MemberCheckIn: React.FC = () => {
       setInside(data.status === "in" || data.status === "already_in");
       setSince(data.since ?? null);
       setLocked(Boolean(data.locked));
-      setSubscriptionActive(Boolean(data.subscriptionActive));
+      setSubscriptionActive(
+        typeof data.subscriptionActive === "boolean" ? data.subscriptionActive : null
+      );
       setOccupancy(data.occupancy ?? null);
       setVisits30d(typeof data.visits30d === "number" ? data.visits30d : null);
     } catch (err) {
@@ -125,7 +133,10 @@ export const MemberCheckIn: React.FC = () => {
     );
   }
 
-  if (!subscriptionActive && !inside) {
+  // Only an explicit `false` closes the card. `null` (no successful read yet)
+  // keeps it open — the check-in POST is the authoritative gate and reports a
+  // real expiry itself, with copy that the member can act on.
+  if (subscriptionActive === false && !inside) {
     return (
       <div className="p-4 rounded-xl bg-surface border border-border flex items-start gap-3">
         <div className="p-2 rounded-lg bg-surface-elevated text-secondary">
