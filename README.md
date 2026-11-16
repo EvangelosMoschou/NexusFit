@@ -523,7 +523,7 @@ opens the tenant's database, creates the schema and seeds defaults on first use.
 | `workout_plans` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `split_name`, `split_type`, `days_per_week`, `session_duration`, `plan_json`, `created_at` | `plan_json` is the full `GeneratedWorkoutPlan`. |
 | `lead_inquiries` | `id`, `full_name`, `email`, `phone`, `goal`, `preferred_plan`, `notes`, `status`, `created_at` | `status`: `pending` / `contacted` / `registered`. |
 | `site_config` | `key` (PK), `value`, `updated_at` | The white-label config, stored under key `gym_config`. Deliberately does **not** hold the floor plan: see `floor_plan`. |
-| `floor_plan` | `id` (PK, always `default`), `plan_json`, `updated_at` | The gym floor plan, in its own table so it is never part of the `gym_config` blob every visitor downloads. One row per tenant database. `plan_json` is the raw serialized plan; the format is owned by `src/modules/gym-floor-plan`, and the data layer stores it verbatim (see [`docs/features/gym-floor-plan.md`](docs/features/gym-floor-plan.md)). |
+| `floor_plan` | `id` (PK, always `default`), `payload` (BLOB), `payload_format`, `updated_at` | The gym floor plan, in its own table so it is never part of the `gym_config` blob every visitor downloads. One row per tenant database. `payload` is the plan **gzipped** behind a 3-byte `NF` + format-tag envelope (`payload_format` = `gzip`), which makes the stored row 21-103x smaller than the plain-text column it replaced; `src/lib/db/floorPlanCompression.ts` owns the container and the 8 MB inflate cap, and the data layer treats the contents as opaque bytes — the plan's format belongs to `src/modules/gym-floor-plan` and the codec seam at `src/app/api/floor-plan/codec.ts` (see [`docs/features/gym-floor-plan.md`](docs/features/gym-floor-plan.md)). A pre-existing `plan_json TEXT` row is compressed in place on first boot and the legacy column is removed. |
 | `media` | `id`, `filename`, `mime`, `size`, `alt`, `data` (BLOB), `created_at` | Gallery photos, stored in the tenant database so backups and isolation cover them. |
 | `visits` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `checked_in_at`, `checked_out_at`, `last_activity_at`, `created_at` | One row per visit; open visits (`checked_out_at IS NULL`) feed the occupancy count. Idle visits close after the configured window; older than 8 hours are always stale. |
 | `staff_accounts` | `id`, `name`, `email` (unique), `role` (`admin`/`trainer`), `password_hash`, `permissions` (JSON), `active`, `created_at`, `updated_at`, `last_login_at` | Named staff accounts per tenant. Deleting the row removes the account and invalidates its sessions; password hashes never leave the server. |
@@ -562,7 +562,7 @@ standard error message if the handler throws.
 |---|---|---|---|
 | `GET` | `/api/health` | Uptime probe (`force-dynamic`). | `200 { success, ok, uptime, timestamp }` |
 | `GET` | `/api/config` | Admin-editable gym config for the public site. The floor plan is **not** included (it has its own endpoint). | `200 { success, config }` |
-| `GET` | `/api/floor-plan` | Public gym floor plan, in its own table so it never bloats `/api/config`. The stored value is validated server-side; an unreadable/invalid one yields `plan: null` + `invalid: true` instead of raw data. Cacheable: `Cache-Control: public, max-age=60, stale-while-revalidate=300` and a weak `ETag` derived from `updatedAt` (`304` on `If-None-Match`). | `200 { success, plan, updatedAt }` / `200 { success, plan: null, updatedAt: null }` (none saved) / `200 { success, plan: null, invalid: true, updatedAt }` (stored value invalid) / `304` / `500` |
+| `GET` | `/api/floor-plan` | Public gym floor plan, in its own table so it never bloats `/api/config`. The stored value is a gzipped payload, decompressed by the repository and decoded through the codec seam; an unreadable/invalid one yields `plan: null` + `invalid: true` instead of raw data. Cacheable: `Cache-Control: public, max-age=60, stale-while-revalidate=300` and a weak `ETag` derived from `updatedAt` (`304` on `If-None-Match`). | `200 { success, plan, updatedAt }` / `200 { success, plan: null, updatedAt: null }` (none saved) / `200 { success, plan: null, invalid: true, updatedAt }` (stored value invalid) / `304` / `500` |
 | `POST` | `/api/leads` | `{ fullName, email, phone?, goal?, preferredPlan?, notes? }`. | `200 { success }`, `400` missing name/email |
 | `POST` | `/api/auth/member` | `{ identifier, pin }` (member code **or** email + PIN). Creates a server-side session and sets the **HMAC-signed** member cookie (`nexusfit_member_id`; `__Host-` prefixed in production; HttpOnly, `Secure` in prod, `SameSite=Lax`; cookie up to 30 days, server idle timeout 7 days by default). | `200 { success, member }`, `400`, `401`, `503` (no `SESSION_SECRET`), `500` |
 | `POST` | `/api/auth/logout` | Revokes the current server-side session and clears the cookie. `{ "all": true }` revokes every session for the member. | `200 { success, all }` |
@@ -618,7 +618,7 @@ curl -X POST https://<domain>/api/access/scan \
 | `GET` | `/api/admin/config` | — | Read the saved gym config. |
 | `POST` | `/api/admin/config` | `{ config }` | Merge-and-save gym config. `400` if body missing. |
 | `GET` | `/api/admin/floor-plan` | — | Read the floor plan for the editor, already parsed and validated. `{ success, plan, warnings, updatedAt }`; `plan: null` when none is saved, `invalid: true` when the stored value cannot be loaded. |
-| `POST` | `/api/admin/floor-plan` | `{ plan }` | `200 { success, warnings }`; `400 { success: false, error: "Invalid floor plan", issues }` (the module's machine-readable issues), `400` for a missing/invalid body, `401`, `500`. |
+| `POST` | `/api/admin/floor-plan` | `{ plan }` | `200 { success, warnings }`; `400 { success: false, error: "Invalid floor plan", issues }` (the module's machine-readable issues), `400` for a missing/invalid body, `401`, `500`. Encodes through the codec seam and stores the resulting bytes (gzipped by the repository); the audit entry records the payload byte count and codec name. |
 | `DELETE` | `/api/admin/floor-plan` | — | `200 { success, removed }`; `401`, `500`. |
 | `GET` | `/api/admin/leads` | — | List all leads. |
 | `DELETE` | `/api/admin/leads` | `?id=` | Delete a lead inquiry (GDPR erasure). |
@@ -693,8 +693,10 @@ class schedule, trainers and pricing plans. Its shape is the `GymConfig` type in
   is served by `/api/floor-plan`, so the plan never inflates the config payload every
   visitor downloads and an unrelated admin save never rewrites it. Its format belongs to
   the portable [`src/modules/gym-floor-plan`](src/modules/gym-floor-plan/README.md)
-  module; the data layer stores the serialized string verbatim and the routes validate
-  it with `parsePlanValue` / `serializePlan`.
+  module; the data layer stores the plan as **opaque bytes**, gzipped on the way to disk
+  (`src/lib/db/floorPlanCompression.ts`), and the routes are the only place those bytes
+  meet the plan object — through the single codec seam in
+  [`src/app/api/floor-plan/codec.ts`](src/app/api/floor-plan/codec.ts).
 
 To re-brand for another gym you change the seeded config (via admin, or by editing
 `defaultGymConfig` for a fresh install) — no component changes required.
@@ -926,7 +928,9 @@ on every push to `main` (`.github/workflows/pages.yml`).
 | `src/lib/sqliteDb.test.ts` | Uses an isolated temp `SQLITE_DATA_DIR`; covers seeding, member PIN auth, invalid-PIN rejection, plan persistence/round-trip, invalid payloads, admin member listing (asserts `pin_code` never leaks), member upsert/delete, lead create + status update, gym-config get/update. Cleans up in `afterAll`. |
 | `src/lib/db/connection.test.ts` | `getDataDir()` resolution, connection caching and the on-disk file layout. |
 | `src/lib/db/queries.test.ts` | Characterization tests for the per-entity query modules: ordering, limit clamping, joins and cutoff semantics. |
-| `src/lib/db/floorPlan.test.ts` | Floor-plan storage: verbatim string round-trip (the data layer never reformats or validates — the module owns the format), absent row → `{ json: null, updatedAt: null }`, overwrite bumps `updated_at` in a single row, idempotent delete, `Repository` accessor, `floor_plan` columns/primary key, idempotent DDL across a simulated restart and tenant isolation. |
+| `src/lib/db/floorPlan.test.ts` | Floor-plan storage: byte-for-byte payload round-trip (the data layer never reformats, parses or validates — the codec owns the format), non-text binary payloads, an empty payload kept distinct from "no plan", absent row → `{ payload: null, format: null, updatedAt: null }`, overwrite bumps `updated_at` in a single row, the gzip BLOB actually written to disk, a corrupt blob degrading to "no plan" instead of throwing, idempotent delete, `Repository` accessor, `floor_plan` columns/primary key, idempotent DDL across a simulated restart and tenant isolation. |
+| `src/lib/db/floorPlanCompression.test.ts` | The gzip container: round-trip of plan-shaped and arbitrary binary payloads, the 3-byte `NF` + format-tag envelope, exact compressed-size regression guards at 40/80/120/160 grids, and hostile input (empty, legacy text, bare gzip, unknown tag, truncated, corrupted, random, a gzip bomb past the 8 MB cap) returning `null` without ever throwing. |
+| `src/lib/db/floorPlanMigration.test.ts` | The legacy `plan_json TEXT` → gzip BLOB upgrade against a hand-built old-shaped database: the row survives and decompresses identically, `updated_at` is untouched, the shape converges on a fresh database's, a second/third boot is a no-op, an already-migrated or empty database is left alone, and the on-disk row shrinks 21-103x in a real SQLite file. |
 | `src/lib/db/sqliteRepository.test.ts` | The `Repository` boundary: the SQLite adapter honours the async interface. |
 | `src/lib/tenants.test.ts` | Tenant registry, default-tenant admin seeding and cross-tenant data isolation. |
 | `src/lib/subscription.test.ts` | Subscription/tier gating for premium features. |
@@ -951,6 +955,7 @@ on every push to `main` (`.github/workflows/pages.yml`).
 | `src/modules/gym-floor-plan/render.test.ts` | Pure render model: CSS Grid template, WCAG contrast-safe ink, pattern backgrounds, legend with the fixed void entry, screen-reader floor summary. |
 | `src/modules/gym-floor-plan/wire.test.ts` | Schema v2 wire format: run-length token rows, the v1 → v2 migration (a hand-written v1 record loads to the identical plan) and malformed-input handling. |
 | `src/modules/gym-floor-plan/wire-size.test.ts` | Regression guard on encoded size: the run-length format stays far smaller than the dense v1 shape on realistic mostly-empty plans and does not blow up on the worst case (every square painted). |
+| `src/modules/gym-floor-plan/wireBinary.test.ts` | Schema v3 packed binary format: 24-byte header with magic/version/length/FNV-1a checksum, 2-bit cell kinds with a per-plan category index width, a zero-cost label side table, rejection of truncated or tampered payloads, the v1 → v2 → v3 migration chain, and the measured v2-vs-v3 byte table. |
 | `src/components/GymFloorPlan.test.tsx` | Public read-only display: renders the legend and every square for a plan, renders nothing for `plan: null` or an invalid payload, floor tabs. |
 | `src/components/admin/FloorPlanTab.test.tsx` | Admin editor: load/save/clear against `/api/admin/floor-plan`, dirty flag survives a rejected save, validation issues surface, a paint stroke issues one update. |
 | `src/components/floor-plan/stroke.test.ts` | Pure Bresenham stroke: a dragged stroke covers the expected squares and a single point stays a single cell. |
@@ -961,7 +966,8 @@ on every push to `main` (`.github/workflows/pages.yml`).
 | Test file | Coverage |
 |---|---|
 | `src/lib/api.test.ts` | `adminRoute` guard: rejects missing/tampered cookies (`401`), passes authenticated requests, wraps handler throws into a `500` envelope; tenant isolation. |
-| `src/app/api/floor-plan/route.test.ts` | Public floor-plan endpoint: null when unsaved, validated plan + `updatedAt`, `invalid: true` instead of unvalidated data, the shared-cache headers and the weak-`ETag` `304` path. |
+| `src/app/api/floor-plan/route.test.ts` | Public floor-plan endpoint: null when unsaved, validated plan + `updatedAt`, `invalid: true` instead of unvalidated data, the shared-cache headers and the weak-`ETag` `304` path. Writes through the codec seam, so it pins the byte path the repository actually stores. |
+| `src/app/api/floor-plan/codec.test.ts` | The codec seam: `encode`/`decode` round-trip, canonical bytes on encode, the module's issues (never a throw) for garbage, non-UTF-8 and semantically invalid bytes, both accepted input shapes, and the audit/log description helper. |
 | `src/app/api/admin/floor-plan/route.test.ts` | Admin floor-plan CRUD: the `adminRoute` guard, editor read shape (including `invalid`), validate-and-canonicalize on `POST` (extras stripped, string form accepted), `400` with the module's issues, no overwrite on invalid input, idempotent `DELETE` and the audit write. |
 | `src/lib/demoMockApi.test.ts` | Demo mock API: config, demo login, plan persistence across logins, export attachment, erasure, lead submissions. |
 | `src/lib/demoApp.test.tsx` | The React demo shell end-to-end against the mock API (jsdom). |
