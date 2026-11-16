@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-// The codec seam shared by the two floor-plan routes.
+// The codec seam, after the switch to the packed binary (schema v3) format.
 //
-// The storage layer is byte-blind: the repository stores whatever bytes the
-// codec produces (gzipped) and hands them back decompressed. This file is the
-// only place the plan object and those bytes meet, so these tests pin the
-// contract a different codec must honour: `encode` produces bytes `decode`
-// reads back, and `decode` never throws on hostile input.
+// The regression this file exists for: the storage layer converts a PRE-gzip
+// database in place by compressing the legacy `plan_json` TEXT verbatim
+// (`migrateFloorPlanPayload` in `src/lib/db/schema.ts`). That text is a schema
+// v2 JSON plan, not a v3 binary payload, so a codec whose `decode` only knows
+// the binary form reports every already-saved plan as invalid — the deployed
+// gym keeps its row and silently loses its floor plan on the first boot after
+// the upgrade.
+//
+// `decode` must therefore accept BOTH stored forms: the current binary payload
+// and the legacy JSON text the migration can hand it. `encode` stays
+// binary-only, so the next save rewrites the row in the current format.
 
 import {
   createEmptyPlan,
@@ -16,8 +22,18 @@ import {
 } from "@/modules/gym-floor-plan";
 import { describeDecodeFailure, planCodec, validateIncomingPlan } from "./codec";
 
+const encoder = new TextEncoder();
+
 function samplePlan(title = "Seam floor") {
   return createEmptyPlan({ rows: 4, cols: 6, title });
+}
+
+/**
+ * The bytes a pre-gzip deployment left behind, as the boot migration produces
+ * them: the legacy canonical JSON text, UTF-8 encoded.
+ */
+function legacyPayload(): Uint8Array {
+  return encoder.encode(serializePlan(samplePlan("Legacy seam floor")));
 }
 
 describe("planCodec", () => {
@@ -47,8 +63,35 @@ describe("planCodec", () => {
     expect(decoded.plan).not.toHaveProperty("extraKey");
   });
 
+  it("decodes a legacy JSON-text payload, which is what a migrated row holds", () => {
+    // Regression: this is the byte shape `migrateFloorPlanPayload` stores for
+    // every pre-gzip deployment. A binary-only decoder answers `invalid-binary-header`
+    // here and the owner's plan disappears from the editor and the landing page.
+    const bytes = legacyPayload();
+
+    expect(decodePlanBytes(bytes).ok).toBe(false);
+
+    const result = planCodec.decode(bytes);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.title).toBe("Legacy seam floor");
+    expect(result.plan.floors[0]).toMatchObject({ rows: 4, cols: 6 });
+  });
+
+  it("still encodes binary, so one save rewrites a legacy row in the current form", () => {
+    const result = planCodec.decode(legacyPayload());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const reEncoded = planCodec.encode(result.plan);
+    // A binary payload, not JSON text: the migration is a one-way door.
+    expect(reEncoded[0]).toBe(0x4e);
+    expect(reEncoded[1]).toBe(0x46);
+    expect(planCodec.decode(reEncoded).ok).toBe(true);
+  });
+
   it("returns the module's issues instead of throwing on garbage bytes", () => {
-    const garbage = new TextEncoder().encode("{not json at all");
+    const garbage = encoder.encode("{not json at all");
 
     let result: ReturnType<typeof planCodec.decode> | undefined;
     expect(() => {
@@ -72,11 +115,20 @@ describe("planCodec", () => {
   });
 
   it("rejects a semantically invalid plan", () => {
-    const encoded = new TextEncoder().encode(
+    const encoded = encoder.encode(
       JSON.stringify({ schemaVersion: 2, title: "Bad", categories: [], floors: "nope" })
     );
 
     expect(planCodec.decode(encoded).ok).toBe(false);
+  });
+
+  it("rejects legacy JSON that is well-formed but not a valid plan", () => {
+    const notAPlan = encoder.encode(JSON.stringify({ schemaVersion: 2, floors: [] }));
+    const result = planCodec.decode(notAPlan);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.length).toBeGreaterThan(0);
   });
 
   it("exposes a stable name for logs and audit details", () => {
@@ -109,12 +161,22 @@ describe("validateIncomingPlan", () => {
 });
 
 describe("describeDecodeFailure", () => {
-  it("names the codec and its first issue code", () => {
-    const result = planCodec.decode(new TextEncoder().encode("{not json"));
+  it("names the codec and the issue code of a malformed TEXT payload", () => {
+    // Text that starts with `{` is read as the legacy JSON form, so the honest
+    // reason is `invalid-json` — not a binary-header complaint about a payload
+    // nobody claimed was binary.
+    const result = planCodec.decode(encoder.encode("{not json"));
 
     const message = describeDecodeFailure(planCodec, result);
     expect(message).toContain("binary-v3");
-    // Garbage bytes fail the binary header check before any field is read.
+    expect(message).toContain("invalid-json");
+  });
+
+  it("names the binary issue code for bytes that are not text at all", () => {
+    const result = planCodec.decode(Uint8Array.from([0x00, 0xff, 0x81, 0xfe]));
+
+    const message = describeDecodeFailure(planCodec, result);
+    expect(message).toContain("binary-v3");
     expect(message).toContain("invalid-binary");
   });
 

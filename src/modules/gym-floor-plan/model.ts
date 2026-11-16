@@ -1118,6 +1118,49 @@ const PLAN_MIGRATIONS: PlanMigrationTable = {
   2: migrateV2PlanRecord,
 };
 
+/**
+ * Reports a floor whose `cells` array carries more rows than its `rows` field
+ * declares, BEFORE any migration touches it.
+ *
+ * Why this has to run on the raw record: `decodeFloorRows` deliberately stops at
+ * `maxRows` instead of expanding untrusted surplus rows, and `migrateV1PlanRecord`
+ * / `migrateV2PlanRecord` re-emit that truncated grid as the whole floor. The
+ * later `cells.length !== rows` check in `validatePlan` then compares the
+ * declared count against the already-truncated array, agrees with itself, and a
+ * corrupt legacy plan loads as a complete one with its extra squares silently
+ * discarded. A v3 record with the same shape is rejected, so the migrations must
+ * not be a way around that check.
+ *
+ * Only the row count is inspected here — every other shape decision stays in
+ * `validatePlan`, which runs on the migrated value and reports with its usual
+ * codes and paths. Never throws.
+ */
+function findOverDeclaredRowCounts(raw: Record<string, unknown>): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  const floors = raw.floors;
+  if (!Array.isArray(floors)) return issues;
+
+  floors.forEach((floor, index) => {
+    if (!isRecord(floor)) return;
+    const rows = floor.rows;
+    const cells = floor.cells;
+    if (!Array.isArray(cells)) return;
+    if (typeof rows !== "number" || !Number.isInteger(rows)) return;
+    if (cells.length <= rows) return;
+
+    issues.push(
+      validationIssue(
+        "error",
+        "invalid-cells",
+        `Floor must have ${rows} rows of cells (got ${cells.length}).`,
+        `floors[${index}].cells`
+      )
+    );
+  });
+
+  return issues;
+}
+
 function migratePlan(
   raw: unknown,
   migrations: PlanMigrationTable
@@ -1175,6 +1218,11 @@ function migratePlan(
         ],
       };
     }
+    // Checked per step, on the record the step is about to truncate: a v1 -> v2
+    // -> v3 chain must not lose rows at either hop.
+    const overDeclared = findOverDeclaredRowCounts(current);
+    if (overDeclared.length > 0) return { ok: false, issues: overDeclared };
+
     current = migration(current);
     currentVersion += 1;
   }

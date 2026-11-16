@@ -832,8 +832,106 @@ describe("v1 and v2 stored plans still load", () => {
     expect(result.issues.map((issue) => issue.code)).toContain("unknown-category");
   });
 
-  it("rejects a plan newer than the module, and v1/v2 blobs have no binary form", () => {
-    const newer = { ...JSON.parse(JSON.stringify(V2_FIXTURE)), schemaVersion: 4 };
+  /**
+   * A stored record whose declared `rows` undercounts the rows it carries is
+   * corrupt, and the ONLY safe answer is an issue.
+   *
+   * `decodeFloorRows` stops at `maxRows` on purpose (surplus rows are untrusted
+   * and must not be expanded), but the migration steps then re-emit the decoded
+   * grid as the whole floor. Validation compares the declared `rows` against the
+   * number of rows the *migrated* record carries, so once the surplus has been
+   * dropped that check agrees with itself and the truncated floor loads as if it
+   * were complete — silent data loss on a legacy plan.
+   *
+   * A v3 record with the same shape is already rejected; v1 and v2 must agree
+   * with it.
+   */
+  const SURPLUS_V2 = {
+    schemaVersion: 2,
+    title: "Surplus rows",
+    categories: [
+      { id: "cat-1", name: "Impulse", color: "#2563EB", shortLabel: "IM", pattern: "solid" },
+    ],
+    floors: [
+      {
+        id: "floor-1",
+        name: "Ground floor",
+        rows: 2,
+        cols: 2,
+        cells: [
+          ["m:0", "e"],
+          ["e", "e"],
+          // Surplus third row: two painted squares that a truncation would lose.
+          ["m:0", "m:0"],
+        ],
+      },
+    ],
+  };
+
+  const SURPLUS_V1 = {
+    schemaVersion: 1,
+    title: "Surplus rows",
+    categories: [
+      { id: "cat-1", name: "Impulse", color: "#2563EB", shortLabel: "IM", pattern: "solid" },
+    ],
+    floors: [
+      {
+        id: "floor-1",
+        name: "Ground floor",
+        rows: 2,
+        cols: 2,
+        cells: [
+          [{ kind: "machine", categoryId: "cat-1" }, { kind: "empty" }],
+          [{ kind: "empty" }, { kind: "empty" }],
+          [{ kind: "machine", categoryId: "cat-1" }, { kind: "machine", categoryId: "cat-1" }],
+        ],
+      },
+    ],
+  };
+
+  it("rejects a v2 record that carries more rows than it declares", () => {
+    const result = parsePlanValue(JSON.parse(JSON.stringify(SURPLUS_V2)));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.map((issue) => issue.code)).toContain("invalid-cells");
+  });
+
+  it("rejects a v1 record that carries more rows than it declares", () => {
+    const result = deserializePlan(JSON.stringify(SURPLUS_V1));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.map((issue) => issue.code)).toContain("invalid-cells");
+  });
+
+  it("keeps rejecting the same shape at v3, so all three versions agree", () => {
+    const v3 = { ...JSON.parse(JSON.stringify(SURPLUS_V2)), schemaVersion: 3 };
+    const result = parsePlanValue(v3);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.map((issue) => issue.code)).toContain("invalid-cells");
+  });
+
+  it("still accepts a v1/v2 record whose row count is exactly right", () => {
+    // The guard must not reject a well-formed legacy plan: exactly `rows` rows,
+    // a short row inside them, is a different (already reported) problem.
+    const exact = JSON.parse(JSON.stringify(SURPLUS_V2));
+    exact.floors[0].cells = [
+      ["m:0", "e"],
+      ["e", "e"],
+    ];
+
+    const v2 = parsePlanValue(exact);
+    expect(v2.ok).toBe(true);
+
+    const exactV1 = JSON.parse(JSON.stringify(SURPLUS_V1));
+    exactV1.floors[0].cells = exactV1.floors[0].cells.slice(0, 2);
+    expect(deserializePlan(JSON.stringify(exactV1)).ok).toBe(true);
+  });
+
+  it("rejects a plan newer than the module, and v1/v2 blobs have no binary form", () => {    const newer = { ...JSON.parse(JSON.stringify(V2_FIXTURE)), schemaVersion: 4 };
     const result = parsePlanValue(newer);
     expect(result.ok).toBe(false);
     if (result.ok) return;
