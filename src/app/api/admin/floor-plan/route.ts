@@ -2,41 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminRoute } from "@/lib/api";
 import { writeAudit } from "@/lib/audit";
 import { getRepository } from "@/lib/db";
-import { deserializePlan, parsePlanValue, serializePlan } from "@/modules/gym-floor-plan";
-import type { DeserializeResult, GymFloorPlan } from "@/modules/gym-floor-plan";
+import { describeDecodeFailure, planCodec, validateIncomingPlan } from "../../floor-plan/codec";
 
 // Admin CRUD for the gym floor plan.
 //
-// The stored row is a raw JSON string; the plan FORMAT is owned by the portable
-// `@/modules/gym-floor-plan` module. This handler is the only place the two meet:
-// it validates what comes in with `parsePlanValue`, re-serializes it
-// canonically with `serializePlan`, and only ever stores that canonical string —
-// so the data layer stays format-agnostic and stored plans stay diffable.
-
-/**
- * Validates whatever the editor sent.
- *
- * The editor normally posts the plan as an object, but a JSON string is also
- * accepted (e.g. a client that round-trips the serialized form) so callers do
- * not have to know which representation the endpoint prefers.
- */
-function validateIncomingPlan(value: unknown): DeserializeResult {
-  if (typeof value === "string") return deserializePlan(value);
-  return parsePlanValue(value);
-}
+// This handler moves OPAQUE BYTES only: it validates what comes in, encodes it
+// to bytes with the codec seam (`../floor-plan/codec`), and stores those bytes;
+// on read it takes the decompressed payload back from the repository and
+// decodes it. The on-disk encoding (gzip today, a packed binary format later)
+// never leaks past the codec, so this file does not change when it does.
+//
+// Validation and canonical encoding still happen here — not in the data layer —
+// which is what keeps `src/lib/db/**` format-agnostic.
 
 /** Reads the stored plan for the editor. Invalid stored values are not served. */
 export const GET = adminRoute(async (_req, tenantId) => {
-  const record = await getRepository(tenantId).getFloorPlanJson();
-  if (!record.json) {
+  const record = await getRepository(tenantId).getFloorPlanPayload();
+  if (!record.payload) {
     return NextResponse.json({ success: true, plan: null, updatedAt: null });
   }
 
-  const result = deserializePlan(record.json);
+  const result = planCodec.decode(record.payload);
   if (!result.ok) {
-    console.error(
-      `[api/admin/floor-plan] stored floor plan is invalid: ${result.issues[0]?.code ?? "unknown"}`
-    );
+    console.error(`[api/admin/floor-plan] ${describeDecodeFailure(planCodec, result)}`);
     return NextResponse.json({
       success: true,
       plan: null,
@@ -81,17 +69,17 @@ export const POST = adminRoute(async (req: NextRequest, tenantId: string, staff)
     );
   }
 
-  let serialized: string;
+  let encoded: Uint8Array;
   try {
     // Canonical form: known fields only, fixed key order, current schema
     // version. Validation already passed, so this cannot throw in practice.
-    serialized = serializePlan(parsed.plan);
+    encoded = planCodec.encode(parsed.plan);
   } catch (err) {
-    console.error("[api/admin/floor-plan] serializePlan failed:", err);
+    console.error(`[api/admin/floor-plan] ${planCodec.name} encode failed:`, err);
     return NextResponse.json({ success: false, error: "Invalid floor plan" }, { status: 400 });
   }
 
-  const saved = await getRepository(tenantId).saveFloorPlanJson(serialized);
+  const saved = await getRepository(tenantId).saveFloorPlanPayload(encoded);
   if (!saved) {
     return NextResponse.json(
       { success: false, error: "Failed to save floor plan" },
@@ -100,9 +88,10 @@ export const POST = adminRoute(async (req: NextRequest, tenantId: string, staff)
   }
 
   await writeAudit(req, tenantId, staff, "floorplan.update", "floorplan", null, {
-    floors: (parsed.plan as GymFloorPlan).floors.length,
-    categories: (parsed.plan as GymFloorPlan).categories.length,
-    bytes: serialized.length,
+    floors: parsed.plan.floors.length,
+    categories: parsed.plan.categories.length,
+    bytes: encoded.byteLength,
+    format: planCodec.name,
     warnings: parsed.warnings.length,
   });
 

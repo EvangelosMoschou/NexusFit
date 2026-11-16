@@ -38,7 +38,15 @@ export {
 
 export { getSavedGymConfig, updateSavedGymConfig } from "./db/gymConfig";
 
-export { deleteFloorPlan, getFloorPlanJson, saveFloorPlanJson } from "./db/floorPlan";
+export { deleteFloorPlan, getFloorPlanPayload, saveFloorPlanPayload } from "./db/floorPlan";
+
+export {
+  compressPlanPayload,
+  decompressPlanPayload,
+  isCompressedPlanPayload,
+  MAX_PAYLOAD_BYTES,
+  PAYLOAD_FORMAT_NAME,
+} from "./db/floorPlanCompression";
 
 export {
   createMemberSession,

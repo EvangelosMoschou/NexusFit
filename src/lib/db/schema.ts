@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import { defaultGymConfig } from "@/config/gymConfig";
 import { hashPinSync } from "@/lib/passwordHash";
 import { envFlag, isDemoMode } from "@/lib/flags";
+import { compressPlanPayload, PAYLOAD_FORMAT_NAME } from "./floorPlanCompression";
 import { DEFAULT_TENANT_ID } from "./tenant";
 
 // Schema, one-time migrations and first-run seeding.
@@ -57,7 +58,8 @@ export const SCHEMA_SQL = `
 
     CREATE TABLE IF NOT EXISTS floor_plan (
       id TEXT PRIMARY KEY,
-      plan_json TEXT NOT NULL,
+      payload BLOB,
+      payload_format TEXT,
       updated_at TEXT NOT NULL
     );
 
@@ -205,6 +207,164 @@ export function migrateVisitActivity(db: DatabaseSync): void {
     db.exec("UPDATE visits SET last_activity_at = checked_in_at WHERE last_activity_at IS NULL");
   } catch (err) {
     console.error("[sqliteDb] visit activity migration failed:", err);
+  }
+}
+
+/**
+ * Upgrades `floor_plan` from the legacy plain-text row to the gzipped payload
+ * row, in place and idempotently.
+ *
+ * Before: `(id, plan_json TEXT NOT NULL, updated_at)`, holding the serialized
+ * plan as raw UTF-8 text — the shape `CREATE TABLE IF NOT EXISTS` below used to
+ * create, and the one an existing deployment already has on disk with a
+ * possibly valuable row in it. After: `(id, payload BLOB, payload_format TEXT,
+ * updated_at)`, holding gzip plus the format envelope from
+ * `./floorPlanCompression`.
+ *
+ * The steps mirror `migrateVisitActivity`/`ensureTrainerPasswordColumn`:
+ *
+ * 1. `PRAGMA table_info` decides; the DDL runs only when something is missing,
+ *    and a duplicate-column error from a second process that got there first is
+ *    swallowed after re-checking (PM2 cluster mode boots several workers).
+ * 2. Every row that still has `plan_json` and no `payload` is compressed into
+ *    `payload` in place, with the same bytes the HTTP layer would have stored,
+ *    so the plan survives byte-for-byte.
+ * 3. The legacy column is removed by rebuilding the table, because it is
+ *    `NOT NULL` and would otherwise reject the new payload-only INSERT — and so
+ *    that a migrated database has byte-identical columns to a fresh one.
+ *
+ * The compression step is per-row and forgiving: if one row cannot be encoded
+ * the legacy column is deliberately NOT dropped, so nothing is lost and the
+ * next boot can retry.
+ */
+export function migrateFloorPlanPayload(db: DatabaseSync): void {
+  try {
+    const columnNames = (): string[] =>
+      (db.prepare("PRAGMA table_info(floor_plan)").all() as Array<{ name: string }>).map(
+        (column) => column.name
+      );
+
+    let names = columnNames();
+
+    /** Adds a column unless it is already there, tolerating a concurrent add. */
+    const addColumn = (name: string, type: string): void => {
+      if (names.includes(name)) return;
+      try {
+        db.exec(`ALTER TABLE floor_plan ADD COLUMN ${name} ${type}`);
+      } catch (err) {
+        // Another process added it between the check and the ALTER.
+        if (!columnNames().includes(name)) throw err;
+      }
+      names = columnNames();
+    };
+
+    addColumn("payload", "BLOB");
+    addColumn("payload_format", "TEXT");
+
+    if (!names.includes("plan_json")) return;
+
+    const legacyRows = db
+      .prepare(
+        "SELECT id, plan_json FROM floor_plan WHERE plan_json IS NOT NULL AND payload IS NULL"
+      )
+      .all() as Array<{ id: string; plan_json: string }>;
+
+    // `plan_json` is NOT NULL in the legacy shape, so it is blanked (`''`), not
+    // set to NULL — the column is dropped right after this loop anyway, and a
+    // blank value keeps the statement legal on every SQLite build.
+    const updateStmt = db.prepare(
+      "UPDATE floor_plan SET payload = ?, payload_format = ?, plan_json = '' WHERE id = ?"
+    );
+
+    let converted = 0;
+    let failed = 0;
+    for (const row of legacyRows) {
+      try {
+        const raw = String(row.plan_json);
+        if (raw.length === 0) {
+          // A blank legacy value is "no plan" — nothing to compress.
+          db.prepare("UPDATE floor_plan SET plan_json = '' WHERE id = ?").run(row.id);
+          continue;
+        }
+        // Same bytes the HTTP boundary would have handed us: the stored text,
+        // verbatim. The storage layer still never parses it.
+        updateStmt.run(
+          compressPlanPayload(new TextEncoder().encode(raw)),
+          PAYLOAD_FORMAT_NAME,
+          row.id
+        );
+        converted += 1;
+      } catch (err) {
+        failed += 1;
+        console.error("[sqliteDb] floor plan payload migration failed for row:", row.id, err);
+      }
+    }
+
+    if (failed > 0) {
+      // Keep the legacy values: dropping the column now would destroy them.
+      console.error(
+        `[sqliteDb] floor plan payload migration incomplete (${failed} row(s)); keeping plan_json`
+      );
+      return;
+    }
+
+    // Converge on the exact fresh-database shape — column order included — by
+    // rebuilding the table. Two reasons not to use `ALTER TABLE ... DROP
+    // COLUMN`: the resulting order would be `(id, updated_at, payload,
+    // payload_format)`, so a migrated database and a fresh one would have
+    // different shapes (confusing for anything that reads `PRAGMA table_info`);
+    // and DROP COLUMN only exists from SQLite 3.35. The rebuild is a single
+    // transaction, which SQLite supports for DDL, and `BEGIN IMMEDIATE` makes a
+    // second boot process wait rather than race; it re-checks the columns under
+    // the lock and does nothing if the first one won.
+    //
+    // `ownsTransaction` guards the ROLLBACK: if `BEGIN IMMEDIATE` itself failed
+    // (another writer holding the lock past `busy_timeout`), there is no
+    // transaction of OUR making to roll back, and rolling back the caller's
+    // would be worse than doing nothing.
+    let ownsTransaction = false;
+    try {
+      db.exec("BEGIN IMMEDIATE");
+      ownsTransaction = true;
+
+      if (!columnNames().includes("plan_json")) {
+        db.exec("COMMIT");
+        ownsTransaction = false;
+      } else {
+        db.exec(`
+          DROP TABLE IF EXISTS floor_plan_rebuilt;
+          CREATE TABLE floor_plan_rebuilt (
+            id TEXT PRIMARY KEY,
+            payload BLOB,
+            payload_format TEXT,
+            updated_at TEXT NOT NULL
+          );
+          INSERT INTO floor_plan_rebuilt (id, payload, payload_format, updated_at)
+            SELECT id, payload, payload_format, updated_at FROM floor_plan;
+          DROP TABLE floor_plan;
+          ALTER TABLE floor_plan_rebuilt RENAME TO floor_plan;
+        `);
+        db.exec("COMMIT");
+        ownsTransaction = false;
+      }
+    } catch (rebuildErr) {
+      if (ownsTransaction) {
+        try {
+          db.exec("ROLLBACK");
+        } catch {
+          // The failing statement already resolved the transaction.
+        }
+      }
+      throw rebuildErr;
+    }
+
+    if (converted > 0) {
+      console.warn(
+        `[sqliteDb] floor plan payload migration: compressed ${converted} legacy row(s) to gzip`
+      );
+    }
+  } catch (err) {
+    console.error("[sqliteDb] floor plan payload migration failed:", err);
   }
 }
 
@@ -387,6 +547,7 @@ export function initializeDatabase(db: DatabaseSync, tenantId: string): void {
   db.exec(SCHEMA_SQL);
   migrateLegacyPins(db);
   migrateVisitActivity(db);
+  migrateFloorPlanPayload(db);
   seedDemoData(db, tenantId);
   seedDefaultGymConfig(db);
 }

@@ -15,6 +15,7 @@ process.env.ADMIN_PASSWORD = "test-admin-password";
 process.env.SESSION_SECRET = "test-session-secret-for-floor-plan-routes";
 
 import { DELETE, GET, POST } from "./route";
+import { planCodec } from "../../floor-plan/codec";
 import { adminSessionToken } from "@/lib/adminAuth";
 import { getRepository } from "@/lib/db";
 import { createEmptyPlan, serializePlan } from "@/modules/gym-floor-plan";
@@ -44,6 +45,17 @@ function request(init: { method?: string; body?: unknown; cookie?: string } = {}
 
 function samplePlan(title = "Admin floor"): GymFloorPlan {
   return createEmptyPlan({ rows: 3, cols: 4, title });
+}
+
+/**
+ * The payload the routes should have stored for a plan.
+ *
+ * Read back through the SAME codec seam the routes use, because that is the
+ * contract: the repository holds whatever bytes the codec produced. Re-deriving
+ * it with `serializePlan` would silently pass if the seam changed codecs.
+ */
+function storedBytes(repository: ReturnType<typeof getRepository>) {
+  return repository.getFloorPlanPayload();
 }
 
 describe("admin floor-plan auth", () => {
@@ -82,7 +94,7 @@ describe("GET /api/admin/floor-plan", () => {
   });
 
   it("does not hand a corrupt stored value to the editor", async () => {
-    await getRepository().saveFloorPlanJson('{"schemaVersion":1}');
+    await getRepository().saveFloorPlanPayload(new TextEncoder().encode('{"schemaVersion":1}'));
 
     const res = await GET(request());
     const body = await res.json();
@@ -107,9 +119,16 @@ describe("POST /api/admin/floor-plan", () => {
     expect(body.success).toBe(true);
     expect(Array.isArray(body.warnings)).toBe(true);
 
-    const stored = await getRepository().getFloorPlanJson();
-    expect(stored.json).toBe(serializePlan(samplePlan("Canonical me")));
-    expect(stored.json).not.toContain("extraKey");
+    // The stored payload is the codec's canonical bytes: extra keys stripped,
+    // key order fixed, current schemaVersion stamped. The codec is a packed
+    // binary format, so this compares bytes rather than text.
+    const stored = await storedBytes(getRepository());
+    expect(stored.format).toBe("gzip");
+    expect(
+      Buffer.from(stored.payload!).equals(Buffer.from(planCodec.encode(samplePlan("Canonical me"))))
+    ).toBe(true);
+    // The extra key cannot survive the binary encoding at all.
+    expect(new TextDecoder().decode(Buffer.from(stored.payload!))).not.toContain("extraKey");
   });
 
   it("accepts the serialized string form too", async () => {
@@ -118,8 +137,14 @@ describe("POST /api/admin/floor-plan", () => {
     const res = await POST(request({ method: "POST", body: { plan: serialized } }));
     expect(res.status).toBe(200);
 
-    const stored = await getRepository().getFloorPlanJson();
-    expect(stored.json).toBe(serialized);
+    // A serialized v2/v3 string is accepted on input and normalized to the
+    // codec's bytes, so the stored payload is the binary form of the same plan.
+    const stored = await storedBytes(getRepository());
+    expect(
+      Buffer.from(stored.payload!).equals(
+        Buffer.from(planCodec.encode(samplePlan("From a string")))
+      )
+    ).toBe(true);
   });
 
   it("rejects a missing plan body with 400", async () => {
@@ -162,12 +187,12 @@ describe("POST /api/admin/floor-plan", () => {
 
   it("does not overwrite the stored plan when the payload is invalid", async () => {
     await POST(request({ method: "POST", body: { plan: samplePlan("Keep me") } }));
-    const before = await getRepository().getFloorPlanJson();
+    const before = await storedBytes(getRepository());
 
     await POST(request({ method: "POST", body: { plan: { schemaVersion: 99 } } }));
-    const after = await getRepository().getFloorPlanJson();
+    const after = await storedBytes(getRepository());
 
-    expect(after.json).toBe(before.json);
+    expect(Array.from(after.payload!)).toEqual(Array.from(before.payload!));
     expect(after.updatedAt).toBe(before.updatedAt);
   });
 });
@@ -179,7 +204,7 @@ describe("DELETE /api/admin/floor-plan", () => {
     const first = await DELETE(request({ method: "DELETE" }));
     expect(first.status).toBe(200);
     expect(await first.json()).toEqual({ success: true, removed: true });
-    expect((await getRepository().getFloorPlanJson()).json).toBeNull();
+    expect((await storedBytes(getRepository())).payload).toBeNull();
 
     const second = await DELETE(request({ method: "DELETE" }));
     expect(second.status).toBe(200);

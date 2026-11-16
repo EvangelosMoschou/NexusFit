@@ -1,8 +1,8 @@
 import {
   getSavedGymConfig,
   updateSavedGymConfig,
-  getFloorPlanJson,
-  saveFloorPlanJson,
+  getFloorPlanPayload,
+  saveFloorPlanPayload,
   deleteFloorPlan,
   getAllLeadsAdmin,
   updateLeadStatusAdmin,
@@ -84,11 +84,11 @@ export function createSqliteRepository(tenantId: string): Repository {
     async updateGymConfig(config) {
       return updateSavedGymConfig(config, tenantId);
     },
-    async getFloorPlanJson() {
-      return getFloorPlanJson(tenantId);
+    async getFloorPlanPayload() {
+      return getFloorPlanPayload(tenantId);
     },
-    async saveFloorPlanJson(json) {
-      return saveFloorPlanJson(json, tenantId);
+    async saveFloorPlanPayload(payload) {
+      return saveFloorPlanPayload(payload, tenantId);
     },
     async deleteFloorPlan() {
       return deleteFloorPlan(tenantId);

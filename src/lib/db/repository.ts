@@ -13,7 +13,7 @@ import {
   AuditFilters,
   AuditInput,
   AuditPage,
-  FloorPlanRecord,
+  FloorPlanPayload,
   MemberAccess,
   MemberNotification,
   MemberNotificationInput,
@@ -65,9 +65,12 @@ export interface Repository {
   getGymConfig(): Promise<GymConfig>;
   updateGymConfig(config: Partial<GymConfig>): Promise<boolean>;
 
-  // Gym floor plan (one raw JSON string per tenant; format owned by the module)
-  getFloorPlanJson(): Promise<FloorPlanRecord>;
-  saveFloorPlanJson(json: string): Promise<boolean>;
+  // Gym floor plan (one opaque, gzipped payload per tenant; format owned by the
+  // codec at the HTTP boundary, never by this layer)
+  /** The stored payload, decompressed and ready for the codec; null when unsaved. */
+  getFloorPlanPayload(): Promise<FloorPlanPayload>;
+  /** Compresses and stores `payload`, replacing any previous one. */
+  saveFloorPlanPayload(payload: Uint8Array): Promise<boolean>;
   deleteFloorPlan(): Promise<boolean>;
 
   // Media library (gallery photos)

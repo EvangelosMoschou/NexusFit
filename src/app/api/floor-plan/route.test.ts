@@ -14,7 +14,8 @@ const tempDir = mkdtempSync(path.join(tmpdir(), "nexusfit-api-floorplan-"));
 process.env.SQLITE_DATA_DIR = tempDir;
 
 import { GET } from "./route";
-import { saveFloorPlanJson } from "@/lib/sqliteDb";
+import { planCodec } from "./codec";
+import { saveFloorPlanPayload } from "@/lib/sqliteDb";
 import {
   createEmptyPlan,
   FLOOR_PLAN_SCHEMA_VERSION,
@@ -24,6 +25,16 @@ import {
 afterAll(() => {
   rmSync(tempDir, { recursive: true, force: true });
 });
+
+/** Stores a plan the way the admin route does: through the codec seam. */
+function storePlan(plan: Parameters<typeof serializePlan>[0]): boolean {
+  return saveFloorPlanPayload(planCodec.encode(plan));
+}
+
+/** Stores raw bytes, for the corrupt-payload cases. */
+function storeBytes(text: string): boolean {
+  return saveFloorPlanPayload(new TextEncoder().encode(text));
+}
 
 function request(headers: Record<string, string> = {}): NextRequest {
   const host = "localhost";
@@ -45,7 +56,7 @@ describe("GET /api/floor-plan", () => {
 
   it("serves a validated plan with its last-saved timestamp", async () => {
     const plan = createEmptyPlan({ rows: 4, cols: 5, title: "Ground floor" });
-    expect(saveFloorPlanJson(serializePlan(plan))).toBe(true);
+    expect(storePlan(plan)).toBe(true);
 
     const res = await GET(request());
     const body = await res.json();
@@ -65,7 +76,7 @@ describe("GET /api/floor-plan", () => {
     // `localhost` resolves to the default tenant, which is what this request
     // reads. It is written after the valid-plan test on purpose: this is the
     // last test that mutates the default tenant's row.
-    expect(saveFloorPlanJson("{not json")).toBe(true);
+    expect(storeBytes("{not json")).toBe(true);
 
     const res = await GET(request());
     const body = await res.json();
@@ -78,7 +89,7 @@ describe("GET /api/floor-plan", () => {
 
   it("answers 304 when the client already holds the current revision", async () => {
     const plan = createEmptyPlan({ rows: 3, cols: 3, title: "Revalidated" });
-    expect(saveFloorPlanJson(serializePlan(plan))).toBe(true);
+    expect(storePlan(plan)).toBe(true);
 
     const first = await GET(request());
     const etag = first.headers.get("etag")!;
@@ -90,7 +101,7 @@ describe("GET /api/floor-plan", () => {
 
     // A different revision must not be short-circuited.
     const changed = createEmptyPlan({ rows: 3, cols: 3, title: "Changed" });
-    expect(saveFloorPlanJson(serializePlan(changed))).toBe(true);
+    expect(storePlan(changed)).toBe(true);
 
     const stale = await GET(request({ "if-none-match": etag }));
     expect(stale.status).toBe(200);

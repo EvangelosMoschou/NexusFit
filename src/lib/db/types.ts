@@ -63,20 +63,31 @@ export interface MediaWithData extends DbMedia {
   data: Uint8Array;
 }
 
-// The gym floor plan: one raw JSON string per tenant database.
+// The gym floor plan: one gzipped, format-tagged payload per tenant database.
 //
-// The data layer stays format-agnostic on purpose — the format is owned by the
-// portable `@/modules/gym-floor-plan` module, which this layer never imports.
-// Validation and canonical serialization happen at the HTTP boundary.
+// The data layer stays format-agnostic on purpose — the plan's format is owned
+// by the portable `@/modules/gym-floor-plan` module, which this layer never
+// imports. It only ever sees opaque bytes: `payload` is whatever the codec at
+// the HTTP boundary produced, gzipped on the way to disk and inflated on the
+// way out (see `./floorPlanCompression`).
 export interface DbFloorPlan {
   id: string;
-  plan_json: string;
+  /** Gzipped payload WITH the 3-byte envelope, or null when no plan is saved. */
+  payload: Uint8Array | null;
+  /** Envelope format name (`'gzip'`), or null when no plan is saved. */
+  payload_format: string | null;
   updated_at: string;
 }
 
-export interface FloorPlanRecord {
-  /** The stored plan JSON, verbatim, or null when no plan has been saved. */
-  json: string | null;
+export interface FloorPlanPayload {
+  /**
+   * The plan payload, already decompressed, exactly as it was saved — or null
+   * when no plan has been saved. Compare with `null`: an empty payload is a
+   * legitimate value and must not be treated as "no plan".
+   */
+  payload: Uint8Array | null;
+  /** On-disk format of the payload (`'gzip'`), or null when there is none. */
+  format: string | null;
   /** ISO timestamp of the last save, or null when no plan has been saved. */
   updatedAt: string | null;
 }

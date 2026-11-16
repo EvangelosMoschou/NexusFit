@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
-import { parsePlanValue, type GymFloorPlan } from "@/modules/gym-floor-plan";
+import { describeDecodeFailure, planCodec } from "./codec";
 
 // Public, non-personal gym floor plan.
 //
@@ -10,9 +10,15 @@ import { parsePlanValue, type GymFloorPlan } from "@/modules/gym-floor-plan";
 // hundreds of kilobytes to the landing payload, and an unrelated admin save
 // would rewrite it. Visitors fetch it separately, and only when they need it.
 //
-// The stored value is validated server-side before it is served: invalid data
-// (a hand-edited database, a plan written by a newer schema) is never handed to
-// the browser.
+// This handler moves OPAQUE BYTES only. The repository returns the stored
+// payload already decompressed (`Repository.getFloorPlanPayload`); the codec
+// seam in `./codec` turns those bytes into a plan. The storage format is
+// therefore invisible here — swapping gzip for a packed binary encoding is a
+// change in `codec.ts` alone.
+//
+// The stored value is still validated server-side before it is served: invalid
+// data (a hand-edited database, a payload written by a newer format) is never
+// handed to the browser.
 
 /** Shared-cache lifetime for this public, non-personal document. */
 const CACHE_CONTROL = "public, max-age=60, stale-while-revalidate=300";
@@ -52,35 +58,11 @@ function matchesEtag(ifNoneMatch: string | null, etag: string): boolean {
     .some((candidate) => candidate === "*" || candidate === current);
 }
 
-/** Parses and validates a stored plan string. Never throws. */
-function validateStoredPlan(
-  raw: string
-): { ok: true; plan: GymFloorPlan } | { ok: false; reason: string } {
-  let value: unknown;
-  try {
-    value = JSON.parse(raw);
-  } catch {
-    return { ok: false, reason: "stored floor plan is not valid JSON" };
-  }
-
-  const result = parsePlanValue(value);
-  if (!result.ok) {
-    const first = result.issues[0];
-    return {
-      ok: false,
-      reason: `stored floor plan is invalid: ${first?.code ?? "unknown"} (${
-        first?.message ?? "no message"
-      })`,
-    };
-  }
-  return { ok: true, plan: result.plan };
-}
-
 export async function GET(req: NextRequest) {
   const tenantId = resolveTenantIdFromHeaders(req.headers);
 
   try {
-    const record = await getRepository(tenantId).getFloorPlanJson();
+    const record = await getRepository(tenantId).getFloorPlanPayload();
     const etag = planEtag(record.updatedAt);
 
     // Conditional request: the client already holds this exact revision.
@@ -92,19 +74,19 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (!record.json) {
+    if (!record.payload) {
       return cachedJson({ plan: null, updatedAt: null }, etag);
     }
 
-    const parsed = validateStoredPlan(record.json);
-    if (!parsed.ok) {
+    const decoded = planCodec.decode(record.payload);
+    if (!decoded.ok) {
       // Serve "no plan" rather than raw, unvalidated data. `invalid` lets the UI
       // tell "never configured" apart from "the stored value is broken".
-      console.error(`[api/floor-plan] ${parsed.reason}`);
+      console.error(`[api/floor-plan] ${describeDecodeFailure(planCodec, decoded)}`);
       return cachedJson({ plan: null, invalid: true, updatedAt: record.updatedAt }, etag);
     }
 
-    return cachedJson({ plan: parsed.plan, updatedAt: record.updatedAt }, etag);
+    return cachedJson({ plan: decoded.plan, updatedAt: record.updatedAt }, etag);
   } catch {
     return NextResponse.json(
       { success: false, error: "Failed to load floor plan" },
