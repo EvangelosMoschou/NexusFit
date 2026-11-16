@@ -23,6 +23,14 @@ jobs:
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
 
+      # Keeps the documented `overrides` entry (GHSA-g3hv-75wg-m249 on
+      # minimatch) honest: fails if a vulnerable copy comes back, if the
+      # override stops applying, or once upstream ships the fix in a stable
+      # release and the override should be removed. Offline; see
+      # docs/security/supply-chain.md.
+      - name: Dependency override guard
+        run: node scripts/check-dependency-overrides.mjs
+
       - name: Lint
         run: npm run lint
 

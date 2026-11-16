@@ -108,12 +108,24 @@ jobs:
       - name: Audit production dependencies
         run: npm run audit:prod
 
-      # Informational: dev-only advisories are reported in the log but do not
-      # fail the run, so an unrelated toolchain advisory cannot block a fix.
+      # Report-only, deliberately: an unrelated dev-only advisory should not
+      # block a fix. The one advisory this repo cares about today is gated
+      # tightly instead, by the override assertion below (which fails if the
+      # vulnerable minimatch copy ever comes back).
       - name: Audit all dependencies (report only)
         if: always()
         continue-on-error: true
         run: npm audit
+
+      # Anti-rot, and the real gate for the minimatch override:
+      #   * fails if a vulnerable minimatch (<11.0.1) is installed anywhere;
+      #   * fails if the override stops applying (silently reopened alert);
+      #   * fails once @typescript-eslint/typescript-estree declares the fixed
+      #     range on its own, so the override is removed rather than outliving
+      #     its reason.
+      # See docs/security/supply-chain.md §8.
+      - name: Dependency override guard
+        run: node scripts/check-dependency-overrides.mjs
 
       - name: Generate CycloneDX SBOM
         run: npm run sbom

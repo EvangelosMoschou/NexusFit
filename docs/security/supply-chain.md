@@ -372,6 +372,81 @@ Notes:
 - For the Gitea/Forgejo mirror, use Renovate or Gitea's dependency-update
   integrations; Dependabot only runs on GitHub-hosted repositories.
 
+### Active dependency override: `minimatch` (GHSA-g3hv-75wg-m249)
+
+`package.json` carries one `overrides` entry. It is deliberate, narrow, and
+gated — not a blanket pin.
+
+```json
+"overrides": {
+  "@typescript-eslint/typescript-estree": { "minimatch": "^11.0.1" }
+}
+```
+
+**Why it exists.** [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249)
+(CVE-2026-118764, moderate) affects `minimatch` `>=7.0.0 <11.0.1`: an
+attacker-controlled glob pattern can amplify `globParts` during first-phase
+preprocessing and then be processed pairwise, consuming excessive CPU and
+memory. The only vulnerable copy in this tree was `minimatch@10.2.6`, pulled by
+`@typescript-eslint/typescript-estree`.
+
+**Why a version bump cannot fix it.** The fix requires `minimatch@11.0.1`, and
+the parent semver-excludes it: every *stable* `typescript-eslint` release,
+including the current latest `8.72.2`, declares `minimatch: ^10.2.2`. The only
+published release declaring `^11.0.1` is the canary `8.72.3-alpha.8`. Bumping a
+production-relevant toolchain to a canary is a larger and less reversible risk
+than pinning one transitive dev dependency, so the override is the narrower
+choice. When a stable `typescript-eslint` declares `^11.0.1`, the guard below
+fails and the override must be deleted.
+
+**Why it is not exploitable here.** Three independent reasons, each verified:
+
+1. *Dev-only.* `typescript-estree` is reached only through
+   `eslint-config-next` → `typescript-eslint`. Nothing under `src/` imports it,
+   `next build` never loads it, and `npm audit --omit=dev` reports 0
+   vulnerabilities. The vulnerable code cannot run in the deployed application.
+2. *Not request-reachable.* The one `minimatch()` call in
+   `typescript-estree` is `filePathMatchedBy()` in
+   `dist/useProgramFromProjectService.js`, which matches a file path against
+   `projectService.allowDefaultProject`. That path is reached only when typed
+   linting with the project service is enabled. `eslint.config.mjs` uses
+   `eslint-config-next`'s untyped config and sets no `project`/`projectService`,
+   so the call site never executes. A runtime probe that hooks every
+   `minimatch()` call confirmed **0 calls** during a full `eslint .` run.
+3. *Config-sourced globs.* Even with typed linting on, the patterns come from
+   the repository's own ESLint config, never from HTTP input. The exploited
+   input is a glob pattern; an attacker here would already be writing to the
+   repository.
+
+**How it is enforced.** `scripts/check-dependency-overrides.mjs` runs in the
+`supply-chain` job. It is offline (it reads `package.json`,
+`package-lock.json` and the installed tree) and fails in four cases:
+
+| check | meaning |
+| --- | --- |
+| `reopened` | a vulnerable `minimatch` (`>=7.0.0 <11.0.1`) is installed anywhere |
+| `override-missing` | the `overrides` entry was removed, so the fix is not applied |
+| `override-ineffective` | the entry exists but the installed copy does not satisfy it |
+| `override-stale` | the parent now declares `^11.0.1` itself — delete the override |
+
+The `override-stale` check is what keeps this from rotting: the moment upstream
+ships the fix in a stable release, CI fails until the override and its policy
+entry are removed. `npm ci` is a second, independent guard — it refuses to
+install when `package.json` declares an override the lockfile does not reflect
+(`Invalid: lock file's minimatch@10.2.6 does not satisfy minimatch@11.0.8`).
+
+**Revert.** Delete the `overrides` block from `package.json`, `npm install`, and
+delete the `POLICIES` entry in `scripts/check-dependency-overrides.mjs` (and
+this section). `package-lock.json` returns `minimatch@10.2.6` for that one
+consumer — which is exactly why the entry exists.
+
+**Peer dependency note.** This override does not touch the
+`legacy-peer-deps=true` setting in `.npmrc`, and does not depend on it: the
+override changes a regular dependency range, not a peer range. Removing
+`legacy-peer-deps` still fails on `eslint-plugin-jsx-a11y`'s ESLint 9 peer
+range, before and after this change, so that documented workaround is
+unaffected either way.
+
 ---
 
 ## Running the gates locally
