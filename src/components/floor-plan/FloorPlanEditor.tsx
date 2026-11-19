@@ -94,17 +94,6 @@ interface FloorPlanEditorProps {
   clearing?: boolean;
 }
 
-/** Reads `data-row`/`data-col` off the element under the pointer. */
-function coordFromTarget(target: EventTarget | null): CellCoord | null {
-  if (!(target instanceof HTMLElement)) return null;
-  const cell = target.closest<HTMLElement>("[data-row][data-col]");
-  if (!cell) return null;
-  const row = Number.parseInt(cell.dataset.row ?? "", 10);
-  const col = Number.parseInt(cell.dataset.col ?? "", 10);
-  if (!Number.isInteger(row) || !Number.isInteger(col)) return null;
-  return { row, col };
-}
-
 export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
   plan,
   onChange,
@@ -123,7 +112,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
   const [strokeCells, setStrokeCells] = useState<ReadonlyMap<string, CellCoord> | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
-  const gridRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<SVGSVGElement>(null);
   /** Pointer handlers run outside React's render cycle; the stroke lives here. */
   const strokeRef = useRef<Map<string, CellCoord> | null>(null);
   const lastPointRef = useRef<CellCoord | null>(null);
@@ -153,14 +142,16 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
     return defaultBrush(plan.categories);
   }, [brushSelection, plan.categories]);
 
-  // Move DOM focus to the roving square after a keyboard navigation.
+  // Move DOM focus back to the SVG after a keyboard navigation.
+  //
+  // There is no per-square element any more: the whole map is one `<svg>` that
+  // holds the roving cursor, so "focus the cursor square" is "focus the map".
+  // The visible cursor is the ring drawn inside the viewBox by FloorPlanCanvas,
+  // which is why arrow keys still show a moving indicator without a DOM node.
   useEffect(() => {
     if (!shouldFocusRef.current) return;
     shouldFocusRef.current = false;
-    const cell = gridRef.current?.querySelector<HTMLElement>(
-      `[data-row="${focusTarget.row}"][data-col="${focusTarget.col}"]`
-    );
-    cell?.focus({ preventScroll: true });
+    gridRef.current?.focus({ preventScroll: true });
   }, [focusTarget]);
 
   const validation = useMemo(() => validatePlan(plan), [plan]);
@@ -248,7 +239,11 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
   };
 
   /** Pointer entry point for a whole stroke, also exposed for tests. */
-  const handlePointerDown = (row: number, col: number, event: React.PointerEvent) => {
+  const handlePointerDown = (
+    row: number,
+    col: number,
+    event: React.PointerEvent<SVGSVGElement>
+  ) => {
     if (event.button !== 0) return;
     // Stops the drag from selecting text, and hands focus to the grid so the
     // keyboard continues from the square that was just clicked.
@@ -257,7 +252,7 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
     beginStroke(row, col);
   };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (event: React.KeyboardEvent<SVGSVGElement>) => {
     const move = ARROW_MOVES[event.key];
     if (move) {
       event.preventDefault();
@@ -550,32 +545,23 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
             focusCol={focusTarget.col}
             strokePreview={strokePreview}
             gridRef={gridRef}
+            // The canvas owns hit-testing (one pointer handler on the `<svg>` plus
+            // `cellAtPoint`), so the editor only receives the square that was hit.
+            // That is what replaced 9 216 per-square listeners.
+            onCellPointerDown={(row, col, event) => handlePointerDown(row, col, event)}
+            onCellPointerOver={(row, col) => {
+              if (!lastPointRef.current) return;
+              extendStroke(row, col);
+            }}
             gridProps={{
-              role: "group",
-              // Programmatically focusable so a click can hand keyboard control
-              // to the grid: `onKeyDown` is attached here, and a click on a
-              // square would otherwise leave `document.activeElement` on BODY.
-              // -1 keeps the grid itself out of the tab order; the squares carry
-              // the roving tabindex.
+              // The whole map is ONE focus target. `tabIndex=-1` makes it
+              // click-focusable without adding a tab stop: the roving cursor is
+              // drawn inside the viewBox, so a 96 × 96 floor is still one tab
+              // stop rather than 9 216.
               tabIndex: -1,
-              // Programmatically focusable so a click can hand keyboard control
-              // to the grid: `onKeyDown` is attached here, and a click on a
-              // square would otherwise leave `document.activeElement` on BODY.
-              // -1 keeps the grid itself out of the tab order; the squares carry
-              // the roving tabindex.
+              role: "application",
               "aria-label": `Πίνακας κάτοψης: ${activeFloor.name}, ${activeFloor.rows} σειρές επί ${activeFloor.cols} στήλες`,
               onKeyDown: handleKeyDown,
-              onPointerDown: (event) => {
-                const point = coordFromTarget(event.target);
-                if (point) handlePointerDown(point.row, point.col, event);
-              },
-              onPointerOver: (event) => {
-                // `pointerover` bubbles (unlike `pointerenter`), so one listener
-                // on the grid covers every square.
-                if (!lastPointRef.current) return;
-                const point = coordFromTarget(event.target);
-                if (point) extendStroke(point.row, point.col);
-              },
               onDragStart: (event) => event.preventDefault(),
             }}
           />

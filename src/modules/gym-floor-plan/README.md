@@ -69,9 +69,15 @@ plan = setCell(plan, "floor-1", 0, 1, { kind: "void" });
 
 const json = serializePlan(plan); // canonical, versioned
 const model = buildFloorRenderModel(plan, "floor-1");
-// model.cells -> row-major cells with colour, shortLabel, pattern, ariaLabel
-// model.grid  -> CSS Grid template
-// model.legend, model.summary
+
+// A packed model, not one object per square:
+//   model.cellAppearanceIndex -> Uint16Array, exactly rows * cols entries
+//   model.appearances         -> distinct { kind, categoryId, color, inkColor,
+//                                shortLabel, pattern }, at most maxCategories + 3
+//   model.legend, model.summary
+
+const appearance = model.appearanceAt(2, 3); // O(1), null when out of bounds
+const described = model.describeCell(2, 3); // { ariaLabel, tooltip }, derived on demand
 ```
 
 ## Data model
@@ -129,7 +135,7 @@ Model (`model.ts`):
 Render (`render.ts`):
 
 - `buildFloorRenderModel`, `getCellAppearance`, `buildLegend`, `describeFloor`
-- `getGridTemplate`, `getInkColor`, `patternToBackground`
+- `getInkColor`, `patternToBackground`, `checkRenderModel`
 - `DEFAULT_FLOOR_PLAN_THEME`, `PRINT_FLOOR_PLAN_THEME`,
   `DEFAULT_FLOOR_PLAN_LABELS`
 
@@ -197,7 +203,7 @@ them before passing the theme.
 `validatePlan(value: unknown)` returns `{ valid, errors, warnings }` and never
 throws. Errors block saving; warnings are advisory.
 
-Limits: 1–40 rows and columns, 1–6 floors, 0–20 categories, plan title ≤80
+Limits: 1–96 rows and columns, 1–6 floors, 0–20 categories, plan title ≤80
 characters, floor/category names ≤40, short label 1–3 characters, machine label
 ≤40, colour `#RRGGBB`.
 
@@ -289,8 +295,8 @@ Header, 24 bytes at offset 0:
 | 3 | 1 | flags: bit0 `HAS_LABELS`, rest reserved |
 | 4 | 1 | floor count (1–6) |
 | 5 | 1 | category index bit width (1–5) |
-| 6 | 2 | max rows (1–40) |
-| 8 | 2 | max cols (1–40) |
+| 6 | 2 | max rows (1–96) |
+| 8 | 2 | max cols (1–96) |
 | 10 | 2 | category count |
 | 12 | 2 | label count |
 | 14 | 4 | total payload length, header included |
@@ -354,10 +360,44 @@ The category count moves the ratio because it moves the index width (same
 | 4 | 2 | 42 470 B | 3 615 B | 11.7× |
 | 8 | 3 | 42 824 B | 4 184 B | 10.2× |
 
+At the 96 × 96 ceiling (measured by `render.test.ts`):
+
+| Plan | v3 (binary) | v2 (JSON tokens) | gzip(v3) |
+| --- | --- | --- | --- |
+| 96 × 96 × 1, all empty | 2 370 B | 1 196 B | 90 B |
+| 96 × 96 × 1, realistic | 3 388 B | 44 926 B | 568 B |
+| 96 × 96 × 6, all empty | 14 000 B | 6 796 B | 170 B |
+
+~2.3 KB per empty floor and ~3.4 KB per realistic floor before gzip. The one
+case where the packed binary loses to the token text is a completely empty
+floor: 6 all-empty floors run-length encode to 6 796 B of JSON but still pay a
+flat 2 bits per square in the grid (14 000 B). Any painted plan is an order of
+magnitude the other way, and storage compresses, so v3 remains the storage
+format.
+
 The v1 dense form of the same 40 × 40 × 6 plan is 164 231 B all-empty and
 385 031 B all-machine, so v3 is roughly 40–100× smaller than v1 on realistic
 plans. `wire-size.test.ts` pins the text-vs-v1 ratios; `wireBinary.test.ts` pins
 the binary numbers above.
+
+### The packed render model
+
+`buildFloorRenderModel` returns a `Uint16Array` of appearance indices plus a
+table of at most `maxCategories + 3` resolved `CellAppearance` values — not one
+object per square. `appearanceAt(row, col)` and `describeCell(row, col)` are O(1)
+and return `null` out of bounds; `describeCell` is where the position-dependent
+`ariaLabel`/`tooltip` are built, for the one square a user is on.
+
+Measured per fresh process, 4 categories, ~40 % machines:
+
+| Floor | Cells | Per-cell model | Packed model |
+| --- | --- | --- | --- |
+| 40 × 40 | 1 600 | 313 554 B, 1 607 objects, 533 005 B retained | 3 536 B, 9 objects + 1 typed array, 9 523 B retained |
+| 96 × 96 | 9 216 | 1 806 292 B, 9 223 objects, 3 032 223 B retained | 18 768 B, 9 objects + 1 typed array, 21 123 B retained |
+
+The allocation count is flat in the grid size; only the 2-byte-per-square index
+array grows. `render.test.ts` guards both sizes and the exact `rows * cols`
+length at the ceiling.
 
 ### Migrations
 

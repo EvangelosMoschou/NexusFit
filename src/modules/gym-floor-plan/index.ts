@@ -24,4 +24,5 @@
 export * from "./types";
 export * from "./model";
 export * from "./render";
+export * from "./renderSvg";
 export * from "./wireBinary";

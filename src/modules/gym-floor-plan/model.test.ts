@@ -121,7 +121,9 @@ describe("createEmptyCells", () => {
 
   it("rejects dimensions outside the limits", () => {
     expectCode(() => createEmptyCells(0, 1), "invalid-dimensions");
-    expectCode(() => createEmptyCells(1, 41), "invalid-dimensions");
+    // One past the ceiling, whatever the ceiling is: the constant is the
+    // single source of truth, so this test cannot drift from it.
+    expectCode(() => createEmptyCells(1, FLOOR_PLAN_LIMITS.maxCols + 1), "invalid-dimensions");
   });
 });
 
@@ -697,7 +699,9 @@ describe("validatePlan", () => {
     expect(
       validatePlan({
         ...base,
-        floors: [{ id: "floor-1", name: "G", rows: 0, cols: 41, cells: [] }],
+        floors: [
+          { id: "floor-1", name: "G", rows: 0, cols: FLOOR_PLAN_LIMITS.maxCols + 1, cells: [] },
+        ],
       }).errors.map((issue) => issue.code)
     ).toEqual(expect.arrayContaining(["invalid-dimensions"]));
 

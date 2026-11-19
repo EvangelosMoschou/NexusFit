@@ -33,20 +33,27 @@ export const FLOOR_PLAN_SCHEMA_VERSION = 3;
 /**
  * Hard limits.
  *
- * They keep one plan small enough to live inside a JSON config blob and small
- * enough to render as DOM cells without pan/zoom. At 40 × 40 a floor is 1 600
- * squares. Because schema v2 run-length encodes empty floor and void, six such
- * floors of mostly empty plan JSON serialize to a few kilobytes rather than the
- * ~160 KB the dense v1 form cost (a fully painted floor is still bounded: one
- * short token per machine square). Anything larger needs a different renderer
- * (SVG/canvas) and a separate storage table, so it is rejected rather than
- * silently degrading the editor.
+ * `maxRows` / `maxCols` are 96: 9 216 squares, the largest floor the owner asked
+ * for ("96 × 96 as the absolute ceiling for very large gyms"). The ceiling did
+ * not cost anything on the wire: schema v3 packs a cell into 2 bits plus an
+ * index that only a machine square pays, so a 96 × 96 floor is ~2.3 KB, only
+ * 4× the bytes of a 40 × 40 while carrying 5.8× the squares.
+ *
+ * What DID have to change is the render model. A per-square JavaScript object
+ * costs ~330 bytes of retained heap once the two derived accessible strings are
+ * counted, so 9 216 of them is ~3 MB per floor and ~18 MB for six — for data
+ * that is two of eleven colours plus a 1–3 character label. `FloorRenderModel`
+ * is therefore a `Uint16Array` of appearance indices (2 bytes per square,
+ * 18 KB at the ceiling) plus a table of at most `maxCategories + 3` resolved
+ * appearances, and the accessible strings are derived on demand for the one
+ * square that is focused. See section "Packed render model" in the module
+ * README.
  */
 export const FLOOR_PLAN_LIMITS = {
   minRows: 1,
-  maxRows: 40,
+  maxRows: 96,
   minCols: 1,
-  maxCols: 40,
+  maxCols: 96,
   maxFloors: 6,
   maxCategories: 20,
   maxPlanTitleLength: 80,
@@ -270,20 +277,28 @@ export interface FloorPlanLabels {
   unknownCategory: string;
 }
 
-/** Inline styles for a CSS Grid container that keeps square cells. */
-export interface GridTemplate {
-  gridTemplateColumns: string;
-  gridTemplateRows: string;
-  aspectRatio: string;
-}
-
 /** CSS background used to draw a category pattern over its colour. */
 export interface PatternBackground {
   backgroundImage: string;
   backgroundSize?: string;
 }
 
-/** Everything a renderer needs for one square. */
+/**
+ * A **resolved** appearance for one square: everything a renderer needs to draw
+ * a square, with nothing left to look up and nothing that depends on where the
+ * square is.
+ *
+ * A floor has at most `maxCategories + 3` distinct appearances (one per
+ * category, plus empty, void, and the unknown-category fallback), so these are
+ * shared by every square that looks the same and are stored once in
+ * `FloorRenderModel.appearances`. The per-square cost is then the 2-byte index
+ * into that table, not a copy of these six fields.
+ *
+ * Deliberately NOT here: `ariaLabel` and `tooltip`. They mention the square's
+ * position ("Row 7, column 12"), so they cannot be shared between squares, and
+ * they were 41 of the ~190 bytes a per-square object cost. They are derived on
+ * demand for the single focused square by `FloorRenderModel.describeCell`.
+ */
 export interface CellAppearance {
   kind: FloorCell["kind"];
   categoryId: string | null;
@@ -293,15 +308,6 @@ export interface CellAppearance {
   /** Secondary encoding: empty for plain floor, `×` for void. */
   shortLabel: string;
   pattern: CellPattern;
-  /** Full accessible name for the square. */
-  ariaLabel: string;
-  /** Tooltip / hover text. */
-  tooltip: string;
-}
-
-export interface RenderedCell extends CellAppearance {
-  row: number;
-  col: number;
 }
 
 export interface LegendEntry {
@@ -316,16 +322,47 @@ export interface LegendEntry {
   count: number;
 }
 
-/** Pure, row-major render model: the React component only maps over it. */
+/**
+ * Pure, packed render model.
+ *
+ * Two parallel representations instead of one object per square:
+ *
+ * - `cellAppearanceIndex` — a `Uint16Array` with exactly `rows * cols` entries.
+ *   Entry `row * cols + col` is the position of that square's appearance in
+ *   `appearances`. Row-major, so a renderer walks it linearly and never has to
+ *   allocate a per-square object.
+ * - `appearances` — the distinct resolved appearances, at most
+ *   `maxCategories + 3` of them, each allocated once and shared.
+ *
+ * What this buys, measured per fresh process with a 4-category, ~40 % machine
+ * floor (full table in `docs/features/gym-floor-plan.md` §4.1):
+ *
+ * | Floor   | Cells | Per-cell model                            | Packed model                        |
+ * | ------- | ----- | ----------------------------------------- | ----------------------------------- |
+ * | 40 × 40 | 1 600 | 313 554 B, 1 607 objs, 533 005 B heap      | 3 536 B, 9 objs, 9 523 B heap        |
+ * | 96 × 96 | 9 216 | 1 806 292 B, 9 223 objs, 3 032 223 B heap  | 18 768 B, 9 objs, 21 123 B heap      |
+ *
+ * The allocation count is flat in the grid size: only the 2-byte-per-square
+ * index array grows, which is 3 200 B at 40 × 40 and 18 432 B at 96 × 96.
+ *
+ * The two accessor methods are O(1) and are the only place the index is turned
+ * back into an appearance, so a consumer never does the arithmetic itself and
+ * never has to bounds-check.
+ */
 export interface FloorRenderModel {
   floorId: string;
   floorName: string;
   rows: number;
   cols: number;
-  grid: GridTemplate;
-  /** Row-major, `rows * cols` entries. */
-  cells: RenderedCell[];
+  /** Row-major appearance INDEX, exactly rows*cols entries. */
+  cellAppearanceIndex: Uint16Array;
+  /** The distinct appearances referenced by the index array. */
+  appearances: CellAppearance[];
   legend: LegendEntry[];
   /** Screen-reader summary of the floor (also used as the figure alt text). */
   summary: string;
+  /** O(1). Null when out of bounds. */
+  appearanceAt(row: number, col: number): CellAppearance | null;
+  /** The accessible strings, derived on demand for ONE square. */
+  describeCell(row: number, col: number): { ariaLabel: string; tooltip: string } | null;
 }

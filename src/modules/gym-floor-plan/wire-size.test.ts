@@ -120,19 +120,23 @@ describe("schema v2 wire size", () => {
 
   it("keeps the largest possible plan well inside a config blob", () => {
     // Six maximal floors where every square is a labelled machine: the true
-    // worst case for the module's limits.
+    // worst case for the module's limits. Read straight off the constants, so
+    // raising the ceiling cannot leave this test measuring a smaller plan than
+    // the module actually allows.
+    const size = FLOOR_PLAN_LIMITS.maxRows;
     const labelled: FloorCell = { kind: "machine", categoryId: "cat-1", label: "Chest press" };
-    let plan = uniformPlan(40, 40, 6, labelled);
+    const plan = uniformPlan(size, size, FLOOR_PLAN_LIMITS.maxFloors, labelled);
     const v2 = bytes(serializePlan(plan));
     const v1 = bytes(serializeV1(plan));
 
-    console.warn(`40x40x6 labelled-machine: v1=${v1}B v2=${v2}B`);
+    console.warn(`${size}x${size}x6 labelled-machine: v1=${v1}B v2=${v2}B`);
 
-    expect(FLOOR_PLAN_LIMITS.maxFloors * FLOOR_PLAN_LIMITS.maxRows).toBe(240);
+    expect(FLOOR_PLAN_LIMITS.maxFloors).toBe(6);
     expect(v2).toBeLessThan(v1);
-    // Still comfortably storable as a SQLite text value.
-    expect(v2).toBeLessThan(300_000);
-    plan = plan;
+    // Still comfortably storable as a SQLite text value. At the 96x96 ceiling
+    // the all-labelled text form is ~1.4 MB, so the bound scales with the
+    // ceiling rather than pinning the old 40x40 number.
+    expect(v2).toBeLessThan(2_000_000);
   });
 
   it("shrinks a realistic sparse plan, not only the synthetic extremes", () => {

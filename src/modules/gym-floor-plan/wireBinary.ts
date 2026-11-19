@@ -4,7 +4,8 @@
  * Schema v2 (`wire.ts`) serializes each row as JSON tokens. That is readable,
  * but expensive: a machine square is `"m:0"` — five bytes of JSON punctuation
  * and quotes to carry two bits of information — and a realistic 40 x 40 x 6
- * plan costs ~44 KB of text. Schema v3 packs the same plan into a binary blob
+ * plan costs ~44 KB of text. The 96 x 96 ceiling costs 2 370 bytes for an empty
+ * floor and 3 388 bytes for a realistic one (measured by `render.test.ts`). Schema v3 packs the same plan into a binary blob
  * where a cell costs exactly `2 + categoryBits` bits.
  *
  * This file is the codec. It is deliberately split from `model.ts` so the
@@ -27,8 +28,8 @@
  *   3      1    flags: bit0 = HAS_LABELS, bits 1..7 reserved (must be 0)
  *   4      1    floorCount (1..6)
  *   5      1    categoryBits (1..5) = ceil(log2(max(2, categoryCount)))
- *   6      2    maxRows  = the largest floor's `rows`  (1..40)
- *   8      2    maxCols  = the largest floor's `cols`  (1..40)
+ *   6      2    maxRows  = the largest floor's `rows`  (1..96)
+ *   8      2    maxCols  = the largest floor's `cols`  (1..96)
  *   10     2    categoryCount
  *   12     2    labelCount (0 means the label section is absent entirely)
  *   14     4    total payload byte length, header included (truncation guard)
@@ -73,7 +74,7 @@
  * `gridByteLength` varint (2 bytes for a maximal floor). The decoder reads
  * exactly that many bytes and requires the leftover bits of the last byte to be
  * zero padding, which makes a hand-edited grid length an issue rather than a
- * silent desync. As an upper bound `gridByteLength(rows, cols, bits)` = 
+ * silent desync. As an upper bound `gridByteLength(rows, cols, bits)` =
  * `ceil(rows * cols * (2 + bits) / 8)` is used to reject an over-long
  * declaration BEFORE allocating (see `MAX` note below).
  *
@@ -89,8 +90,10 @@
  *   cellOrdinal = offsetOfFloor + row * cols + col
  *
  * where `offsetOfFloor` is the sum of `rows * cols` of the floors before it, so
- * an ordinal is a single varint (2 bytes up to 16 383 cells) rather than a
- * (floor, row, col) triple. Entries are written in ascending cell order.
+ * an ordinal is a single varint rather than a (floor, row, col) triple. At the
+ * 96 x 96 x 6 ceiling the largest ordinal is 55 295, which a varint encodes in
+ * 3 bytes (2 bytes cover up to 16 383 cells). Entries are written in ascending
+ * cell order.
  *
  * Consequence worth testing: a plan with no labels writes labelCount = 0, the
  * HAS_LABELS flag stays clear and the payload carries ZERO label bytes — not a
@@ -363,12 +366,7 @@ class ByteWriter {
   }
 
   u32(value: number): void {
-    this.out.push(
-      (value >>> 24) & 0xff,
-      (value >>> 16) & 0xff,
-      (value >>> 8) & 0xff,
-      value & 0xff
-    );
+    this.out.push((value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff);
   }
 
   bytes(value: Uint8Array): void {
@@ -571,11 +569,15 @@ export function packPlanRecord(plan: GymFloorPlan): Uint8Array {
 
   for (const floor of plan.floors) {
     if (floor.cells.length !== floor.rows) {
-      invariant(`floor "${floor.id}" declares ${floor.rows} row(s) but carries ${floor.cells.length}.`);
+      invariant(
+        `floor "${floor.id}" declares ${floor.rows} row(s) but carries ${floor.cells.length}.`
+      );
     }
     for (const rowCells of floor.cells) {
       if (rowCells.length !== floor.cols) {
-        invariant(`floor "${floor.id}" declares ${floor.cols} column(s) but a row carries ${rowCells.length}.`);
+        invariant(
+          `floor "${floor.id}" declares ${floor.cols} column(s) but a row carries ${rowCells.length}.`
+        );
       }
     }
 
@@ -639,8 +641,7 @@ export function packPlanRecord(plan: GymFloorPlan): Uint8Array {
 
 /** Result of the structural decode: a v3 plan record, or validation issues. */
 export type UnpackedPlanRecord =
-  | { ok: true; record: Record<string, unknown> }
-  | { ok: false; issues: ValidationIssue[] };
+  { ok: true; record: Record<string, unknown> } | { ok: false; issues: ValidationIssue[] };
 
 /**
  * Decodes a v3 payload into a plain plan record (`cells` as expanded cell
@@ -765,10 +766,7 @@ function decodeRecord(bytes: Uint8Array): Record<string, unknown> {
     );
   }
   if ((flags & FLAG_HAS_LABELS) !== (labelCount > 0 ? FLAG_HAS_LABELS : 0)) {
-    fail(
-      "invalid-binary-header",
-      "The has-labels flag disagrees with the declared label count."
-    );
+    fail("invalid-binary-header", "The has-labels flag disagrees with the declared label count.");
   }
 
   const reader = new ByteReader(bytes);

@@ -11,6 +11,33 @@ import {
 } from "@/modules/gym-floor-plan";
 import { GymFloorPlan } from "@/components/GymFloorPlan";
 
+/**
+ * The SVG renderer draws one path per APPEARANCE, so the plan's squares are no
+ * longer individual DOM nodes. These helpers assert against what the map
+ * actually is now: one <svg> whose viewBox describes a rows × cols grid, plus
+ * one fill path per appearance. The per-square detail (colour, label, aria text)
+ * is covered by src/modules/gym-floor-plan/renderSvg.test.ts against the pure
+ * scene builder, which is where it belongs.
+ */
+function floorSvg(container: HTMLElement): SVGSVGElement {
+  const svg = container.querySelector<SVGSVGElement>("svg[data-floor-plan-svg]");
+  if (!svg) throw new Error("expected the SVG renderer");
+  return svg;
+}
+
+/** Declared grid size, read back from the renderer's own attributes. */
+function floorSize(container: HTMLElement): { rows: number; cols: number } {
+  const svg = floorSvg(container);
+  return { rows: Number(svg.dataset.rows), cols: Number(svg.dataset.cols) };
+}
+
+/** Fill values of the appearance paths, in appearance order. */
+function floorFills(container: HTMLElement): string[] {
+  return [...floorSvg(container).querySelectorAll("path[fill]")]
+    .map((path) => path.getAttribute("fill") ?? "")
+    .filter((fill) => fill !== "none");
+}
+
 /** A 2 × 3 floor: 2 machines, 1 void, 3 empty squares. */
 function buildPlan(): GymFloorPlanData {
   let plan = createEmptyPlan({ title: "NexusFit floor plan", rows: 2, cols: 3 });
@@ -44,14 +71,15 @@ afterEach(() => {
 });
 
 describe("GymFloorPlan (public display)", () => {
-  it("renders a legend and one cell per square for a small plan", async () => {
+  it("renders a legend and an svg map sized to the floor for a small plan", async () => {
     const plan = buildPlan();
     mockFetchOnce({ success: true, plan, updatedAt: "2026-01-01T00:00:00Z" });
 
     const { container } = render(<GymFloorPlan />);
 
-    // 2 rows × 3 cols = 6 cells.
-    await waitFor(() => expect(container.querySelectorAll("[data-row]")).toHaveLength(6));
+    // 2 rows × 3 cols, declared by the svg itself. The map is ONE node, not six.
+    await waitFor(() => expect(floorSize(container)).toEqual({ rows: 2, cols: 3 }));
+    expect(floorSvg(container).getAttribute("viewBox")).toBe("0 0 3 2");
 
     // Visible legend: both categories plus the fixed void entry.
     expect(screen.getByText("Impulse machines")).toBeTruthy();
@@ -65,19 +93,31 @@ describe("GymFloorPlan (public display)", () => {
     expect(figure?.getAttribute("aria-label")).toContain("μη διαθέσιμο");
   });
 
-  it("shows the short labels inside the painted squares", async () => {
+  it("draws each short label ONCE as a pattern tile, not once per square", async () => {
     const plan = buildPlan();
     mockFetchOnce({ success: true, plan });
 
     const { container } = render(<GymFloorPlan />);
-    await waitFor(() => expect(container.querySelectorAll("[data-row]")).toHaveLength(6));
+    await waitFor(() => expect(floorSize(container)).toEqual({ rows: 2, cols: 3 }));
 
-    const labels = [...container.querySelectorAll("[data-row]")].map((node) =>
+    // Labels are stamped by one <pattern> per appearance, so each short label
+    // exists ONCE no matter how many squares use it. Read the expected labels
+    // from the plan itself: `addCategory` derives them from the name.
+    const labels = [...floorSvg(container).querySelectorAll("pattern text")].map((node) =>
       node.textContent?.trim()
     );
-    expect(labels.filter((label) => label === "IM")).toHaveLength(1);
-    expect(labels.filter((label) => label === "AR")).toHaveLength(1);
+    for (const category of plan.categories) {
+      expect(labels.filter((label) => label === category.shortLabel)).toHaveLength(1);
+    }
     expect(labels.filter((label) => label === "×")).toHaveLength(1);
+    // The filled paths reference those tiles rather than repeating a shape. One
+    // filled path per distinct APPEARANCE, not per square: the floor has 6
+    // squares but only 4 appearances (two categories, void, and the empty floor),
+    // and each is drawn as a single merged path.
+    const referenced = floorFills(container).filter((fill) => fill.startsWith("url(#"));
+    expect(referenced).toHaveLength(4);
+    // Crucially, that count does not grow with the number of squares.
+    expect(referenced.length).toBeLessThan(plan.floors[0].rows * plan.floors[0].cols);
   });
 
   it("renders nothing when the endpoint has no plan", async () => {
@@ -115,11 +155,12 @@ describe("GymFloorPlan (public display)", () => {
     await waitFor(() => expect(screen.getByRole("tab", { name: "Ground floor" })).toBeTruthy());
 
     expect(screen.getByRole("tab", { name: "First floor" })).toBeTruthy();
-    expect(container.querySelectorAll("[data-row]")).toHaveLength(6);
+    expect(floorSize(container)).toEqual({ rows: 2, cols: 3 });
 
     screen.getByRole("tab", { name: "First floor" }).click();
 
-    await waitFor(() => expect(container.querySelectorAll("[data-row]")).toHaveLength(1));
+    // The other floor is 1 × 1.
+    await waitFor(() => expect(floorSize(container)).toEqual({ rows: 1, cols: 1 }));
   });
 
   it("hides the tabs for a single-floor plan", async () => {

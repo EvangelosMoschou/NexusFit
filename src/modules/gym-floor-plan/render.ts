@@ -2,10 +2,35 @@
  * Gym floor plan — pure presentation helpers.
  *
  * Rendering is intentionally split from the model: `buildFloorRenderModel`
- * turns a plan + floor into a row-major list of cells, a CSS Grid template, a
- * legend and a screen-reader summary. A React component then only maps over
- * that data — no layout maths, no colour parsing and no accessibility logic in
- * JSX. An SVG or canvas renderer could consume the same model later.
+ * turns a plan + floor into a packed, row-major index of *appearances*, a
+ * legend and a screen-reader summary. A React, SVG or canvas component then
+ * walks that index and draws — no layout maths, no colour parsing and no
+ * accessibility logic in JSX.
+ *
+ * ## Why the model is packed
+ *
+ * A floor is mostly repetition. On a realistic plan the grid uses a handful of
+ * appearances: one per category (at most 20), plus empty floor, plus void, plus
+ * the unknown-category fallback. The old model nevertheless allocated one
+ * JavaScript object per square — `{ row, col, kind, categoryId, color,
+ * inkColor, shortLabel, pattern, ariaLabel, tooltip }` — which measured
+ * ~330 bytes of retained heap per square once the two derived accessible
+ * strings were counted. At the 96 × 96 ceiling that is 9 216 objects and ~3 MB
+ * per floor, ~18 MB for the six floors a plan may have, for information that
+ * fits in 18 KB.
+ *
+ * So the model is two things instead:
+ *
+ * - `cellAppearanceIndex`: a `Uint16Array`, exactly `rows * cols` entries, each
+ *   one an index into the appearance table. 2 bytes per square, linear to walk.
+ * - `appearances`: the distinct `CellAppearance` values, allocated once each
+ *   and shared by every square that looks the same.
+ *
+ * The per-square accessible strings (`ariaLabel`, `tooltip`) are the one part
+ * that genuinely cannot be shared, because they name the square's position.
+ * They are therefore *derived on demand* for the one square a user focuses or
+ * hovers — `describeCell(row, col)` — instead of being pre-allocated 9 216
+ * times.
  *
  * No React import: these are plain values and strings.
  */
@@ -19,11 +44,9 @@ import {
   type FloorPlanLabels,
   type FloorPlanTheme,
   type FloorRenderModel,
-  type GridTemplate,
   type GymFloorPlan,
   type LegendEntry,
   type PatternBackground,
-  type RenderedCell,
 } from "./types";
 
 /**
@@ -62,6 +85,19 @@ export const DEFAULT_FLOOR_PLAN_LABELS: FloorPlanLabels = Object.freeze({
   noEquipment: "no equipment",
   unknownCategory: "unknown category",
 });
+
+/**
+ * The colour used for a machine square whose `categoryId` no plan category
+ * matches. Validation rejects such a plan, but a renderer must never crash on
+ * data that reached it another way, so it draws a visibly "wrong" swatch.
+ */
+const UNKNOWN_CATEGORY_COLOR = "#DC2626";
+const UNKNOWN_CATEGORY_SHORT_LABEL = "?";
+const UNKNOWN_CATEGORY_PATTERN: CellPattern = "cross";
+
+/** The fixed short label of a void square — a third encoding, never a colour. */
+const VOID_SHORT_LABEL = "×";
+const VOID_PATTERN: CellPattern = "diagonal";
 
 interface Rgb {
   r: number;
@@ -138,39 +174,6 @@ export function patternToBackground(pattern: CellPattern, inkColor: string): Pat
   }
 }
 
-/**
- * CSS Grid template that keeps squares square at any container width.
- * `minmax(0, 1fr)` is important: without it, long labels force grid tracks
- * wider than 1fr and the plan stops being a uniform grid.
- */
-export function getGridTemplate(rows: number, cols: number): GridTemplate {
-  if (
-    !Number.isInteger(rows) ||
-    rows < FLOOR_PLAN_LIMITS.minRows ||
-    rows > FLOOR_PLAN_LIMITS.maxRows
-  ) {
-    throw new FloorPlanError(
-      "invalid-dimensions",
-      `rows must be an integer between ${FLOOR_PLAN_LIMITS.minRows} and ${FLOOR_PLAN_LIMITS.maxRows}.`
-    );
-  }
-  if (
-    !Number.isInteger(cols) ||
-    cols < FLOOR_PLAN_LIMITS.minCols ||
-    cols > FLOOR_PLAN_LIMITS.maxCols
-  ) {
-    throw new FloorPlanError(
-      "invalid-dimensions",
-      `cols must be an integer between ${FLOOR_PLAN_LIMITS.minCols} and ${FLOOR_PLAN_LIMITS.maxCols}.`
-    );
-  }
-  return {
-    gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-    gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-    aspectRatio: `${cols} / ${rows}`,
-  };
-}
-
 function requireFloor(plan: GymFloorPlan, floorId: string): Floor {
   const floor = findFloor(plan, floorId);
   if (!floor) {
@@ -179,16 +182,22 @@ function requireFloor(plan: GymFloorPlan, floorId: string): Floor {
   return floor;
 }
 
+function cellAt(floor: Floor, row: number, col: number): Floor["cells"][number][number] {
+  return floor.cells[row]?.[col] ?? { kind: "empty" as const };
+}
+
+/**
+ * The **shared** half of one square's resolved appearance: everything except
+ * the position-dependent accessible strings.
+ *
+ * This is what populates `FloorRenderModel.appearances`, so it runs at most
+ * `maxCategories + 3` times per floor rather than once per square.
+ */
 function appearanceForCell(
   plan: GymFloorPlan,
   cell: Floor["cells"][number][number],
-  row: number,
-  col: number,
-  theme: FloorPlanTheme,
-  labels: FloorPlanLabels
+  theme: FloorPlanTheme
 ): CellAppearance {
-  const position = `${labels.row} ${row + 1}, ${labels.column} ${col + 1}`;
-
   if (cell.kind === "empty") {
     return {
       kind: "empty",
@@ -197,8 +206,6 @@ function appearanceForCell(
       inkColor: getInkColor(theme.emptyColor),
       shortLabel: "",
       pattern: "solid",
-      ariaLabel: `${position}: ${labels.openFloor}`,
-      tooltip: labels.openFloor,
     };
   }
 
@@ -208,10 +215,8 @@ function appearanceForCell(
       categoryId: null,
       color: theme.voidColor,
       inkColor: getInkColor(theme.voidColor),
-      shortLabel: "×",
-      pattern: "diagonal",
-      ariaLabel: `${position}: ${labels.unavailable}`,
-      tooltip: labels.unavailable,
+      shortLabel: VOID_SHORT_LABEL,
+      pattern: VOID_PATTERN,
     };
   }
 
@@ -221,16 +226,13 @@ function appearanceForCell(
     return {
       kind: "machine",
       categoryId: cell.categoryId,
-      color: "#DC2626",
-      inkColor: getInkColor("#DC2626"),
-      shortLabel: "?",
-      pattern: "cross",
-      ariaLabel: `${position}: ${labels.unknownCategory}`,
-      tooltip: labels.unknownCategory,
+      color: UNKNOWN_CATEGORY_COLOR,
+      inkColor: getInkColor(UNKNOWN_CATEGORY_COLOR),
+      shortLabel: UNKNOWN_CATEGORY_SHORT_LABEL,
+      pattern: UNKNOWN_CATEGORY_PATTERN,
     };
   }
 
-  const name = cell.label === undefined ? category.name : `${category.name} — ${cell.label}`;
   return {
     kind: "machine",
     categoryId: category.id,
@@ -238,11 +240,94 @@ function appearanceForCell(
     inkColor: getInkColor(category.color),
     shortLabel: category.shortLabel,
     pattern: category.pattern,
-    ariaLabel: `${position}: ${name}`,
-    tooltip: name,
   };
 }
 
+/** The position-dependent accessible strings for ONE square. */
+function describeAppearance(
+  plan: GymFloorPlan,
+  cell: Floor["cells"][number][number],
+  row: number,
+  col: number,
+  labels: FloorPlanLabels
+): { ariaLabel: string; tooltip: string } {
+  const position = `${labels.row} ${row + 1}, ${labels.column} ${col + 1}`;
+
+  if (cell.kind === "empty") {
+    return { ariaLabel: `${position}: ${labels.openFloor}`, tooltip: labels.openFloor };
+  }
+
+  if (cell.kind === "void") {
+    return { ariaLabel: `${position}: ${labels.unavailable}`, tooltip: labels.unavailable };
+  }
+
+  const category = plan.categories.find((candidate) => candidate.id === cell.categoryId);
+  if (!category) {
+    return {
+      ariaLabel: `${position}: ${labels.unknownCategory}`,
+      tooltip: labels.unknownCategory,
+    };
+  }
+
+  // The accessible name is the full category name, not `appearance.shortLabel`:
+  // the 1–3 character abbreviation is the *visual* secondary encoding, and a
+  // screen reader should not have to hear "IM" and look it up in the legend.
+  const name = cell.label === undefined ? category.name : `${category.name} — ${cell.label}`;
+  return { ariaLabel: `${position}: ${name}`, tooltip: name };
+}
+
+/**
+ * Key that collapses every square sharing one resolved appearance.
+ *
+ * `kind` and `categoryId` are the discriminating fields: for a machine square
+ * the other four are derived from the category the id names, and for empty/void
+ * they are fixed by the theme and the kind. A per-square `label` is deliberately
+ * NOT part of the key — it changes the square's accessible name (which
+ * `describeCell` derives from the cell) but never how the square is drawn.
+ *
+ * On a validated plan this yields at most `maxCategories + 3` entries.
+ */
+function appearanceKey(appearance: CellAppearance): string {
+  return `${appearance.kind}\u0000${appearance.categoryId ?? ""}`;
+}
+
+/**
+ * Appearance table builder: interns `CellAppearance` values by their shared
+ * fields and hands back a stable index for each.
+ */
+class AppearanceTable {
+  private readonly byKey = new Map<string, number>();
+
+  readonly appearances: CellAppearance[] = [];
+
+  intern(appearance: CellAppearance): number {
+    const key = appearanceKey(appearance);
+    const existing = this.byKey.get(key);
+    if (existing !== undefined) {
+      // The FIRST resolved appearance for a key wins. Two categories with the
+      // same colour/label/pattern would otherwise flip a square's colour
+      // depending on paint order; with this rule it is deterministic.
+      return existing;
+    }
+    const index = this.appearances.length;
+    this.byKey.set(key, index);
+    this.appearances.push(appearance);
+    return index;
+  }
+}
+
+/**
+ * Reads ONE square's appearance without building the whole model.
+ *
+ * Kept for callers that need a single square (a hover card, a print header) and
+ * for the accessible strings: the packed model stores appearances, so the
+ * position-dependent `ariaLabel`/`tooltip` are not in it. Prefer
+ * `buildFloorRenderModel(...).appearanceAt` / `.describeCell` when a caller
+ * already has a model — this function re-walks the plan.
+ *
+ * Throws `out-of-bounds` / `unknown-floor` rather than returning null, because
+ * a caller that reached here named a concrete square.
+ */
 export function getCellAppearance(
   plan: GymFloorPlan,
   floorId: string,
@@ -250,7 +335,7 @@ export function getCellAppearance(
   col: number,
   theme: FloorPlanTheme = DEFAULT_FLOOR_PLAN_THEME,
   labels: FloorPlanLabels = DEFAULT_FLOOR_PLAN_LABELS
-): CellAppearance {
+): CellAppearance & { ariaLabel: string; tooltip: string } {
   const floor = requireFloor(plan, floorId);
   if (!Number.isInteger(row) || row < 0 || row >= floor.rows) {
     throw new FloorPlanError("out-of-bounds", `Row ${row} is outside floor "${floorId}".`);
@@ -258,8 +343,11 @@ export function getCellAppearance(
   if (!Number.isInteger(col) || col < 0 || col >= floor.cols) {
     throw new FloorPlanError("out-of-bounds", `Column ${col} is outside floor "${floorId}".`);
   }
-  const cell = floor.cells[row]?.[col] ?? { kind: "empty" as const };
-  return appearanceForCell(plan, cell, row, col, theme, labels);
+  const cell = cellAt(floor, row, col);
+  return {
+    ...appearanceForCell(plan, cell, theme),
+    ...describeAppearance(plan, cell, row, col, labels),
+  };
 }
 
 /**
@@ -304,8 +392,8 @@ export function buildLegend(
     name: labels.unavailable,
     color: theme.voidColor,
     inkColor: getInkColor(theme.voidColor),
-    shortLabel: "×",
-    pattern: "diagonal",
+    shortLabel: VOID_SHORT_LABEL,
+    pattern: VOID_PATTERN,
     count: voidCount,
   });
 
@@ -314,9 +402,10 @@ export function buildLegend(
 
 /**
  * Plain-language summary used as the figure's alt text and as the screen-reader
- * description. A 40 × 40 grid is 1 600 squares — nobody wants to tab through
- * that, so the public view is exposed as one image with this summary plus the
- * legend, not as 1 600 focusable nodes.
+ * description. Even a 40 × 40 grid is 1 600 squares — nobody wants to tab
+ * through that, and 9 216 at the ceiling would be absurd — so the public view
+ * is exposed as one image with this summary plus the legend, not as thousands
+ * of focusable nodes.
  */
 export function describeFloor(
   plan: GymFloorPlan,
@@ -351,6 +440,18 @@ export function describeFloor(
   return `${floor.name} — ${floor.rows} × ${floor.cols}. ${equipmentText}. ${voidCount} ${labels.unavailable}. ${emptyCount} ${labels.openFloor}.`;
 }
 
+/**
+ * Builds the packed render model for one floor.
+ *
+ * One pass over the grid does all three jobs: read each cell, intern its shared
+ * appearance, and write the 2-byte index. Nothing per-square is allocated
+ * beyond the index array itself.
+ *
+ * `appearanceAt` and `describeCell` are O(1) closures over the floor and the
+ * tables. They are methods on the returned object rather than free functions so
+ * a renderer cannot accidentally pair one floor's index with another floor's
+ * appearance table.
+ */
 export function buildFloorRenderModel(
   plan: GymFloorPlan,
   floorId: string,
@@ -358,27 +459,77 @@ export function buildFloorRenderModel(
   labels: FloorPlanLabels = DEFAULT_FLOOR_PLAN_LABELS
 ): FloorRenderModel {
   const floor = requireFloor(plan, floorId);
-  const cells: RenderedCell[] = [];
+  const cells = floor.rows * floor.cols;
+  const cellAppearanceIndex = new Uint16Array(cells);
+  const table = new AppearanceTable();
 
   for (let row = 0; row < floor.rows; row += 1) {
     for (let col = 0; col < floor.cols; col += 1) {
-      const cell = floor.cells[row]?.[col] ?? { kind: "empty" as const };
-      cells.push({
-        row,
-        col,
-        ...appearanceForCell(plan, cell, row, col, theme, labels),
-      });
+      cellAppearanceIndex[row * floor.cols + col] = table.intern(
+        appearanceForCell(plan, cellAt(floor, row, col), theme)
+      );
     }
   }
+
+  const appearances = table.appearances;
+  const { rows, cols } = floor;
+
+  const inBounds = (row: number, col: number): boolean =>
+    Number.isInteger(row) &&
+    Number.isInteger(col) &&
+    row >= 0 &&
+    row < rows &&
+    col >= 0 &&
+    col < cols;
 
   return {
     floorId: floor.id,
     floorName: floor.name,
-    rows: floor.rows,
-    cols: floor.cols,
-    grid: getGridTemplate(floor.rows, floor.cols),
-    cells,
+    rows,
+    cols,
+    cellAppearanceIndex,
+    appearances,
     legend: buildLegend(plan, floorId, theme, labels),
     summary: describeFloor(plan, floorId, labels),
+    appearanceAt(row: number, col: number): CellAppearance | null {
+      if (!inBounds(row, col)) return null;
+      return appearances[cellAppearanceIndex[row * cols + col]] ?? null;
+    },
+    describeCell(row: number, col: number): { ariaLabel: string; tooltip: string } | null {
+      if (!inBounds(row, col)) return null;
+      if (appearances[cellAppearanceIndex[row * cols + col]] === undefined) return null;
+      return describeAppearance(plan, cellAt(floor, row, col), row, col, labels);
+    },
   };
+}
+
+/**
+ * Re-exported so a consumer can assert the packed model's invariant (the
+ * index array is exactly `rows * cols` wide and every entry addresses a real
+ * appearance) without importing `FLOOR_PLAN_LIMITS` for it.
+ *
+ * Returns an empty list when the model is well formed.
+ */
+export function checkRenderModel(model: FloorRenderModel): string[] {
+  const problems: string[] = [];
+  const expected = model.rows * model.cols;
+  if (model.cellAppearanceIndex.length !== expected) {
+    problems.push(
+      `cellAppearanceIndex has ${model.cellAppearanceIndex.length} entries; expected ${expected}.`
+    );
+  }
+  if (model.appearances.length > FLOOR_PLAN_LIMITS.maxCategories + 3) {
+    problems.push(
+      `the floor has ${model.appearances.length} appearances; at most ${FLOOR_PLAN_LIMITS.maxCategories + 3} are possible.`
+    );
+  }
+  for (let index = 0; index < model.cellAppearanceIndex.length; index += 1) {
+    if (model.cellAppearanceIndex[index] >= model.appearances.length) {
+      problems.push(
+        `cellAppearanceIndex[${index}] = ${model.cellAppearanceIndex[index]} does not address any appearance.`
+      );
+      break;
+    }
+  }
+  return problems;
 }

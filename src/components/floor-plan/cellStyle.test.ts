@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FLOOR_PLAN_THEME,
   patternToBackground,
-  type RenderedCell,
+  type CellAppearance,
 } from "@/modules/gym-floor-plan";
 import {
   CELL_BASE_STYLE,
@@ -20,23 +20,20 @@ import {
   cellStyle,
   clampToAxis,
   FLOOR_PLAN_THEME_CSS_VARIABLES,
-  gridContainerStyle,
+  strokePreviewFill,
   themeVariablesStyle,
 } from "@/components/floor-plan/cellStyle";
 
-function renderedCell(patch: Partial<RenderedCell> = {}): RenderedCell {
+function appearance(patch: Partial<CellAppearance> = {}): CellAppearance {
   return {
-    row: 0,
-    col: 0,
     kind: "machine",
+    categoryId: "cat-1",
     color: "#2563EB",
     inkColor: "#FFFFFF",
     pattern: "solid",
     shortLabel: "IM",
-    ariaLabel: "σειρά 1, στήλη 1, εξοπλισμός",
-    tooltip: "εξοπλισμός",
     ...patch,
-  } as RenderedCell;
+  };
 }
 
 describe("themeVariablesStyle", () => {
@@ -74,7 +71,7 @@ describe("themeVariablesStyle", () => {
 
 describe("cellStyle", () => {
   it("paints a machine square with its category colour and contrast ink", () => {
-    const style = cellStyle(renderedCell());
+    const style = cellStyle(appearance());
 
     expect(style.backgroundColor).toBe("#2563EB");
     expect(style.color).toBe("#FFFFFF");
@@ -85,8 +82,8 @@ describe("cellStyle", () => {
 
   it("paints empty and void squares with theme variables so print can restyle them", () => {
     // The owner's colour is irrelevant for these kinds: the theme wins.
-    const empty = cellStyle(renderedCell({ kind: "empty", color: "#123456" }));
-    const voidCell = cellStyle(renderedCell({ kind: "void", color: "#123456" }));
+    const empty = cellStyle(appearance({ kind: "empty", color: "#123456" }));
+    const voidCell = cellStyle(appearance({ kind: "void", color: "#123456" }));
 
     expect(empty.backgroundColor).toBe("var(--fp-empty)");
     expect(empty.color).toBe("var(--fp-ink)");
@@ -95,7 +92,7 @@ describe("cellStyle", () => {
   });
 
   it("draws the pattern with the cell's ink colour, not the theme's", () => {
-    const cell = renderedCell({ pattern: "diagonal" });
+    const cell = appearance({ pattern: "diagonal" });
     const style = cellStyle(cell);
     const expected = patternToBackground("diagonal", cell.inkColor);
 
@@ -106,7 +103,7 @@ describe("cellStyle", () => {
   it("omits backgroundSize for a pattern that has none", () => {
     // A solid pattern returns no size; the key must be absent, not undefined,
     // so React does not emit `background-size: undefined`.
-    const solid = cellStyle(renderedCell({ pattern: "solid" }));
+    const solid = cellStyle(appearance({ pattern: "solid" }));
     expect("backgroundSize" in solid).toBe(
       patternToBackground("solid", "#FFF").backgroundSize !== undefined
     );
@@ -114,7 +111,7 @@ describe("cellStyle", () => {
 
   it("keeps the shared cell geometry on every kind", () => {
     for (const kind of ["empty", "void", "machine"] as const) {
-      const style = cellStyle(renderedCell({ kind }));
+      const style = cellStyle(appearance({ kind }));
       for (const [key, value] of Object.entries(CELL_BASE_STYLE)) {
         expect(style[key as keyof typeof style]).toEqual(value);
       }
@@ -122,22 +119,20 @@ describe("cellStyle", () => {
   });
 });
 
-describe("gridContainerStyle", () => {
-  it("forwards the module's grid template and keeps a 1px hairline gap", () => {
-    const style = gridContainerStyle({
-      gridTemplateColumns: "repeat(3, 1fr)",
-      gridTemplateRows: "repeat(2, 1fr)",
-      aspectRatio: "3 / 2",
-    });
+describe("strokePreviewFill", () => {
+  it("reads the resolved fill back out of the preview style", () => {
+    // The SVG paints the live stroke with one path, so the canvas needs a plain
+    // fill value rather than a full CSS cell style.
+    expect(strokePreviewFill(cellStyle(appearance()))).toBe("#2563EB");
+    // Empty and void stay theme-driven, so a print swap still applies.
+    expect(strokePreviewFill(cellStyle(appearance({ kind: "empty" })))).toBe("var(--fp-empty)");
+    expect(strokePreviewFill(cellStyle(appearance({ kind: "void" })))).toBe("var(--fp-void)");
+  });
 
-    expect(style.display).toBe("grid");
-    expect(style.gridTemplateColumns).toBe("repeat(3, 1fr)");
-    expect(style.gridTemplateRows).toBe("repeat(2, 1fr)");
-    expect(style.aspectRatio).toBe("3 / 2");
-    expect(style.width).toBe("100%");
-    expect(style.gap).toBe(1);
-    expect(style.backgroundColor).toBe("var(--fp-grid-line)");
-    expect(style.border).toBe("1px solid var(--fp-grid-line)");
+  it("falls back to transparent rather than emitting an empty fill", () => {
+    expect(strokePreviewFill(undefined)).toBe("transparent");
+    expect(strokePreviewFill({})).toBe("transparent");
+    expect(strokePreviewFill({ backgroundColor: "" })).toBe("transparent");
   });
 });
 

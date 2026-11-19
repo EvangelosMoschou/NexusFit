@@ -979,6 +979,8 @@ on every push to `main` (`.github/workflows/pages.yml`).
 | `src/components/floor-plan/labels.test.ts` | Greek labels, the square-count declension in both grammatical cases, and the curated colour palette. |
 | `src/app/api/admin/floor-plan/legacyUpgrade.test.ts` | Upgrade path: a database written by the pre-gzip build is migrated on boot and its schema-v2 TEXT row still loads through both route handlers, then is rewritten as the current binary form on the next save. |
 | `src/components/floor-plan/stroke.test.ts` | Pure Bresenham stroke: a dragged stroke covers the expected squares and a single point stays a single cell. |
+| `src/modules/gym-floor-plan/renderSvg.test.ts` | SVG scene: one merged path per appearance rather than per square, correct fills, the fixed void colour, the summary emitted exactly once, the label-size threshold on both sides, and hit-testing at the corners and outside the grid. |
+| `src/components/floor-plan/FloorPlanCanvas.test.tsx` | Renderer component: the map is one `<svg>` (not one node per square), pointer drags resolve to squares through the element box, and the single focus target keeps keyboard painting working. |
 | `src/components/floor-plan/theme.test.ts` | CSS-variable → hex adapter: `"R G B"` triples, `r,g,b`, existing hex, and the per-field fallback when a variable is missing. |
 
 **API & client**

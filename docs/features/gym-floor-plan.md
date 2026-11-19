@@ -50,8 +50,8 @@ interface Category {
 interface Floor {
   id: string; // "floor-1"
   name: string; // "Ground floor"
-  rows: number; // 1–40
-  cols: number; // 1–40
+  rows: number; // 1–96
+  cols: number; // 1–96
   cells: FloorCell[][]; // cells[row][col], row 0 at the top
 }
 
@@ -74,7 +74,8 @@ The one real cost of a dense grid is serialization, and that is paid at the
 boundary instead of in the model: schema v2 (section 8) writes each row as
 run-length encoded tokens, so empty floor and void collapse to a couple of
 bytes and a realistic plan is about 7× smaller than the dense v1 JSON (51× on
-an empty 40 × 40 × 6 grid). The in-memory `FloorCell[][]` is unchanged.
+an empty 40 × 40 × 6 grid, and 51× at the 96 × 96 ceiling). The in-memory
+`FloorCell[][]` is unchanged.
 
 **Row 0 is the top, column 0 is the left.** This matches reading order, CSS
 Grid and the resize anchor (top-left). The UI may label rows/columns 1-based.
@@ -248,29 +249,98 @@ interface FloorPlanLabels {
 | Text labels | HTML text, wrapping, contrast, fonts | `<text>` layout, no wrapping, manual truncation | Manual `fillText` and measurement |
 | Responsive scaling | `1fr` tracks + `aspect-ratio`; reflows at any width | `viewBox` scales crisply | Redraw on resize; devicePixelRatio handling |
 | Printing | CSS `@media print`, one floor per page; browsers may drop backgrounds, labels still print | Excellent, vector-crisp | Raster; DPR-dependent |
-| 1 600 cells | Fine | Fine | Fine |
+| 1 600 cells (40 × 40) | Fine | Fine | Fine |
+| 9 216 cells (96 × 96) | Poor: 9 216 DOM nodes, ~9 216 objects in the render model | Fine | Fine |
 | Export | None built in | `outerHTML`/serializer gives SVG for free | `toDataURL` only |
 | Implementation cost | Lowest | Medium | Highest |
 
-**Decision: CSS Grid.** At the module limits (40 × 40 = 1 600 squares per floor)
+**Decision: CSS Grid at 40 × 40; SVG above it.** Up to 1 600 squares per floor
 DOM cells are cheap, and the editor is fundamentally an interactive grid: native
 focus, keyboard handling, pointer hit-testing, text labels and ARIA all come for
-free. The pure render model keeps the door open: if a future requirement needs
-pan/zoom, a 10 000-cell floor or one-click PDF/SVG export, an SVG renderer can
-consume `buildFloorRenderModel` without touching the model or validation.
+free. At the 96 × 96 ceiling that argument stops holding — 9 216 DOM nodes per
+floor is not a grid anyone wants to hit-test — so the renderer moves to SVG
+(one `<rect>` per appearance group, or run-merged rects) while the *model* stays
+identical. This is why the render model was packed (section 4.1): the renderer
+choice is now a presentation detail, not a limit on the plan size.
 
 Scaling and printing details for the future component:
 
-- Container: `display: grid`, `grid-template-*` from `getGridTemplate`,
-  `aspect-ratio: cols / rows`, `width: 100%`, `max-width` per floor size.
+- Container: a CSS Grid with `grid-template-columns: repeat(cols, minmax(0, 1fr))`
+  and `aspect-ratio: cols / rows` was what the CSS-Grid path used; the SVG path
+  uses `viewBox="0 0 cols rows"` with `preserveAspectRatio` instead, which keeps
+  squares square at any width.
 - Cells: `min-width: 0`, `min-height: 0`, `overflow: hidden`; label font
   `clamp(8px, 1.4vmin, 14px)` with `line-height: 1`.
 - Print: `@media print` forces `PRINT_FLOOR_PLAN_THEME`, one floor per page,
   `break-inside: avoid`, `print-color-adjust: exact` where supported. Because
   some browsers still drop background colours, the short label and pattern are
   the print-safe encodings — never the fill alone.
-- Large floors: recommend A3 for 40 × 40; the component should expose a
-  `print`/`export` action later, not shrink below legibility.
+- Large floors: a 96 × 96 floor is 9 216 squares — at A3 that is ~1 mm per
+  square, so it is a *navigation* view, not a printed one. Printing is
+  explicitly out of scope for this release.
+
+### 4.1 The packed render model
+
+The renderer decision above only works because the render model stopped being a
+list of per-square objects. `buildFloorRenderModel` returns two parallel
+representations:
+
+```ts
+interface CellAppearance {
+  kind: FloorCell["kind"];
+  categoryId: string | null;
+  color: string;
+  inkColor: string;
+  shortLabel: string;
+  pattern: CellPattern;
+}
+
+interface FloorRenderModel {
+  floorId: string;
+  floorName: string;
+  rows: number;
+  cols: number;
+  cellAppearanceIndex: Uint16Array; // exactly rows * cols entries, row-major
+  appearances: CellAppearance[];    // at most maxCategories + 3
+  legend: LegendEntry[];
+  summary: string;
+  appearanceAt(row: number, col: number): CellAppearance | null;
+  describeCell(row: number, col: number): { ariaLabel: string; tooltip: string } | null;
+}
+```
+
+A floor only ever shows a handful of distinct appearances — one per category,
+plus empty, plus void, plus the unknown-category fallback — so those are
+allocated once and shared, and each square costs a 2-byte index into that table.
+
+The two fields that could **not** be shared are `ariaLabel` and `tooltip`:
+they name the square's position ("Row 7, column 12"), so one exists per square.
+They are therefore derived on demand for the single square that is focused or
+hovered, by `describeCell(row, col)`, instead of being pre-allocated 9 216
+times. On the old model those two derived strings alone were 41 of the ~190
+serialized bytes of a square.
+
+Measured with one model built per fresh process, 4 categories, ~40 % machines
+(`render.test.ts` pins the regression guard; the numbers below are the harness
+output):
+
+| Floor | Cells | Before: one object per square | After: packed |
+| --- | --- | --- | --- |
+| 40 × 40 | 1 600 | 313 554 B (196.0 B/cell), 1 607 objects, 533 005 B retained heap | 3 536 B (2.2 B/cell), 9 objects + 1 typed array, 9 523 B retained |
+| 96 × 96 | 9 216 | 1 806 292 B (196.0 B/cell), 9 223 objects, 3 032 223 B retained | 18 768 B (2.0 B/cell), 9 objects + 1 typed array, 21 123 B retained |
+
+That is ~89× / ~96× smaller serialized, ~56× / ~144× less retained heap, and
+~179× / ~1 024× fewer heap objects (counts include the two accessor functions
+and the shared appearance table, which the per-cell model did not have). The
+retained-heap figure is the one that matters for a running page: at the ceiling
+a per-cell model cost ~3 MB per floor (~18 MB for six), the packed one costs
+~21 KB per floor (~127 KB for six).
+
+`getCellAppearance(plan, floorId, row, col)` is kept for callers that need one
+square without a model; it re-walks the plan and returns the appearance *with*
+its derived strings. `checkRenderModel(model)` asserts the invariant (index
+width, table size, every index in range) and returns an empty list when the
+model is well formed.
 
 ## 5. Editor UX
 
@@ -391,7 +461,7 @@ Supporting rules:
   grid lines; white category squares always carry the short label, a border and
   (recommended) a pattern. The print theme uses a light grey empty colour, not
   pure white.
-- **Public view is one image, not 1 600 tab stops.** Render a `<figure>` with
+- **Public view is one image, not thousands of tab stops.** Render a `<figure>` with
   `role="img"` and `aria-label={model.summary}` (from `describeFloor`), plus a
   visually hidden legend list. A screen-reader user hears "Ground floor — 12 ×
   12. equipment: 14 Impulse machines, 10 Arsenal machines. 8 unavailable. 112
@@ -411,8 +481,8 @@ Supporting rules:
 
 | Limit | Value | Why |
 | --- | --- | --- |
-| Rows / columns | 1–40 each | 1 600 squares renders comfortably as DOM cells; keeps JSON bounded even when fully painted. Beyond this, use SVG/canvas and pan/zoom. |
-| Floors | 1–6 | Realistic building; six 40 × 40 floors is ~3 KB when empty and ~59 KB when fully painted (v2). |
+| Rows / columns | 1–96 each | The owner asked for 96 × 96 as the absolute ceiling for very large gyms. 9 216 squares is only viable because the render model is packed (section 4.1) and the renderer is SVG at that size; the v3 payload is 2 370 B for an empty floor. |
+| Floors | 1–6 | Realistic building; six 96 × 96 empty floors is a 14 000 B v3 payload (170 B gzipped), six fully painted ones ~170 KB. |
 | Categories | 0–20 | Legend readability and distinguishable palette. |
 | Plan title | 1–80 chars | Fits the admin header and config JSON. |
 | Floor name | 1–40 chars | Fits a tab. |
@@ -541,8 +611,8 @@ plan (the common case) pays almost nothing.
 | 3 | 1 | flags: bit0 `HAS_LABELS`, bits 1–7 reserved (must be 0) |
 | 4 | 1 | floor count (1–6) |
 | 5 | 1 | category index bit width (1–5) |
-| 6 | 2 | max rows across floors (1–40) |
-| 8 | 2 | max cols across floors (1–40) |
+| 6 | 2 | max rows across floors (1–96) |
+| 8 | 2 | max cols across floors (1–96) |
 | 10 | 2 | category count |
 | 12 | 2 | label count (0 ⇒ no label section at all) |
 | 14 | 4 | total payload byte length, header included |
@@ -644,9 +714,35 @@ The index width is the only thing that moves the ratio with the category count
 | 4 | 2 | 42 470 | 3 615 | 11.7× |
 | 8 | 3 | 42 824 | 4 184 | 10.2× |
 
-Grids larger than 40 × 40 are outside the module's own editor limits; they are
-measured through the structural packer to show how the format scales, not
-because the editor will store them.
+The 80 × 80 and larger rows are measured through the structural packer to show
+how the format scales. With the ceiling at 96 × 96 the 80 × 80 row is now a
+plan the editor really can store; 128 × 128 and 256 × 256 still are not.
+
+#### At the 96 × 96 ceiling
+
+Measured by `render.test.ts` (`96 × 96 round-trip through both wire forms`),
+same fixture shape (~40 % machines, ~8 % void, 4 categories):
+
+| Plan | v3 (binary) | of which header | v2 (JSON tokens) | gzip(v3) |
+| --- | --- | --- | --- | --- |
+| 96 × 96 × 1, all empty | 2 370 B | 24 B | 1 196 B | 90 B |
+| 96 × 96 × 1, realistic | 3 388 B | 24 B | 44 926 B | 568 B |
+| 96 × 96 × 6, all empty | 14 000 B | 24 B | 6 796 B | 170 B |
+
+That is ~2.3 KB per empty floor and ~3.4 KB per realistic floor before gzip —
+the figure quoted in the plan for the ceiling. Note the crossing point: at
+96 × 96 an *all-empty* floor is the one case where the v3 binary is **larger**
+than the v2 token text (2 370 B vs 1 196 B), because six all-empty floors
+run-length encode to almost nothing in JSON while the packed grid still pays a
+flat 2 bits per square. v3 wins decisively on any painted plan (44 926 B vs
+3 388 B at the same size), and storage always compresses, so v3 stays the
+storage format — but the all-empty case is worth knowing when reading a
+payload-size table.
+
+The label side table's widest cell ordinal grows with the ceiling: six 96 × 96
+floors have 55 296 cells, so the largest ordinal is 55 295, which takes 3
+varint bytes instead of the 2 that covered 40 × 40 × 6 (9 600 cells). A plan
+with no labels still pays zero label bytes.
 
 For comparison, the v1 dense form of the same 40 × 40 × 6 plan is 164 231 B for
 the all-empty case and 385 031 B for the all-machine case (§8.4).
@@ -807,9 +903,12 @@ The module is ready; the following steps touch existing files and are therefore
 - No new SQLite table and no migration: the plan rides in `gym_config`, so
   tenant isolation, backup and restore already cover it.
 - Size: a default 12 × 12 empty plan is ~360 B and a realistic sparse plan
-  under 1 KB (schema v2 RLE); the worst case (6 × 40 × 40, every square a
-  labelled machine) is ~174 KB, and 6 × 40 × 40 empty is ~3 KB. Check the config
-  POST body limit only if the maximum grid is expected to be densely painted.
+  under 1 KB (schema v2 RLE). At the 96 × 96 ceiling the v3 payload is 2 370 B
+  for one empty floor and 3 388 B for a realistic one (measured, section 8.3);
+  six empty floors are 14 000 B, or 170 B gzipped. The worst case (6 × 96 × 96,
+  every square a labelled machine) is ~1.4 MB of text / ~0.8 MB of v3 — check
+  the config POST body limit only if a gym is expected to paint every floor
+  densely.
 - Rendering: `setCell` copies only the changed row, so a React editor can memo
   row components by row-array reference; a paint stroke re-renders one row, not
   the whole floor. Measure with React DevTools before optimizing further.
@@ -856,8 +955,9 @@ module has a defensible default for each.
 3. **White toilets vs empty floor:** confirm white is required (it is legal in
    the model, with label + border + pattern). If not, an off-white or a
    dedicated pattern avoids the ambiguity entirely.
-4. **Real maximum grid:** is 40 × 40 per floor enough for the largest floor?
-   What print size is expected (A4/A3/A2)?
+4. ~~**Real maximum grid:** is 40 × 40 per floor enough for the largest
+   floor?~~ **Answered: 96 × 96 is the absolute ceiling**, implemented in
+   `FLOOR_PLAN_LIMITS`. Print size is out of scope for this release.
 5. **Floor semantics:** do floors need levels (basement/mezzanine), custom
    ordering beyond array order, or a "hide from public" flag?
 6. **Public exposure:** should members see the exact machine layout, or only

@@ -1,10 +1,32 @@
 /**
  * Styles and brush helpers shared by the public display and the admin editor.
  *
- * The floor-plan module hands back resolved colours and CSS Grid templates
- * (`buildFloorRenderModel`), never React elements, so this file is the one place
- * that turns that data into inline styles. Keeping it out of the components
- * means the public figure and the editor grid paint identical squares.
+ * ## What changed when the renderer became SVG
+ *
+ * The CSS-Grid renderer needed a style *per square*: `cellStyle(cell)` built a
+ * background colour, an ink colour and a CSS pattern gradient for every one of
+ * up to 9 216 `<div>`s. SVG draws a whole appearance as one path, so that work
+ * moved into the pure scene builder (`renderSvg.ts`), which emits fill colours,
+ * pattern defs and label tiles once per *appearance*. Keeping a second,
+ * CSS-specific cell renderer alive next to it would have been two sources of
+ * truth for the same square.
+ *
+ * Deleted with the CSS-Grid path: `gridContainerStyle` (there is no grid
+ * container to template any more — the SVG viewBox does that job) and its
+ * `GridTemplate` input.
+ *
+ * Kept, because they still have live consumers:
+ *
+ *   - `themeVariablesStyle` / `FLOOR_PLAN_THEME_CSS_VARIABLES` — the `--fp-*`
+ *     custom properties the print stylesheet redefines and the SVG's grid lines
+ *     and focus ring reference.
+ *   - `CELL_BASE_STYLE` / `CELL_LABEL_FONT_SIZE` — `FloorPlanLegend`'s swatch is
+ *     still a DOM square and shares the cell geometry with the map.
+ *   - `cellStyle` — the editor's brush preview is a `CSSProperties` value it
+ *     hands to `FloorPlanCanvas`; the SVG reads the one property it needs
+ *     (`backgroundColor`) as the preview path's fill. See `strokePreviewFill`.
+ *   - the brush helpers, `cellKey` and `clampToAxis`, which are model-side
+ *     helpers that never had anything to do with CSS.
  *
  * Theme-derived colours are read through CSS custom properties (`--fp-empty`,
  * `--fp-void`, `--fp-grid-line`, `--fp-ink`) instead of literal hex values. The
@@ -17,9 +39,8 @@
 import type { CSSProperties } from "react";
 import {
   patternToBackground,
-  type FloorCell,
+  type CellAppearance,
   type FloorPlanTheme,
-  type RenderedCell,
 } from "@/modules/gym-floor-plan";
 
 /**
@@ -83,10 +104,19 @@ export function defaultBrush(categories: ReadonlyArray<{ id: string }>): Brush {
 }
 
 /** The cell a brush writes. `paintCells` / `setCell` accept it directly. */
-export function brushToCell(brush: Brush): FloorCell {
+export function brushToCell(brush: Brush): FloorCellLike {
   if (brush.kind === "machine") return { kind: "machine", categoryId: brush.categoryId };
   return brush.kind === "void" ? { kind: "void" } : { kind: "empty" };
 }
+
+/**
+ * The `FloorCell` shape `paintCells`/`setCell` accept.
+ *
+ * Declared structurally rather than imported so this module keeps compiling if
+ * the addon's cell union is extended; the model validates the result anyway.
+ */
+export type FloorCellLike =
+  { kind: "empty" } | { kind: "void" } | { kind: "machine"; categoryId: string; label?: string };
 
 /** `"row:col"` key used to deduplicate a paint stroke. */
 export function cellKey(row: number, col: number): string {
@@ -107,12 +137,15 @@ export function clampToAxis(value: number, axisLength: number): number {
 }
 
 /**
- * Design doc §4: labels scale with the viewport but never drop below 8px or
- * grow past 14px, so a 40 × 40 plan stays readable without pan/zoom.
+ * Font size for a short label inside a legend swatch.
+ *
+ * The map's own labels are sized in cell units by the SVG scene
+ * (`LABEL_FONT_SIZE_RATIO`); this one only stays for the DOM swatch, which is a
+ * fixed 22px chip.
  */
 export const CELL_LABEL_FONT_SIZE = "clamp(8px, 1.4vmin, 14px)";
 
-/** Cells share one geometry rule in both views (square, clipped, centred). */
+/** Swatch geometry shared by the legend chip and any DOM cell preview. */
 export const CELL_BASE_STYLE: CSSProperties = {
   minWidth: 0,
   minHeight: 0,
@@ -126,34 +159,17 @@ export const CELL_BASE_STYLE: CSSProperties = {
   userSelect: "none",
 };
 
-/** CSS Grid container style from `buildFloorRenderModel(...).grid`. */
-export function gridContainerStyle(grid: {
-  gridTemplateColumns: string;
-  gridTemplateRows: string;
-  aspectRatio: string;
-}): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: grid.gridTemplateColumns,
-    gridTemplateRows: grid.gridTemplateRows,
-    aspectRatio: grid.aspectRatio,
-    width: "100%",
-    gap: 1,
-    backgroundColor: "var(--fp-grid-line)",
-    border: "1px solid var(--fp-grid-line)",
-  };
-}
-
 /**
- * Appearance of one square.
+ * Appearance of the editor's brush-preview chip.
  *
- * Empty and void squares follow the theme variables so print can restyle them;
- * machine squares use their category colour, which is owner data. The pattern is
- * drawn in the cell's contrast ink so it survives greyscale and photocopies
- * (design doc §6).
+ * The SVG canvas does not paint a per-square `<div>` any more, so this is no
+ * longer a cell style — it is the swatch description the editor hands to the
+ * canvas, and the canvas reads `backgroundColor` back out as a fill. `kind`
+ * decides whether the theme variable or the category hex wins, exactly as the
+ * committed square will look.
  */
 export function cellStyle(
-  cell: Pick<RenderedCell, "kind" | "color" | "inkColor" | "pattern">
+  cell: Pick<CellAppearance, "kind" | "color" | "inkColor" | "pattern">
 ): CSSProperties {
   const background =
     cell.kind === "empty"
@@ -171,4 +187,17 @@ export function cellStyle(
     backgroundImage: pattern.backgroundImage,
     ...(pattern.backgroundSize === undefined ? {} : { backgroundSize: pattern.backgroundSize }),
   };
+}
+
+/**
+ * The fill the SVG should use for the editor's live stroke preview.
+ *
+ * `cellStyle` deliberately resolves empty/void to a `var(--fp-*)` reference so a
+ * single stylesheet swap re-themes them; SVG *presentation attributes* do not
+ * resolve `var()`, so the value is applied through a `style` object instead
+ * (which does). A category colour is a plain hex and passes through unchanged.
+ */
+export function strokePreviewFill(style: CSSProperties | undefined): string {
+  const background = style?.backgroundColor;
+  return typeof background === "string" && background.length > 0 ? background : "transparent";
 }

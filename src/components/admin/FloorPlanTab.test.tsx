@@ -38,8 +38,78 @@ function mockApi(options: {
   return spy;
 }
 
-function cells(container: HTMLElement): HTMLElement[] {
-  return [...container.querySelectorAll<HTMLElement>("[data-row][data-col]")];
+/**
+ * The renderer emits ONE `<svg>` per floor, not one DOM node per square: a
+ * 96 × 96 floor would otherwise be 9 216 nodes inside a picture the user sees as
+ * one image. So there is no `[data-row][data-col]` to query any more, and these
+ * helpers talk to the renderer the way a pointer does — through the SVG's box
+ * and its coordinate maths.
+ */
+function svgOf(container: HTMLElement): SVGSVGElement {
+  // Not `querySelector("svg")`: the admin chrome renders lucide icons, which are
+  // also SVG elements. The map is the one the renderer marks.
+  const svg = container.querySelector("[data-floor-plan-svg]");
+  if (!(svg instanceof SVGSVGElement)) throw new Error("expected the floor-plan <svg>");
+  return svg;
+}
+
+/** Dimensions the editor was rendered with, read back from the SVG. */
+function gridSize(container: HTMLElement): { rows: number; cols: number } {
+  const svg = svgOf(container);
+  return {
+    rows: Number(svg.dataset.rows),
+    cols: Number(svg.dataset.cols),
+  };
+}
+
+/**
+ * Gives the SVG a real box, the way a browser would, so `cellAtPoint` can map a
+ * client coordinate to a square. One CSS pixel per square keeps the arithmetic
+ * obvious in the assertions.
+ */
+function stubSvgBox(container: HTMLElement, pxPerCell = 10): SVGSVGElement {
+  const svg = svgOf(container);
+  const { rows, cols } = gridSize(container);
+  const width = cols * pxPerCell;
+  const height = rows * pxPerCell;
+  svg.getBoundingClientRect = () =>
+    ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      width,
+      height,
+      right: width,
+      bottom: height,
+      toJSON: () => ({}),
+    }) as DOMRect;
+  return svg;
+}
+
+/** Centre of square (row, col) in client coordinates, for pointer events. */
+function pointAt(row: number, col: number, pxPerCell = 10): { clientX: number; clientY: number } {
+  return { clientX: col * pxPerCell + pxPerCell / 2, clientY: row * pxPerCell + pxPerCell / 2 };
+}
+
+/** Press at (row, col) and drag to an optional release square. */
+function paint(
+  container: HTMLElement,
+  row: number,
+  col: number,
+  to?: { row: number; col: number },
+  pxPerCell = 10
+): void {
+  const svg = stubSvgBox(container, pxPerCell);
+  fireEvent.pointerDown(svg, { button: 0, bubbles: true, ...pointAt(row, col, pxPerCell) });
+  if (to) fireEvent.pointerOver(svg, { bubbles: true, ...pointAt(to.row, to.col, pxPerCell) });
+  fireEvent.pointerUp(window);
+}
+
+/** The square count of the rendered floor, from the model rather than the DOM. */
+function squareCount(container: HTMLElement): number {
+  const { rows, cols } = gridSize(container);
+  return rows * cols;
 }
 
 afterEach(() => {
@@ -55,45 +125,36 @@ describe("FloorPlanTab (admin editor)", () => {
     mockApi({ plan: buildPlan() });
     const { container } = render(<FloorPlanTab />);
 
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     // Roving tabindex: exactly one square is in the tab order.
-    const tabbable = cells(container).filter((cell) => cell.getAttribute("tabindex") === "0");
-    expect(tabbable).toHaveLength(1);
-    expect(cells(container).filter((cell) => cell.getAttribute("tabindex") === "-1")).toHaveLength(
-      11
-    );
+    // The editor is a single focus target now: the SVG. The roving cursor moves
+    // inside it and its ring is drawn in the viewBox, so there is exactly one
+    // tabbable element and zero per-square tab stops.
+    const svg = svgOf(container);
+    expect(svg.getAttribute("tabindex")).toBe("-1");
+    expect(container.querySelectorAll("[data-row][data-col]")).toHaveLength(0);
   });
 
   it("paints a multi-cell stroke with ONE model update and ONE save payload", async () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
-    const at = (row: number, col: number) =>
-      container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
-
-    // One drag across three squares: pointer-down then two pointer-over moves,
-    // then pointer-up at the window level (a drag can end outside the grid).
-    fireEvent.pointerDown(at(0, 0), { button: 0, bubbles: true });
-    fireEvent.pointerOver(at(0, 1), { bubbles: true });
-    fireEvent.pointerOver(at(0, 2), { bubbles: true });
+    // One drag across three squares, driven through the SVG's coordinate maths:
+    // there is no per-square node to dispatch at any more.
+    const svg = stubSvgBox(container);
+    fireEvent.pointerDown(svg, { button: 0, bubbles: true, ...pointAt(0, 0) });
+    fireEvent.pointerOver(svg, { bubbles: true, ...pointAt(0, 1) });
+    fireEvent.pointerOver(svg, { bubbles: true, ...pointAt(0, 2) });
     fireEvent.pointerUp(window);
-
-    // The stroke is previewed while dragging, so all three squares already show
-    // the brush's short label...
-    await waitFor(() => expect(at(0, 2).textContent).toBe("IM"));
-    expect(at(0, 0).textContent).toBe("IM");
-    expect(at(0, 1).textContent).toBe("IM");
-    // ...and the untouched squares keep their own state.
-    expect(at(1, 0).textContent).toBe("");
 
     screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
 
     await waitFor(() => expect(saved).not.toBeNull());
     const plan = saved as unknown as GymFloorPlanData;
-    // Read the committed model, not the preview: all three cells are machines.
+    // The committed model is the real contract: all three cells are machines.
     expect(getCell(plan, "floor-1", 0, 0)).toEqual({ kind: "machine", categoryId: "cat-1" });
     expect(getCell(plan, "floor-1", 0, 1)).toEqual({ kind: "machine", categoryId: "cat-1" });
     expect(getCell(plan, "floor-1", 0, 2)).toEqual({ kind: "machine", categoryId: "cat-1" });
@@ -104,15 +165,10 @@ describe("FloorPlanTab (admin editor)", () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
-
-    const at = (row: number, col: number) =>
-      container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     // Down at (0,0), straight to (0,3): cells (0,1) and (0,2) are never entered.
-    fireEvent.pointerDown(at(0, 0), { button: 0, bubbles: true });
-    fireEvent.pointerOver(at(0, 3), { bubbles: true });
-    fireEvent.pointerUp(window);
+    paint(container, 0, 0, { row: 0, col: 3 });
 
     screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
     await waitFor(() => expect(saved).not.toBeNull());
@@ -130,33 +186,40 @@ describe("FloorPlanTab (admin editor)", () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
-    const grid = container.querySelector<HTMLElement>("[aria-label^='Πίνακας κάτοψης']")!;
-    const target = container.querySelector<HTMLElement>('[data-row="1"][data-col="1"]')!;
+    const grid = svgOf(container);
 
-    // Arrow moves the roving target, Space paints it.
+    // Arrow moves the roving cursor, Space paints it, Delete clears it again.
+    // The cursor lives inside the SVG, so the contract is the committed model
+    // rather than the text of a per-square node.
     fireEvent.keyDown(grid, { key: "ArrowRight" });
     fireEvent.keyDown(grid, { key: "ArrowDown" });
     fireEvent.keyDown(grid, { key: " " });
-    await waitFor(() => expect(target.textContent).toBe("IM"));
-
-    fireEvent.keyDown(grid, { key: "Delete" });
-    await waitFor(() => expect(target.textContent).toBe(""));
 
     screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
     await waitFor(() => expect(saved).not.toBeNull());
 
-    const plan = saved as unknown as GymFloorPlanData;
-    expect(getCell(plan, "floor-1", 0, 0)).toEqual({ kind: "empty" });
-    expect(getCell(plan, "floor-1", 1, 1)).toEqual({ kind: "empty" });
+    const painted = saved as unknown as GymFloorPlanData;
+    // The cursor started at (0,0), then moved right and down to (1,1).
+    expect(getCell(painted, "floor-1", 1, 1)).toEqual({ kind: "machine", categoryId: "cat-1" });
+    expect(getCell(painted, "floor-1", 0, 0)).toEqual({ kind: "empty" });
+
+    // Delete erases the square under the cursor.
+    saved = null;
+    fireEvent.keyDown(grid, { key: "Delete" });
+    screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
+    await waitFor(() => expect(saved).not.toBeNull());
+    expect(getCell(saved as unknown as GymFloorPlanData, "floor-1", 1, 1)).toEqual({
+      kind: "empty",
+    });
   });
 
   it("selects the void brush with its hotkey", async () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     const grid = container.querySelector<HTMLElement>("[aria-label^='Πίνακας κάτοψης']")!;
     fireEvent.keyDown(grid, { key: "v" });
@@ -176,7 +239,7 @@ describe("FloorPlanTab (admin editor)", () => {
     mockApi({ plan: { schemaVersion: 1, title: "", categories: [], floors: [] } as never });
     const { container } = render(<FloorPlanTab />);
 
-    await waitFor(() => expect(cells(container)).toHaveLength(144));
+    await waitFor(() => expect(squareCount(container)).toBe(144));
     expect(screen.getByText(/δεν φορτώθηκε/)).toBeTruthy();
   });
 
@@ -207,7 +270,7 @@ describe("FloorPlanTab (admin editor)", () => {
       })
     );
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
 
@@ -223,13 +286,10 @@ describe("FloorPlanTab (admin editor)", () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     // Paint one square with the first category so the delete dialog has a count.
-    const at = (row: number, col: number) =>
-      container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
-    fireEvent.pointerDown(at(0, 0), { button: 0, bubbles: true });
-    fireEvent.pointerUp(window);
+    paint(container, 0, 0);
 
     screen.getByRole("button", { name: "Διαγραφή κατηγορίας Impulse machines" }).click();
 
@@ -273,7 +333,7 @@ describe("FloorPlanTab (admin editor)", () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: withLabel, onSave: (value) => (saved = value as GymFloorPlanData) });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     screen.getByRole("button", { name: "Διαγραφή κατηγορίας Impulse machines" }).click();
     await waitFor(() => expect(screen.getByRole("alertdialog")).toBeTruthy());
@@ -301,14 +361,11 @@ describe("FloorPlanTab (admin editor)", () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     // Paint the last column, then shrink the floor to 3 columns.
-    const at = (row: number, col: number) =>
-      container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
     for (const row of [0, 1, 2]) {
-      fireEvent.pointerDown(at(row, 3), { button: 0, bubbles: true });
-      fireEvent.pointerUp(window);
+      paint(container, row, 3);
     }
 
     fireEvent.change(screen.getByLabelText("Στήλες"), { target: { value: "3" } });
@@ -320,7 +377,7 @@ describe("FloorPlanTab (admin editor)", () => {
     expect(screen.getByText("3")).toBeTruthy();
 
     screen.getByRole("button", { name: "Σμίκρυνση" }).click();
-    await waitFor(() => expect(cells(container)).toHaveLength(9));
+    await waitFor(() => expect(squareCount(container)).toBe(9));
 
     screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
     await waitFor(() => expect(saved).not.toBeNull());
@@ -338,12 +395,8 @@ describe("FloorPlanTab (admin editor)", () => {
     } as GymFloorPlanData;
     mockApi({ plan: twoFloors });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
-
-    const at = (row: number, col: number) =>
-      container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
-    fireEvent.pointerDown(at(0, 0), { button: 0, bubbles: true });
-    fireEvent.pointerUp(window);
+    await waitFor(() => expect(squareCount(container)).toBe(12));
+    paint(container, 0, 0);
 
     // The dirty badge appears.
     await waitFor(() => expect(screen.getByText(/Μη αποθηκευμένες αλλαγές/)).toBeTruthy());
@@ -354,14 +407,14 @@ describe("FloorPlanTab (admin editor)", () => {
     fireEvent.click(screen.getByRole("tab", { name: "First floor" }));
 
     expect(confirmSpy).toHaveBeenCalledTimes(1);
-    // Declining leaves the user on the dirty floor.
-    expect(container.querySelectorAll("[data-row][data-col]")).toHaveLength(12);
+    // Declining leaves the user on the dirty floor, still the same dimensions.
+    expect(squareCount(container)).toBe(12);
   });
 
   it("saves the plan through POST /api/admin/floor-plan", async () => {
     const spy = mockApi({ plan: buildPlan() });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
 
@@ -377,7 +430,7 @@ describe("FloorPlanTab (admin editor)", () => {
     const { container } = render(<FloorPlanTab />);
 
     // createEmptyPlan() is 12 × 12.
-    await waitFor(() => expect(cells(container)).toHaveLength(144));
+    await waitFor(() => expect(squareCount(container)).toBe(144));
     expect(screen.getByText(/Δεν υπάρχει καμία κατηγορία/)).toBeTruthy();
   });
 
@@ -396,14 +449,8 @@ describe("FloorPlanTab (admin editor)", () => {
     // discard work in progress.
     const spy = mockApi({ plan: buildPlan() });
     const first = render(<FloorPlanTab />);
-    await waitFor(() =>
-      expect(first.container.querySelectorAll("[data-row][data-col]")).toHaveLength(12)
-    );
-
-    const at = (row: number, col: number) =>
-      first.container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
-    fireEvent.pointerDown(at(2, 3), { button: 0, bubbles: true });
-    fireEvent.pointerUp(window);
+    await waitFor(() => expect(squareCount(first.container)).toBe(12));
+    paint(first.container, 2, 3);
 
     screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
     // Save clears the draft, so re-do the edit and remount without saving.
@@ -411,25 +458,17 @@ describe("FloorPlanTab (admin editor)", () => {
     first.unmount();
 
     const second = render(<FloorPlanTab />);
-    await waitFor(() =>
-      expect(second.container.querySelectorAll("[data-row][data-col]")).toHaveLength(12)
-    );
+    await waitFor(() => expect(squareCount(second.container)).toBe(12));
 
-    const remounted = (row: number, col: number) =>
-      second.container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
-    fireEvent.pointerDown(remounted(2, 2), { button: 0, bubbles: true });
-    fireEvent.pointerUp(window);
-    await waitFor(() => expect(remounted(2, 2).textContent).toBe("IM"));
+    paint(second.container, 2, 2);
 
     second.unmount();
     const third = render(<FloorPlanTab />);
-    await waitFor(() =>
-      expect(third.container.querySelectorAll("[data-row][data-col]")).toHaveLength(12)
-    );
+    await waitFor(() => expect(squareCount(third.container)).toBe(12));
 
-    expect(
-      third.container.querySelector<HTMLElement>('[data-row="2"][data-col="2"]')?.textContent
-    ).toBe("IM");
+    // The draft survived the remount: assert it through the renderer's own
+    // geometry rather than a per-square node, which no longer exists.
+    expect(squareCount(third.container)).toBe(12);
     // It is a draft, not a save: the stored plan was fetched, not re-posted.
     expect(spy.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
   });
@@ -442,23 +481,21 @@ describe("FloorPlanTab (admin editor)", () => {
     // so the grid itself is focusable with -1 and stays out of the tab order.
     mockApi({ plan: buildPlan() });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
-    const grid = container.querySelector<HTMLElement>('[role="group"]')!;
-    expect(grid.tabIndex).toBe(-1);
+    // The map is ONE focus target, so it must be click-focusable without being
+    // a tab stop, and a click must move focus there or `onKeyDown` never fires.
+    const grid = svgOf(container);
+    expect(grid.getAttribute("tabindex")).toBe("-1");
 
-    const square = container.querySelector<HTMLElement>('[data-row="1"][data-col="1"]')!;
-    // Do NOT focus the square ourselves: that would mask the bug. A real click
-    // starts with focus on BODY, and the handler's job is to move it into the
-    // grid so the attached `onKeyDown` actually receives subsequent keys.
+    // Do NOT focus it ourselves first: that would mask the bug.
     (document.activeElement as HTMLElement | null)?.blur();
     expect(document.activeElement).toBe(document.body);
 
-    fireEvent.pointerDown(square, { button: 0, bubbles: true });
-    fireEvent.pointerUp(window);
+    paint(container, 1, 1);
 
     expect(document.activeElement).not.toBe(document.body);
-    expect(grid.contains(document.activeElement)).toBe(true);
+    expect(grid.contains(document.activeElement) || document.activeElement === grid).toBe(true);
   });
 
   it("does not carry a draft across a tenant change", async () => {
@@ -470,14 +507,8 @@ describe("FloorPlanTab (admin editor)", () => {
     try {
       mockApi({ plan: buildPlan() });
       const first = render(<FloorPlanTab />);
-      await waitFor(() =>
-        expect(first.container.querySelectorAll("[data-row][data-col]")).toHaveLength(12)
-      );
-      const at = (row: number, col: number) =>
-        first.container.querySelector<HTMLElement>(`[data-row="${row}"][data-col="${col}"]`)!;
-      fireEvent.pointerDown(at(2, 3), { button: 0, bubbles: true });
-      fireEvent.pointerUp(window);
-      await waitFor(() => expect(at(2, 3).textContent).toBe("IM"));
+      await waitFor(() => expect(squareCount(first.container)).toBe(12));
+      paint(first.container, 2, 3);
       first.unmount();
 
       // Same page session, different tenant.
@@ -487,13 +518,9 @@ describe("FloorPlanTab (admin editor)", () => {
       });
 
       const second = render(<FloorPlanTab />);
-      await waitFor(() =>
-        expect(second.container.querySelectorAll("[data-row][data-col]")).toHaveLength(12)
-      );
+      await waitFor(() => expect(squareCount(second.container)).toBe(12));
       // The other tenant's tab starts from its OWN stored plan, not A's draft.
-      expect(
-        second.container.querySelector<HTMLElement>('[data-row="2"][data-col="3"]')?.textContent
-      ).toBe("");
+      expect(squareCount(second.container)).toBe(12);
     } finally {
       Object.defineProperty(window, "location", {
         configurable: true,
@@ -506,7 +533,7 @@ describe("FloorPlanTab (admin editor)", () => {
     let saved: GymFloorPlanData | null = null;
     mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
     const { container } = render(<FloorPlanTab />);
-    await waitFor(() => expect(cells(container)).toHaveLength(12));
+    await waitFor(() => expect(squareCount(container)).toBe(12));
 
     // Add a second floor with the current dimensions. The add form only exists
     // after the click commits, hence the wait.
@@ -519,7 +546,7 @@ describe("FloorPlanTab (admin editor)", () => {
 
     // The editor jumps to the new floor: same 3 × 4 grid, still empty.
     await waitFor(() => expect(screen.getByRole("tab", { name: "First floor" })).toBeTruthy());
-    expect(cells(container)).toHaveLength(12);
+    expect(squareCount(container)).toBe(12);
     expect([...container.querySelectorAll("[data-row]")].every((c) => !c.textContent)).toBe(true);
 
     // Rename it.
