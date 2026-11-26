@@ -24,7 +24,7 @@ import {
   Download,
   Trash2,
 } from "lucide-react";
-import { getExerciseLogs } from "@/lib/storage";
+import { ExerciseLog, getExerciseLogs } from "@/lib/storage";
 
 interface MemberPortalPageProps {
   member: MemberUser;
@@ -54,11 +54,64 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
   const { config } = useGymConfig();
   const [activeTab, setActiveTab] = useState<PortalTab>(initialTab);
   const [isErasing, setIsErasing] = useState(false);
-  const exerciseLogs = getExerciseLogs();
+  const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>(() => getExerciseLogs());
 
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await memberFetch("/api/member/logs", { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled || !data?.success || !Array.isArray(data.logs)) return;
+
+        const serverLogs: ExerciseLog[] = data.logs.map(
+          (row: {
+            exercise_name: string;
+            weight_kg: number;
+            reps: number;
+            logged_at: string;
+          }) => {
+            const parsed = new Date(row.logged_at);
+            const dateLabel = Number.isNaN(parsed.getTime())
+              ? row.logged_at
+              : parsed.toLocaleDateString("el-GR");
+            return {
+              exerciseId: row.exercise_name,
+              weightKg: Number(row.weight_kg),
+              repsAchieved: Number(row.reps),
+              date: dateLabel,
+            };
+          }
+        );
+
+        setExerciseLogs((localLogs) => {
+          const seen = new Set(
+            serverLogs.map((l) => `${l.exerciseId}|${l.weightKg}|${l.repsAchieved}|${l.date}`)
+          );
+          const merged = [...serverLogs];
+          for (const local of localLogs) {
+            const key = `${local.exerciseId}|${local.weightKg}|${local.repsAchieved}|${local.date}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(local);
+            }
+          }
+          return merged;
+        });
+      } catch {
+        // Offline / transient failure: retain locally saved logs.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [member.id]);
 
   const handleLogout = () => {
     // The parent owns the server logout/revocation so every entry point
@@ -611,7 +664,7 @@ export const MemberPortalPage: React.FC<MemberPortalPageProps> = ({
         {activeTab === "schedule" && (
           <div className="space-y-3">
             <div className="text-xs text-secondary">
-              Σημερινά ομαδικά προγράμματα στο Nexus Athletics (περιλαμβάνονται στη συνδρομή):
+              Σημερινά ομαδικά προγράμματα στο {config.gymName} (περιλαμβάνονται στη συνδρομή):
             </div>
             {todayClasses.length > 0 ? (
               <div className="divide-y divide-border border border-border rounded-xl bg-surface">

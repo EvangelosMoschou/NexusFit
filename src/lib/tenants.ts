@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
@@ -13,7 +14,14 @@ export interface Tenant {
   adminPasswordHash: string;
   // Read-only staff role (trainer). Empty means trainer login is disabled.
   trainerPasswordHash: string;
+  // Optional per-tenant turnstile key hash (`sha256:<hex>` or `scrypt:...`).
+  // Empty falls back to the process-wide ACCESS_CONTROL_KEY environment secret.
+  accessKeyHash: string;
   createdAt: string;
+}
+
+export function hashAccessKey(key: string): string {
+  return `sha256:${createHash("sha256").update(key).digest("hex")}`;
 }
 
 // The registry lives in its own database so it is independent of any tenant's
@@ -75,20 +83,28 @@ const REGISTRY_BUSY_TIMEOUT_MS = 5000;
 // role existed. Two workers can both see the column missing and both ALTER, and
 // the second gets "duplicate column name" — which means the upgrade succeeded.
 // Any other error must still propagate.
-export function ensureTrainerPasswordColumn(db: DatabaseSync): void {
+function ensureTenantColumn(db: DatabaseSync, columnName: "trainer_password_hash" | "access_key_hash"): void {
   const hasColumn = (): boolean =>
     (db.prepare("PRAGMA table_info(tenants)").all() as Array<{ name: string }>).some(
-      (column) => column.name === "trainer_password_hash"
+      (column) => column.name === columnName
     );
 
   if (hasColumn()) return;
 
   try {
-    db.exec("ALTER TABLE tenants ADD COLUMN trainer_password_hash TEXT NOT NULL DEFAULT ''");
+    db.exec(`ALTER TABLE tenants ADD COLUMN ${columnName} TEXT NOT NULL DEFAULT ''`);
   } catch (err) {
     // Another process added it between the check and the ALTER.
     if (!hasColumn()) throw err;
   }
+}
+
+export function ensureTrainerPasswordColumn(db: DatabaseSync): void {
+  ensureTenantColumn(db, "trainer_password_hash");
+}
+
+export function ensureAccessKeyColumn(db: DatabaseSync): void {
+  ensureTenantColumn(db, "access_key_hash");
 }
 
 // Seeds the default tenant when its row is missing — not merely when the table
@@ -149,7 +165,10 @@ export function getRegistry(): DatabaseSync {
 
   const db = new DatabaseSync(path.join(dir, "registry.db"));
   // Wait for a competing writer instead of failing fast: PM2 cluster mode starts
-  // every worker at once against the same data directory.
+  // every worker at once against the same data directory. Enable WAL so domain
+  // lookups never block behind a concurrent tenant write.
+  db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA synchronous = NORMAL;");
   db.exec(`PRAGMA busy_timeout = ${REGISTRY_BUSY_TIMEOUT_MS};`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS tenants (
@@ -158,11 +177,13 @@ export function getRegistry(): DatabaseSync {
       domains TEXT NOT NULL,
       admin_password_hash TEXT NOT NULL,
       trainer_password_hash TEXT NOT NULL DEFAULT '',
+      access_key_hash TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     );
   `);
 
   ensureTrainerPasswordColumn(db);
+  ensureAccessKeyColumn(db);
   seedDefaultTenant(db);
 
   registry = db;
@@ -184,14 +205,19 @@ function rowToTenant(row: Record<string, unknown>): Tenant {
     domains,
     adminPasswordHash: String(row.admin_password_hash),
     trainerPasswordHash: String(row.trainer_password_hash ?? ""),
+    accessKeyHash: String(row.access_key_hash ?? ""),
     createdAt: String(row.created_at),
   };
 }
 
+function queryTenants(): Tenant[] {
+  const rows = getRegistry().prepare("SELECT * FROM tenants ORDER BY created_at ASC").all();
+  return (rows as Record<string, unknown>[]).map(rowToTenant);
+}
+
 export function listTenants(): Tenant[] {
   try {
-    const rows = getRegistry().prepare("SELECT * FROM tenants ORDER BY created_at ASC").all();
-    return (rows as Record<string, unknown>[]).map(rowToTenant);
+    return queryTenants();
   } catch (err) {
     console.error("[tenants] listTenants failed:", err);
     return [];
@@ -211,14 +237,21 @@ export function getTenant(id: string): Tenant | null {
 }
 
 function refreshDomainCache(): Map<string, string> {
-  const byDomain = new Map<string, string>();
-  for (const tenant of listTenants()) {
-    for (const domain of tenant.domains) {
-      byDomain.set(normalizeHost(domain), tenant.id);
+  try {
+    const byDomain = new Map<string, string>();
+    for (const tenant of queryTenants()) {
+      for (const domain of tenant.domains) {
+        byDomain.set(normalizeHost(domain), tenant.id);
+      }
     }
+    domainCache = { byDomain, at: Date.now() };
+    return byDomain;
+  } catch (err) {
+    console.error("[tenants] refreshDomainCache failed:", err);
+    // Keep the prior domain mapping rather than collapsing custom domains to default.
+    if (domainCache) return domainCache.byDomain;
+    return new Map();
   }
-  domainCache = { byDomain, at: Date.now() };
-  return byDomain;
 }
 
 // Resolves the tenant that owns a Host header. Unknown hosts fall back to the
@@ -245,6 +278,7 @@ export interface CreateTenantInput {
   domains?: string[];
   adminPassword: string;
   trainerPassword?: string;
+  accessKey?: string;
 }
 
 // Creates a tenant. Fails if the id or any of its domains is already taken.
@@ -255,6 +289,8 @@ export function createTenant(input: CreateTenantInput): boolean {
   if (!/^[a-z0-9][a-z0-9-]{1,38}$/.test(id)) return false;
   if (!input.name.trim() || !input.adminPassword) return false;
 
+  const trimmedAccessKey = input.accessKey?.trim() ?? "";
+
   const taken = new Set(
     listTenants().flatMap((tenant) => (tenant.id === id ? [] : tenant.domains))
   );
@@ -263,7 +299,7 @@ export function createTenant(input: CreateTenantInput): boolean {
   try {
     getRegistry()
       .prepare(
-        "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+        "INSERT INTO tenants (id, name, domains, admin_password_hash, trainer_password_hash, access_key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
       )
       .run(
         id,
@@ -271,6 +307,7 @@ export function createTenant(input: CreateTenantInput): boolean {
         JSON.stringify(domains),
         hashPinSync(input.adminPassword),
         input.trainerPassword ? hashPinSync(input.trainerPassword) : "",
+        trimmedAccessKey ? hashAccessKey(trimmedAccessKey) : "",
         new Date().toISOString()
       );
 

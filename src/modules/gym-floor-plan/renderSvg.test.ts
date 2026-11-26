@@ -242,6 +242,8 @@ describe("buildSvgScene — patterns", () => {
     const tile = scene.patterns[0];
 
     expect(voidLayer?.fill).toBe(`url(#${tile.id})`);
+    expect(tile.kind).toBe("void");
+    expect(tile.backgroundColor).toBe(voidLayer?.color);
     // Tiles are measured in cell units, so they scale with the viewBox.
     expect(tile.width).toBeGreaterThan(0);
     expect(tile.width).toBeLessThanOrEqual(1);
@@ -256,7 +258,7 @@ describe("buildSvgScene — patterns", () => {
     expect(ids.every((id) => id.startsWith("fp-floor-1-"))).toBe(true);
   });
 
-  it("emits the right shape per pattern kind", () => {
+  it("emits the right shape per pattern kind and preserves category background colour", () => {
     let plan = createEmptyPlan({ rows: 5, cols: 1 });
     const patterns = ["solid", "diagonal", "dots", "grid", "cross"] as const;
     patterns.forEach((pattern, index) => {
@@ -279,6 +281,9 @@ describe("buildSvgScene — patterns", () => {
     // cross 2 paths.
     expect(scene.patterns).toHaveLength(4);
     expect(shapeCount).toBe(6);
+    expect(
+      scene.patterns.every((tile) => tile.kind === "machine" && tile.backgroundColor === "#2563EB")
+    ).toBe(true);
     expect(
       scene.patterns.some((tile) => tile.shapes.some((shape) => shape.kind === "circle"))
     ).toBe(true);
@@ -339,6 +344,7 @@ describe("buildSvgScene — label threshold", () => {
       expect(tile.text.length).toBeLessThanOrEqual(3);
       expect(tile.fontSize).toBeGreaterThan(0);
       expect(tile.fontSize).toBeLessThanOrEqual(1);
+      expect(tile.kind).toBe(tile.text === "×" ? "void" : "machine");
     }
   });
 });

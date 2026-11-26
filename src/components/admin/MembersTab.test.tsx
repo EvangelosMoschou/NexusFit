@@ -269,4 +269,78 @@ describe("MembersTab (admin member CRUD)", () => {
     await waitFor(() => expect(screen.getByRole("dialog", { name: "Προφίλ μέλους" })).toBeTruthy());
     expect(spy.mock.calls[0]?.[0]).toBe("/api/admin/members?id=m-1");
   });
+
+  it("exposes accessible labels including expiresAt and submits the chosen expiry date", async () => {
+    const spy = mockCreate({ ok: true, status: 200, body: { success: true } });
+    const onRefresh = vi.fn();
+
+    render(<MembersTab members={[]} onRefresh={onRefresh} onDelete={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText("Κωδικός Κάρτας"), {
+      target: { value: "NX-5501" },
+    });
+    fireEvent.change(screen.getByLabelText("Ονοματεπώνυμο"), {
+      target: { value: "Ελένη Κώστα" },
+    });
+    fireEvent.change(screen.getByLabelText("Ηλεκτρονικό Ταχυδρομείο"), {
+      target: { value: "eleni@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("PIN Σύνδεσης (4 ψηφία)"), {
+      target: { value: "4321" },
+    });
+    fireEvent.change(screen.getByLabelText("Λήξη Συνδρομής"), {
+      target: { value: "2027-06-30" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Αποθήκευση & Έκδοση Μέλους/ }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+
+    const [, init] = spy.mock.calls[0];
+    const body = JSON.parse(String((init as RequestInit).body));
+    expect(body.member).toMatchObject({
+      memberCode: "NX-5501",
+      expiresAt: "2027-06-30",
+    });
+  });
+
+  it("allows renewing and patching a member from the detail modal", async () => {
+    const updatedMember = member({ expires_at: "2027-01-31" });
+    const spy = vi.fn<FetchMock>(async (_url, init) => {
+      if (init?.method === "PATCH") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, member: updatedMember }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          member: member(),
+          plans: [],
+          visits: [],
+          exerciseLogs: [],
+        }),
+      };
+    });
+    vi.stubGlobal("fetch", spy);
+    const onRefresh = vi.fn();
+
+    render(<MembersTab members={[member()]} onRefresh={onRefresh} onDelete={() => {}} />);
+
+    fireEvent.click(screen.getByText("Γιώργος Παπαδόπουλος"));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Προφίλ μέλους" })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "+1 μήνας" }));
+
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+    const patchCall = spy.mock.calls.find(([, init]) => init?.method === "PATCH");
+    expect(patchCall?.[0]).toBe("/api/admin/members");
+    const patchBody = JSON.parse(String((patchCall?.[1] as RequestInit).body));
+    expect(patchBody.id).toBe("m-1");
+    expect(patchBody.updates.subscriptionStatus).toBe("active");
+    expect(patchBody.updates.expiresAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
 });

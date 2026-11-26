@@ -38,7 +38,7 @@ const PRINT_CSS = `
     -webkit-print-color-adjust: exact;
   }
 
-  [data-floor-plan-root] figure > div {
+  [data-floor-plan-root] svg[data-floor-plan-svg] {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }

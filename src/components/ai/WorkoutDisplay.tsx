@@ -6,6 +6,7 @@ import { X, Printer, Copy, Check } from "lucide-react";
 import { ExerciseLog, saveWorkoutToDevice, getExerciseLogs } from "@/lib/storage";
 import { WeightLoggerInput } from "@/components/WeightLoggerInput";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useGymConfig } from "@/lib/useGymConfig";
 
 // Greek labels for the stored experience levels, so the plan states which
 // experience tier it was tailored for.
@@ -30,6 +31,7 @@ interface WorkoutDisplayProps {
 }
 
 export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, onOpenBooking }) => {
+  const { config } = useGymConfig();
   const [activeDayIdx, setActiveDayIdx] = useState(0);
   const [copied, setCopied] = useState(false);
   const [exerciseWeights, setExerciseWeights] = useState<Record<string, string>>({});
@@ -52,7 +54,7 @@ export const WorkoutDisplay: React.FC<WorkoutDisplayProps> = ({ plan, onReset, o
   const activeDay = plan.days[activeDayIdx] || plan.days[0];
 
   const handleCopy = () => {
-    let text = `ΠΡΟΓΡΑΜΜΑ ΠΡΟΠΟΝΗΣΗΣ NEXUSFIT: ${plan.splitName}\n`;
+    let text = `ΠΡΟΓΡΑΜΜΑ ΠΡΟΠΟΝΗΣΗΣ ${config.gymName}: ${plan.splitName}\n`;
     text += `Στόχος: ${GOAL_LABELS[plan.userGoal] ?? plan.userGoal} | Επίπεδο: ${EXPERIENCE_LABELS[plan.experienceLevel] ?? plan.experienceLevel} | ${plan.daysPerWeek} Ημέρες/Εβδομάδα | ${plan.sessionDuration} λεπτά\n\n`;
 
     plan.days.forEach((d) => {

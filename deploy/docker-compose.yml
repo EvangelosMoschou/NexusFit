@@ -15,9 +15,17 @@ services:
       PORT: "3000"
       SQLITE_DATA_DIR: /app/data
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      GEMINI_MODEL: "${GEMINI_MODEL:-}"
+      GYM_TIMEZONE: "${GYM_TIMEZONE:-Europe/Athens}"
       SESSION_SECRET: "${SESSION_SECRET:?SESSION_SECRET is required (openssl rand -hex 32)}"
       ADMIN_PASSWORD: "${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}"
+      TRAINER_PASSWORD: "${TRAINER_PASSWORD:-}"
+      ACCESS_CONTROL_KEY: "${ACCESS_CONTROL_KEY:-}"
       CRON_SECRET: "${CRON_SECRET:?CRON_SECRET is required}"
+      MEMBER_SESSION_IDLE_SECONDS: "${MEMBER_SESSION_IDLE_SECONDS:-}"
+      MEMBER_SESSION_ABSOLUTE_SECONDS: "${MEMBER_SESSION_ABSOLUTE_SECONDS:-}"
+      MEMBER_SESSION_TOUCH_SECONDS: "${MEMBER_SESSION_TOUCH_SECONDS:-}"
+      MEMBER_SESSION_MAX_ACTIVE: "${MEMBER_SESSION_MAX_ACTIVE:-}"
     volumes:
       # Persistent storage for local SQLite database
       - nexusfit_data:/app/data
@@ -65,7 +73,7 @@ services:
       BACKUP_DIR: /backups
       BACKUP_RETENTION_DAYS: "14"
     volumes:
-      - nexusfit_data:/data:ro
+      - nexusfit_data:/data
       - ./backups:/backups
       - ./backup.mjs:/scripts/backup.mjs:ro
     entrypoint: ["/bin/sh", "-c"]
@@ -78,11 +86,7 @@ services:
 
   # GDPR data-retention job: deletes lead inquiries older than the policy window
   retention_cron:
-    # Pinned to a supported Alpine line: 3.20 reached end-of-life on 2026-04-01,
-    # so its package repos are frozen and `apk add curl` below would never pick
-    # up a security fix. Bump this with the other images; see
-    # https://endoflife.date/alpine-linux
-    image: alpine:3.24
+    image: curlimages/curl:8.13.0
     container_name: nexusfit_retention
     restart: unless-stopped
     depends_on:
@@ -91,7 +95,7 @@ services:
     environment:
       CRON_SECRET: "${CRON_SECRET:?CRON_SECRET is required}"
     entrypoint: ["/bin/sh", "-c"]
-    command: ["apk add --no-cache curl >/dev/null 2>&1; while true; do curl -fsS -X POST -H \"x-cron-secret: $$CRON_SECRET\" http://nexusfit_app:3000/api/cron/retention && echo \"retention ok\"; sleep 86400; done"]
+    command: ["while true; do curl -fsS -X POST -H \"x-cron-secret: $$CRON_SECRET\" http://nexusfit_app:3000/api/cron/retention && echo \"retention ok\"; sleep 86400; done"]
     logging:
       driver: json-file
       options:

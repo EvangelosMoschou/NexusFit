@@ -18,6 +18,13 @@ export function resolveGeminiModel(raw: string | undefined = process.env.GEMINI_
   return MODEL_ID_PATTERN.test(value) ? value : DEFAULT_GEMINI_MODEL;
 }
 
-export function geminiEndpoint(model: string, apiKey: string): string {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+export function geminiEndpoint(model: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+}
+
+export function geminiHeaders(apiKey: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    "x-goog-api-key": apiKey,
+  };
 }

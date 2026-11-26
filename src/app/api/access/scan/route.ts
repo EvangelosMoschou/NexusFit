@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
-import { resolveTenantIdFromHeaders } from "@/lib/tenants";
+import { getTenant, resolveTenantIdFromHeaders } from "@/lib/tenants";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import { isSubscriptionActive } from "@/lib/subscription";
 import {
@@ -13,7 +13,10 @@ import { writeSystemAudit } from "@/lib/audit";
 import { isQuickReentry, trackAccessEvent } from "@/lib/accessEvents";
 
 export async function POST(req: NextRequest) {
-  if (!accessControlConfigured()) {
+  const tenantId = resolveTenantIdFromHeaders(req.headers);
+  const tenantAccessKeyHash = getTenant(tenantId)?.accessKeyHash;
+
+  if (!accessControlConfigured(tenantAccessKeyHash)) {
     return NextResponse.json(
       { success: false, allowed: false, reason: "not_configured" },
       { status: 503 }
@@ -21,14 +24,13 @@ export async function POST(req: NextRequest) {
   }
 
   const providedKey = req.headers.get("x-access-key") ?? undefined;
-  if (!verifyAccessDeviceKey(providedKey)) {
+  if (!verifyAccessDeviceKey(providedKey, tenantAccessKeyHash)) {
     return NextResponse.json(
       { success: false, allowed: false, reason: "invalid_device_key" },
       { status: 401 }
     );
   }
 
-  const tenantId = resolveTenantIdFromHeaders(req.headers);
   const ipLimit = checkRateLimit(
     `access:ip:${tenantId}:${getClientIp(req.headers)}`,
     120,

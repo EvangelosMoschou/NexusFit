@@ -20,7 +20,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import {
   DEFAULT_FLOOR_PLAN_LABELS,
   DEFAULT_FLOOR_PLAN_THEME,
@@ -144,6 +144,74 @@ describe("FloorPlanCanvas — SVG structure", () => {
     expect(fills).toContain("#DC2626");
     expect(fills.some((fill) => fill?.startsWith("url(#"))).toBe(true);
   });
+  it("renders pattern backgrounds, shape-level opacity without non-scaling-stroke, and print theme hooks", () => {
+    let plan = buildPlan();
+    plan = addCategory(plan, {
+      id: "cat-3",
+      name: "Dots category",
+      color: "#16A34A",
+      shortLabel: "DT",
+      pattern: "dots",
+    });
+    plan = setCell(plan, "floor-1", 2, 0, { kind: "machine", categoryId: "cat-3" });
+
+    const { container } = renderCanvas({ plan });
+    const svg = svgOf(container);
+
+    const patternDefs = [...svg.querySelectorAll("defs > pattern")].filter(
+      (node) => node.querySelector("rect[data-pattern-bg]") !== null
+    );
+    expect(patternDefs).toHaveLength(2);
+
+    for (const pattern of patternDefs) {
+      // Opacity must live on the child shapes, not on <pattern>.
+      expect(pattern.getAttribute("opacity")).toBeNull();
+    }
+
+    const bgRects = [...svg.querySelectorAll<SVGRectElement>("rect[data-pattern-bg]")];
+    expect(bgRects.map((rect) => rect.getAttribute("fill"))).toEqual(
+      expect.arrayContaining([DEFAULT_FLOOR_PLAN_THEME.voidColor, "#16A34A"])
+    );
+
+    const voidBg = bgRects.find((rect) => rect.getAttribute("fill") === DEFAULT_FLOOR_PLAN_THEME.voidColor);
+    expect(voidBg?.style.fill).toBe("var(--fp-void)");
+
+    const machineBg = bgRects.find((rect) => rect.getAttribute("fill") === "#16A34A");
+    expect(machineBg?.style.fill).toBe("");
+
+    // Pattern lines/paths scale with cell units (no non-scaling-stroke) and use stroke-opacity.
+    const voidLine = svg.querySelector("pattern line");
+    expect(voidLine?.getAttribute("vector-effect")).toBeNull();
+    expect(voidLine?.getAttribute("stroke-opacity")).toBeTruthy();
+
+    // Pattern circles use fill-opacity.
+    const dotCircle = svg.querySelector("pattern circle");
+    expect(dotCircle?.getAttribute("fill-opacity")).toBeTruthy();
+
+    // Solid empty layer resolves via --fp-empty for print while preserving hex fallback.
+    const emptyPath = [...svg.querySelectorAll("path")].find(
+      (path) => path.getAttribute("fill") === DEFAULT_FLOOR_PLAN_THEME.emptyColor
+    );
+    expect(emptyPath?.style.fill).toBe("var(--fp-empty)");
+  });
+
+  it("namespaces pattern ids per canvas instance so two canvases do not collide", () => {
+    const first = renderCanvas();
+    const second = renderCanvas();
+
+    const firstIds = [...svgOf(first.container).querySelectorAll("defs > pattern")].map(
+      (node) => node.id
+    );
+    const secondIds = [...svgOf(second.container).querySelectorAll("defs > pattern")].map(
+      (node) => node.id
+    );
+
+    expect(firstIds.length).toBeGreaterThan(0);
+    expect(secondIds.length).toBe(firstIds.length);
+    for (const id of firstIds) {
+      expect(secondIds).not.toContain(id);
+    }
+  });
 });
 
 describe("FloorPlanCanvas — accessibility", () => {
@@ -174,12 +242,12 @@ describe("FloorPlanCanvas — accessibility", () => {
     expect(container.querySelectorAll("ul[aria-label]")).toHaveLength(0);
   });
 
-  it("keeps one focus target and a focus ring drawn inside the viewBox", () => {
+  it("keeps one tab stop and a focus ring drawn inside the viewBox", () => {
     const { container } = renderCanvas({ interactive: true, focusRow: 1, focusCol: 2 });
     const svg = svgOf(container);
 
-    // Exactly one focusable node: the svg itself, as a programmatic target.
-    expect(svg.getAttribute("tabindex")).toBe("-1");
+    // Exactly one focusable node: the svg itself, reachable via Tab.
+    expect(svg.getAttribute("tabindex")).toBe("0");
     expect(svg.getAttribute("aria-hidden")).toBeNull();
 
     // The visible cursor is a two-tone ring in user units at the roving square,
@@ -304,52 +372,76 @@ describe("FloorPlanCanvas — hit testing with one handler", () => {
   });
 
   it("reports drag movement through the same single listener", () => {
-    const onOver = vi.fn();
-    const { container } = renderCanvas({ interactive: true, onCellPointerOver: onOver });
+    const onMove = vi.fn();
+    const { container } = renderCanvas({ interactive: true, onCellPointerMove: onMove });
     const svg = svgOf(container);
     stubRect(svg, 120, 90);
 
-    fireEvent.pointerOver(svg, { clientX: 15, clientY: 15, bubbles: true });
-    fireEvent.pointerOver(svg, { clientX: 105, clientY: 75, bubbles: true });
+    fireEvent.pointerMove(svg, { clientX: 15, clientY: 15, bubbles: true });
+    fireEvent.pointerMove(svg, { clientX: 105, clientY: 75, bubbles: true });
 
-    expect(onOver).toHaveBeenCalledTimes(2);
-    expect([onOver.mock.calls[0][0], onOver.mock.calls[0][1]]).toEqual([0, 0]);
-    expect([onOver.mock.calls[1][0], onOver.mock.calls[1][1]]).toEqual([2, 3]);
+    expect(onMove).toHaveBeenCalledTimes(2);
+    expect([onMove.mock.calls[0][0], onMove.mock.calls[0][1]]).toEqual([0, 0]);
+    expect([onMove.mock.calls[1][0], onMove.mock.calls[1][1]]).toEqual([2, 3]);
   });
 
   it("stays inert for the public view", () => {
     const onDown = vi.fn();
-    const onOver = vi.fn();
-    const { container } = renderCanvas({ onCellPointerDown: onDown, onCellPointerOver: onOver });
+    const onMove = vi.fn();
+    const { container } = renderCanvas({ onCellPointerDown: onDown, onCellPointerMove: onMove });
     const svg = svgOf(container);
     stubRect(svg, 120, 90);
 
     fireEvent.pointerDown(svg, { button: 0, clientX: 15, clientY: 15, bubbles: true });
-    fireEvent.pointerOver(svg, { clientX: 15, clientY: 15, bubbles: true });
+    fireEvent.pointerMove(svg, { clientX: 15, clientY: 15, bubbles: true });
 
     expect(onDown).not.toHaveBeenCalled();
-    expect(onOver).not.toHaveBeenCalled();
+    expect(onMove).not.toHaveBeenCalled();
   });
 });
 
 describe("FloorPlanCanvas — label threshold follows the measured width", () => {
-  it("draws labels on a wide container and drops them on a narrow one", () => {
-    // jsdom reports a zero-width box, so the measured width is stubbed to the
-    // two extremes a real browser produces for the same floor.
-    const wide = renderCanvas();
-    stubRect(wide.container.querySelector("svg") as SVGSVGElement, 1440, 1080);
-    fireEvent(window, new Event("resize"));
+  it("drops labels below 16px per cell and restores them when widened via ResizeObserver", () => {
+    const originalResizeObserver = globalThis.ResizeObserver;
+    let resizeCallback: ResizeObserverCallback | null = null;
 
-    const narrow = renderCanvas();
-    stubRect(narrow.container.querySelector("svg") as SVGSVGElement, 240, 180);
-    fireEvent(window, new Event("resize"));
+    class MockResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        resizeCallback = callback;
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
 
-    // The scene is seeded deterministically before any measurement lands, so the
-    // first paint always has an answer; the label decision itself is proved at
-    // both sides of the threshold in renderSvg.test.ts, where the width is an
-    // explicit input rather than a DOM measurement.
-    expect(wide.container.querySelector("svg")).toBeTruthy();
-    expect(narrow.container.querySelector("svg")).toBeTruthy();
+    globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+
+    try {
+      const { container } = renderCanvas();
+      const svg = svgOf(container);
+      // Seeded width (720px / 4 cols = 180px/cell) shows labels initially.
+      expect(svg.querySelectorAll("pattern text").length).toBeGreaterThan(0);
+
+      // Narrow to 48px across 4 cols (12px/cell < 16px threshold): labels drop.
+      act(() => {
+        resizeCallback?.(
+          [{ contentRect: { width: 48 } } as ResizeObserverEntry],
+          {} as ResizeObserver
+        );
+      });
+      expect(svg.querySelectorAll("pattern text")).toHaveLength(0);
+
+      // Widen to 200px across 4 cols (50px/cell >= 16px threshold): labels return.
+      act(() => {
+        resizeCallback?.(
+          [{ contentRect: { width: 200 } } as ResizeObserverEntry],
+          {} as ResizeObserver
+        );
+      });
+      expect(svg.querySelectorAll("pattern text").length).toBeGreaterThan(0);
+    } finally {
+      globalThis.ResizeObserver = originalResizeObserver;
+    }
   });
 
   it("keeps one path per appearance after a re-measure", () => {

@@ -25,6 +25,7 @@ import { GeneratedWorkoutPlan } from "@/types";
 import { useUTM } from "@/lib/useUTM";
 import { useNetworkStatus } from "@/lib/useNetworkStatus";
 import {
+  clearMemberSession,
   getCurrentMember,
   MemberUser,
   addPlanToMemberHistory,
@@ -101,11 +102,39 @@ export default function Home() {
   // Capture UTM parameters
   useUTM();
 
-  // Load session from cookies/storage and normalise an old hash link.
+  // Load session from cookies/storage, refresh live status/plans from server, and normalise an old hash link.
   useEffect(() => {
-    const current = getCurrentMember();
-    if (current) setMember(current);
     clearUrlHash();
+    const current = getCurrentMember();
+    if (!current) return;
+    // Hydrate cached local session on client mount after SSR.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMember(current);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await memberFetch("/api/member/me", { cache: "no-store" });
+        if (cancelled) return;
+        if (res.status === 401) {
+          clearMemberSession();
+          setMember(null);
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data?.success && data.member) {
+          storeMemberSession(data.member);
+          setMember(data.member);
+        }
+      } catch {
+        // Offline / transient network error: retain local cached session for Lite Mode.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // The branded 401 page links to /?login=1; open the member login once and

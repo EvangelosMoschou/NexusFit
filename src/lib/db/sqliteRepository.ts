@@ -14,7 +14,9 @@ import {
   eraseMemberCompletely,
   exportMemberData,
   getMemberByCredentials,
+  getMemberById,
   saveWorkoutPlanToDb,
+  updateMemberAdmin,
   saveLeadInquiryToDb,
   listMediaAdmin,
   getMediaWithData,
@@ -50,6 +52,9 @@ import {
   listMemberSessionHistory,
   enforceMemberSessionLimit,
   purgeMemberSessions,
+  purgeStaffSessions,
+  listExerciseLogs,
+  saveExerciseLog,
   ensureMemberNotification,
   listMemberNotifications,
   getUnreadNotificationCount,
@@ -172,6 +177,9 @@ export function createSqliteRepository(tenantId: string): Repository {
     async saveMember(member) {
       return upsertMemberAdmin(member, tenantId);
     },
+    async updateMember(id, patch) {
+      return updateMemberAdmin(id, patch, tenantId);
+    },
     async deleteMember(id) {
       return deleteMemberAdmin(id, tenantId);
     },
@@ -186,6 +194,9 @@ export function createSqliteRepository(tenantId: string): Repository {
     },
     async authenticateMember(identifier, pin) {
       return getMemberByCredentials(identifier, pin, tenantId);
+    },
+    async getMemberById(memberId) {
+      return getMemberById(memberId, tenantId);
     },
     async createMemberSession(input) {
       return createMemberSession(input, tenantId);
@@ -213,6 +224,15 @@ export function createSqliteRepository(tenantId: string): Repository {
     },
     async purgeMemberSessions(now) {
       return purgeMemberSessions(now, tenantId);
+    },
+    async purgeStaffSessions(now) {
+      return purgeStaffSessions(now, tenantId);
+    },
+    async listExerciseLogs(memberId, limit) {
+      return listExerciseLogs(memberId, limit, tenantId);
+    },
+    async saveExerciseLog(memberId, input) {
+      return saveExerciseLog(memberId, input, tenantId);
     },
     async ensureMemberNotification(memberId, input) {
       return ensureMemberNotification(memberId, input, tenantId);

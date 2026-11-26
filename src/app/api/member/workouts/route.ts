@@ -20,7 +20,14 @@ export async function POST(req: NextRequest) {
     }
 
     const saved = await getRepository(tenantId).saveWorkoutPlan(memberId, plan);
-    return NextResponse.json({ success: saved });
+    if (!saved) {
+      return NextResponse.json(
+        { success: false, error: "Μη έγκυρο πρόγραμμα προπόνησης." },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(
       { success: false, error: "Database error saving workout" },

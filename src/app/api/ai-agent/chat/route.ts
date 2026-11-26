@@ -1,32 +1,90 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processAgentQuery } from "@/lib/aiAgentChat";
 import { analyzeQuerySafety, buildSafetySystemPrompt } from "@/lib/aiSafetyHarness";
-import { geminiEndpoint, resolveGeminiModel } from "@/lib/geminiModel";
+import { getRepository } from "@/lib/db";
+import { geminiEndpoint, geminiHeaders, resolveGeminiModel } from "@/lib/geminiModel";
+import { authenticateMemberSession } from "@/lib/memberSessions";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { isPremiumSubscriptionActive } from "@/lib/subscription";
 import { resolveTenantIdFromHeaders } from "@/lib/tenants";
+
+const MAX_QUERY_CHARS = 1000;
+const MAX_HISTORY_ITEMS = 6;
+const GEMINI_TIMEOUT_MS = 15_000;
+
+interface HistoryTurn {
+  role: "user" | "model";
+  parts: Array<{ text: string }>;
+}
+
+function sanitizeHistory(raw: unknown): HistoryTurn[] {
+  if (!Array.isArray(raw)) return [];
+  const turns: HistoryTurn[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as Record<string, unknown>;
+    const role = entry.role === "user" || entry.role === "model" ? entry.role : null;
+    const text = typeof entry.text === "string" ? entry.text.trim().slice(0, MAX_QUERY_CHARS) : "";
+    if (!role || !text) continue;
+    turns.push({ role, parts: [{ text }] });
+  }
+  return turns.slice(-MAX_HISTORY_ITEMS);
+}
 
 export async function POST(req: NextRequest) {
   try {
     // Rate limits are per tenant *and* per IP, so one gym's traffic cannot
     // consume another gym's allowance.
     const tenantId = resolveTenantIdFromHeaders(req.headers);
-    const rl = checkRateLimit(`${tenantId}:${getClientIp(req.headers)}`);
-    if (!rl.allowed) {
+    const session = await authenticateMemberSession(req, tenantId);
+    if (!session) {
+      return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
+    }
+
+    const repo = getRepository(tenantId);
+    const member = await repo.getMemberAccess(session.memberId);
+    if (!member) {
+      return NextResponse.json({ success: false, error: "Member not found" }, { status: 404 });
+    }
+    if (!isPremiumSubscriptionActive(member.subscription_status, member.expires_at, member.has_ai_access)) {
       return NextResponse.json(
-        { success: false, error: "Πολλές αιτήσεις. Δοκιμάστε ξανά σε λίγα δευτερόλεπτα.", retryAfter: rl.retryAfterSeconds },
-        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } }
+        { success: false, error: "Απαιτείται ενεργή συνδρομή Ψηφιακού Βοηθού." },
+        { status: 403 }
       );
     }
 
-    const body = await req.json();
-    const { query } = body;
-
-    if (!query || typeof query !== "string") {
-      return NextResponse.json({ success: false, error: "Missing or invalid query parameter" }, { status: 400 });
+    const ipLimit = checkRateLimit(`ai:ip:${tenantId}:${getClientIp(req.headers)}`, 20, 60_000);
+    const memberLimit = checkRateLimit(`ai:member:${tenantId}:${session.memberId}`, 15, 60_000);
+    if (!ipLimit.allowed || !memberLimit.allowed) {
+      const retryAfter = Math.max(ipLimit.retryAfterSeconds, memberLimit.retryAfterSeconds, 1);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Πολλές αιτήσεις. Δοκιμάστε ξανά σε λίγα δευτερόλεπτα.",
+          retryAfter,
+        },
+        { status: 429, headers: { "Retry-After": String(retryAfter) } }
+      );
     }
 
+    const body = await req.json().catch(() => null);
+    const rawQuery = body && typeof body === "object" ? (body as { query?: unknown }).query : undefined;
+    const query = typeof rawQuery === "string" ? rawQuery.trim() : "";
+
+    if (!query || query.length > MAX_QUERY_CHARS) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Το ερώτημα πρέπει να είναι μεταξύ 1 και ${MAX_QUERY_CHARS} χαρακτήρων.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const config = await repo.getGymConfig();
+
     // 1. SAFETY HARNESS PRE-FLIGHT CHECK
-    const harness = analyzeQuerySafety(query);
+    const harness = analyzeQuerySafety(query, config.gymName);
 
     // 1A. Persona Lock & Out-of-Scope Blocker (Coding, Homework, Jailbreaks) -> 0€ Token Cost
     if (harness.isOutOfScope && harness.scopeRefusalMessage) {
@@ -57,15 +115,19 @@ export async function POST(req: NextRequest) {
 
     if (apiKey) {
       try {
-        const systemPrompt = buildSafetySystemPrompt(harness.matchedLocalExercises);
-        const endpoint = geminiEndpoint(resolveGeminiModel(), apiKey);
+        const systemPrompt = buildSafetySystemPrompt(harness.matchedLocalExercises, config.gymName);
+        const endpoint = geminiEndpoint(resolveGeminiModel());
+        const history = sanitizeHistory(
+          body && typeof body === "object" ? (body as { history?: unknown }).history : undefined
+        );
 
         const payload: {
-          contents: Array<{ role: string; parts: Array<{ text: string }> }>;
+          contents: HistoryTurn[];
           systemInstruction: { parts: Array<{ text: string }> };
           tools?: Array<{ googleSearch?: Record<string, never> }>;
         } = {
           contents: [
+            ...history,
             {
               role: "user",
               parts: [{ text: query }],
@@ -83,8 +145,9 @@ export async function POST(req: NextRequest) {
 
         const res = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: geminiHeaders(apiKey),
           body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
         });
 
         if (res.ok) {
@@ -102,7 +165,7 @@ export async function POST(req: NextRequest) {
           }
         }
       } catch {
-        // Graceful fallback to local engine on connection error
+        // Graceful fallback to local engine on connection error or timeout
       }
     }
 

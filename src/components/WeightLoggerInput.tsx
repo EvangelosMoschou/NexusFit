@@ -2,6 +2,8 @@
 
 import React from "react";
 import { Save } from "lucide-react";
+import { getCurrentMember } from "@/lib/auth";
+import { memberFetch } from "@/lib/memberFetch";
 import { logExercisePerformance } from "@/lib/storage";
 import { pingVisitActivity } from "@/lib/visitActivity";
 
@@ -38,6 +40,18 @@ export const WeightLoggerInput: React.FC<WeightLoggerInputProps> = ({
     });
     // A weight entry is a strong signal that the member is still training.
     pingVisitActivity();
+    if (typeof window !== "undefined" && getCurrentMember()) {
+      void memberFetch("/api/member/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          exerciseName: exerciseId,
+          weightKg: val,
+          reps: 8,
+          loggedAt: new Date().toISOString(),
+        }),
+      }).catch(() => {});
+    }
     onValueChange("");
     onLogged?.();
   };

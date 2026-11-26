@@ -14,7 +14,28 @@ export { DEFAULT_TENANT_ID } from "./db/tenant";
 
 export { getDataDir, getDatabase } from "./db/connection";
 
-export type { DbAdminMember, DbLeadInquiry, DbMember, DbWorkoutPlan } from "./db/types";
+export type {
+  DbAdminMember,
+  DbLeadInquiry,
+  DbMember,
+  DbStaffSession,
+  DbWorkoutPlan,
+  ExerciseLogInput,
+  ExerciseLogRow,
+  MemberUpdateInput,
+  MemberUpdateResult,
+  StaffSessionInput,
+} from "./db/types";
+
+export {
+  createStaffSession,
+  getStaffSessionRow,
+  purgeStaffSessions,
+  revokeAllStaffSessions,
+  revokeStaffSession,
+} from "./db/staffSessions";
+
+export { listExerciseLogs, saveExerciseLog } from "./db/exerciseLogs";
 
 export {
   deleteMemberAdmin,
@@ -23,7 +44,9 @@ export {
   getAllMembersAdmin,
   getMemberAccess,
   getMemberByCredentials,
+  getMemberById,
   saveWorkoutPlanToDb,
+  updateMemberAdmin,
   upsertMemberAdmin,
 } from "./db/members";
 

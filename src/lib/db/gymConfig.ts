@@ -1,7 +1,11 @@
+import type { DatabaseSync } from "node:sqlite";
 import { getDatabase } from "./connection";
 import { DEFAULT_TENANT_ID } from "./tenant";
 import { defaultGymConfig } from "@/config/gymConfig";
 import type { GymConfig } from "@/types";
+
+const CONFIG_CACHE_TTL_MS = 5_000;
+const configCache = new WeakMap<DatabaseSync, { config: GymConfig; at: number }>();
 
 // The admin-editable gym configuration, stored as one JSON row in site_config.
 // Reading it merges the saved value over the current defaults so a config
@@ -10,6 +14,12 @@ import type { GymConfig } from "@/types";
 export function getSavedGymConfig(tenantId: string = DEFAULT_TENANT_ID): GymConfig {
   try {
     const db = getDatabase(tenantId);
+    const now = Date.now();
+    const cached = configCache.get(db);
+    if (cached && now - cached.at < CONFIG_CACHE_TTL_MS) {
+      return cached.config;
+    }
+
     const stmt = db.prepare("SELECT value FROM site_config WHERE key = 'gym_config'");
     const row = stmt.get() as { value: string } | undefined;
     if (row && row.value) {
@@ -93,10 +103,13 @@ export function getSavedGymConfig(tenantId: string = DEFAULT_TENANT_ID): GymConf
           merged.longitude = undefined;
         }
 
+        configCache.set(db, { config: merged, at: now });
         return merged;
       } catch (err) {
         console.error("[sqliteDb] parseGymConfigJson failed:", err);
       }
+    } else {
+      configCache.set(db, { config: defaultGymConfig, at: now });
     }
   } catch (err) {
     console.error("[sqliteDb] getSavedGymConfig failed:", err);
@@ -110,6 +123,7 @@ export function updateSavedGymConfig(
 ): boolean {
   try {
     const db = getDatabase(tenantId);
+    configCache.delete(db);
     const current = getSavedGymConfig(tenantId);
     const merged: GymConfig = { ...current, ...config };
 
@@ -119,6 +133,7 @@ export function updateSavedGymConfig(
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
     `);
     stmt.run(JSON.stringify(merged), new Date().toISOString());
+    configCache.delete(db);
     return true;
   } catch (err) {
     console.error("[sqliteDb] updateSavedGymConfig failed:", err);

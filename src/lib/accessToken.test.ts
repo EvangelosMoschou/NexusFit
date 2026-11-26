@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   accessControlConfigured,
@@ -5,6 +6,7 @@ import {
   verifyAccessDeviceKey,
   verifyAccessToken,
 } from "./accessToken";
+import { hashPinSync } from "./passwordHash";
 
 const SECRET = "test-session-secret-value-1234";
 const DEVICE_KEY = "test-access-device-key-1234";
@@ -44,5 +46,19 @@ describe("access tokens", () => {
     vi.stubEnv("ACCESS_CONTROL_KEY", "");
     expect(accessControlConfigured()).toBe(false);
     expect(verifyAccessDeviceKey(DEVICE_KEY)).toBe(false);
+  });
+
+  it("supports per-tenant sha256 and scrypt access key hashes before env fallback", () => {
+    vi.stubEnv("ACCESS_CONTROL_KEY", "global-fallback-key-123456");
+
+    const tenantSha = `sha256:${createHash("sha256").update("tenant-turnstile-secret-1").digest("hex")}`;
+    expect(accessControlConfigured(tenantSha)).toBe(true);
+    expect(verifyAccessDeviceKey("tenant-turnstile-secret-1", tenantSha)).toBe(true);
+    expect(verifyAccessDeviceKey("global-fallback-key-123456", tenantSha)).toBe(false);
+
+    const tenantScrypt = hashPinSync("tenant-turnstile-scrypt-1");
+    expect(accessControlConfigured(tenantScrypt)).toBe(true);
+    expect(verifyAccessDeviceKey("tenant-turnstile-scrypt-1", tenantScrypt)).toBe(true);
+    expect(verifyAccessDeviceKey("wrong-secret", tenantScrypt)).toBe(false);
   });
 });

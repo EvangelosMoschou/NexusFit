@@ -12,9 +12,11 @@ process.env.SQLITE_DATA_DIR = tempDir;
 import {
   getDatabase,
   getMemberByCredentials,
+  getMemberById,
   saveWorkoutPlanToDb,
   getAllMembersAdmin,
   upsertMemberAdmin,
+  updateMemberAdmin,
   deleteMemberAdmin,
   saveLeadInquiryToDb,
   getAllLeadsAdmin,
@@ -70,6 +72,14 @@ import {
   listAccessAlerts,
   listRecentAccessEvents,
   purgeAccessEvents,
+  closeStaleVisits,
+  createStaffSession,
+  getStaffSessionRow,
+  revokeStaffSession,
+  revokeAllStaffSessions,
+  purgeStaffSessions,
+  listExerciseLogs,
+  saveExerciseLog,
 } from "./sqliteDb";
 
 afterAll(() => {
@@ -723,5 +733,158 @@ describe("member sessions", () => {
     expect(createMemberSession(sessionInput(created.id, cascadeHash, now))).toBe(true);
     expect(deleteMemberAdmin(created.id)).toBe(true);
     expect(getMemberSession(cascadeHash)).toBeNull();
+  });
+
+  it("reads member by id, validates/updates profile, and revokes sessions on PIN rotation", async () => {
+    const now = Date.now();
+    const codeA = `NX-UPD-A-${now}`;
+    const codeB = `NX-UPD-B-${now}`;
+    expect(
+      await upsertMemberAdmin({
+        memberCode: codeA,
+        fullName: "Member Alpha",
+        email: `alpha-${now}@example.com`,
+        pinCode: "1111",
+        tierName: "Standard",
+        hasAIAccess: false,
+        subscriptionStatus: "active",
+        expiresAt: "2028-01-01",
+      })
+    ).toBe(true);
+    expect(
+      await upsertMemberAdmin({
+        memberCode: codeB,
+        fullName: "Member Beta",
+        email: `beta-${now}@example.com`,
+        pinCode: "2222",
+        tierName: "Standard",
+        hasAIAccess: false,
+        subscriptionStatus: "active",
+        expiresAt: "2028-01-01",
+      })
+    ).toBe(true);
+
+    const memberA = (await getMemberByCredentials(codeA, "1111"))!;
+    expect(getMemberById(memberA.id)?.memberCode).toBe(codeA);
+    expect(getMemberById("missing-member-id")).toBeNull();
+
+    const sessHash = `sess-upd-${now}`;
+    expect(createMemberSession(sessionInput(memberA.id, sessHash, now))).toBe(true);
+
+    const notFound = await updateMemberAdmin("no-such-id", { fullName: "Nobody" });
+    expect(notFound).toMatchObject({ ok: false, code: "not_found" });
+
+    const badDate = await updateMemberAdmin(memberA.id, { expiresAt: "2026-02-31" });
+    expect(badDate).toMatchObject({ ok: false, code: "validation" });
+
+    const conflict = await updateMemberAdmin(memberA.id, { email: `beta-${now}@example.com` });
+    expect(conflict).toMatchObject({ ok: false, code: "conflict" });
+
+    const updated = await updateMemberAdmin(memberA.id, {
+      fullName: "Member Alpha Updated",
+      hasAIAccess: true,
+      expiresAt: "2029-05-01",
+      pinCode: "9999",
+    });
+    expect(updated.ok).toBe(true);
+    if (updated.ok) {
+      expect(updated.pinRotated).toBe(true);
+      expect(updated.member.full_name).toBe("Member Alpha Updated");
+      expect(updated.member.has_ai_access).toBe(1);
+      expect(updated.member.expires_at).toBe("2029-05-01");
+    }
+    expect(getMemberSession(sessHash)?.revoked_at).not.toBeNull();
+    expect(await getMemberByCredentials(codeA, "9999")).not.toBeNull();
+  });
+
+  it("enforces workout plan size caps and prevents cross-member id overwrite", async () => {
+    const member = await demoMember();
+    const otherCode = `NX-OWNER-${Date.now()}`;
+    expect(
+      await upsertMemberAdmin({
+        memberCode: otherCode,
+        fullName: "Other Owner",
+        email: `owner-${Date.now()}@example.com`,
+        pinCode: "1234",
+        tierName: "Standard",
+        hasAIAccess: false,
+        subscriptionStatus: "active",
+        expiresAt: "2028-01-01",
+      })
+    ).toBe(true);
+    const other = (await getMemberByCredentials(otherCode, "1234"))!;
+
+    const sharedId = `owned-plan-${Date.now()}`;
+    expect(saveWorkoutPlanToDb(member.id, samplePlan(sharedId))).toBe(true);
+    // Re-using another member's plan id must fail instead of reassigning or mutating.
+    expect(saveWorkoutPlanToDb(other.id, samplePlan(sharedId))).toBe(false);
+
+    const oversized = {
+      ...samplePlan(`big-plan-${Date.now()}`),
+      coachAdvice: "x".repeat(70_000),
+    };
+    expect(saveWorkoutPlanToDb(member.id, oversized)).toBe(false);
+  });
+
+  it("bounds auto-checkout timestamp for stale visits and manages staff sessions & exercise logs", async () => {
+    const db = getDatabase();
+    const member = await demoMember();
+    checkOutMember(member.id);
+
+    const staleIn = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const visitId = `stale-visit-${Date.now()}`;
+    db.prepare(
+      "INSERT INTO visits (id, member_id, checked_in_at, checked_out_at, last_activity_at, created_at) VALUES (?, ?, ?, NULL, ?, ?)"
+    ).run(visitId, member.id, staleIn, staleIn, staleIn);
+
+    const closedCount = closeStaleVisits(8);
+    expect(closedCount).toBeGreaterThanOrEqual(1);
+    const closedRow = db
+      .prepare("SELECT checked_out_at FROM visits WHERE id = ?")
+      .get(visitId) as { checked_out_at: string };
+    const expectedBoundary = Date.parse(staleIn) + 8 * 60 * 60 * 1000;
+    expect(Date.parse(closedRow.checked_out_at)).toBe(expectedBoundary);
+
+    const now = Date.now();
+    const s1 = `staff-sess-1-${now}`;
+    const s2 = `staff-sess-2-${now}`;
+    expect(
+      createStaffSession({
+        id: s1,
+        actorKey: `staff:test-${now}`,
+        role: "admin",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      })
+    ).toBe(true);
+    expect(
+      createStaffSession({
+        id: s2,
+        actorKey: `staff:test-${now}`,
+        role: "admin",
+        createdAt: now,
+        expiresAt: now + 60_000,
+      })
+    ).toBe(true);
+    expect(getStaffSessionRow(s1)?.revoked_at).toBeNull();
+    expect(revokeStaffSession(s1, now + 10)).toBe(true);
+    expect(revokeAllStaffSessions(`staff:test-${now}`, now + 20)).toBe(1);
+    expect(purgeStaffSessions(now + 30)).toBeGreaterThanOrEqual(2);
+    expect(getStaffSessionRow(s1)).toBeNull();
+
+    const savedLog = saveExerciseLog(member.id, {
+      exerciseName: "Bench Press",
+      weightKg: 82.5,
+      reps: 8,
+      loggedAt: "2026-05-01T10:00:00.000Z",
+    });
+    expect(savedLog?.weight_kg).toBe(82.5);
+    expect(listExerciseLogs(member.id).some((l) => l.exercise_name === "Bench Press")).toBe(true);
+    expect(
+      saveExerciseLog(member.id, { exerciseName: "", weightKg: 50, reps: 5 })
+    ).toBeNull();
+    expect(
+      saveExerciseLog(member.id, { exerciseName: "Squat", weightKg: -5, reps: 5 })
+    ).toBeNull();
   });
 });

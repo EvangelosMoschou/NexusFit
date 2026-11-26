@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemberPortalPage } from "@/components/dashboard/MemberPortalPage";
+import { GymConfigProvider } from "@/components/GymConfigProvider";
 import type { MemberUser } from "@/lib/auth";
 import { defaultGymConfig } from "@/config/gymConfig";
 
@@ -509,5 +510,81 @@ describe("MemberPortalPage (the member's home screen)", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Ελαφριά Λειτουργία/ }));
     expect(handlers.onToggleLiteMode).toHaveBeenCalledTimes(1);
+  });
+
+  it("merges and deduplicates server exercise logs with local logs", async () => {
+    const serverDate = new Date("2026-04-10T12:00:00.000Z").toLocaleDateString("el-GR");
+    localStorage.setItem(
+      "nexusfit_exercise_logs",
+      JSON.stringify([
+        { exerciseId: "Bench Press", weightKg: 80, repsAchieved: 8, date: serverDate },
+        { exerciseId: "Local Squat", weightKg: 100, repsAchieved: 5, date: "09/04/2026" },
+      ])
+    );
+
+    const baseFetch = mockPortal();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url === "/api/member/logs") {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              logs: [
+                {
+                  id: 1,
+                  member_id: "m-1",
+                  exercise_name: "Bench Press",
+                  weight_kg: 80,
+                  reps: 8,
+                  logged_at: "2026-04-10T12:00:00.000Z",
+                },
+                {
+                  id: 2,
+                  member_id: "m-1",
+                  exercise_name: "Deadlift",
+                  weight_kg: 140,
+                  reps: 5,
+                  logged_at: "2026-04-11T12:00:00.000Z",
+                },
+              ],
+            }),
+          };
+        }
+        return baseFetch(url, init);
+      })
+    );
+
+    renderPortal(makeMember(), { initialTab: "logs" });
+
+    await waitFor(() => expect(screen.getByText("Deadlift")).toBeTruthy());
+    expect(screen.getAllByText("Bench Press")).toHaveLength(1);
+    expect(screen.getByText("Local Squat")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Καταγραφή Κιλών \(3\)/ })).toBeTruthy();
+  });
+
+  it("renders the white-label gym name from GymConfigProvider in the schedule tab", () => {
+    mockPortal();
+    render(
+      <GymConfigProvider initialConfig={{ ...defaultGymConfig, gymName: "Iron Gym" }}>
+        <MemberPortalPage
+          member={makeMember()}
+          initialTab="schedule"
+          onGoHome={() => {}}
+          onLogout={() => {}}
+          onLogoutAll={() => {}}
+          onLaunchAIWizard={() => {}}
+          onLaunchAIChat={() => {}}
+          onLaunchManualBuilder={() => {}}
+          onViewPlan={() => {}}
+          onToggleLiteMode={() => {}}
+        />
+      </GymConfigProvider>
+    );
+
+    expect(screen.getByText(/Σημερινά ομαδικά προγράμματα στο Iron Gym/)).toBeTruthy();
+    expect(screen.queryByText(/Σημερινά ομαδικά προγράμματα στο Nexus Athletics/)).toBeNull();
   });
 });

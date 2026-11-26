@@ -45,9 +45,11 @@ export function getDatabase(tenantId: string = DEFAULT_TENANT_ID): DatabaseSync 
   const dbPath = databasePathFor(tenantId, dataDir);
   const db = new DatabaseSync(dbPath);
 
-  // Wait instead of failing fast when a backup or another writer holds the
-  // database briefly. Foreign keys are on by default in node:sqlite; stating it
-  // keeps the cascade in this schema explicit.
+  // Enable WAL for concurrent readers/writers (and backup reads without blocking
+  // check-ins). Wait instead of failing fast when another writer holds the lock.
+  // Foreign keys are on by default in node:sqlite; stating it keeps the cascade explicit.
+  db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA synchronous = NORMAL;");
   db.exec("PRAGMA busy_timeout = 5000;");
   db.exec("PRAGMA foreign_keys = ON;");
 

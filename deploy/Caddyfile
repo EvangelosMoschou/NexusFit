@@ -5,9 +5,7 @@
 
 	header {
 		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-		X-Content-Type-Options "nosniff"
-		X-Frame-Options "SAMEORIGIN"
-		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
 	}
 
 	# Container logs are rotated by Docker's json-file driver.

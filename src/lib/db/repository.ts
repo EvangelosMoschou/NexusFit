@@ -25,6 +25,10 @@ import {
   StaffUpdate,
   VisitWithMember,
   DbStaffAccount,
+  ExerciseLogInput,
+  ExerciseLogRow,
+  MemberUpdateInput,
+  MemberUpdateResult,
 } from "./types";
 
 export type LeadStatus = "pending" | "contacted" | "registered";
@@ -113,12 +117,14 @@ export interface Repository {
   // Members
   listMembers(): Promise<DbAdminMember[]>;
   saveMember(member: MemberInput): Promise<boolean>;
+  updateMember(id: string, patch: MemberUpdateInput): Promise<MemberUpdateResult>;
   deleteMember(id: string): Promise<boolean>;
   // GDPR erasure: the member, their plans, and any leads sharing their email.
   eraseMember(id: string): Promise<boolean>;
   exportMember(id: string): Promise<MemberExport>;
   getMemberAccess(id: string): Promise<MemberAccess | null>;
   authenticateMember(identifier: string, pin: string): Promise<MemberSession | null>;
+  getMemberById(memberId: string): Promise<MemberSession | null>;
 
   // Server-side member sessions (revocation, idle/absolute expiry)
   createMemberSession(input: MemberSessionInput): Promise<boolean>;
@@ -138,6 +144,11 @@ export interface Repository {
   listMemberSessionHistory(memberId: string, limit?: number): Promise<DbMemberSession[]>;
   enforceMemberSessionLimit(memberId: string, limit: number, now: number): Promise<number>;
   purgeMemberSessions(now: number): Promise<number>;
+  purgeStaffSessions(now: number): Promise<number>;
+
+  // Member exercise logs
+  listExerciseLogs(memberId: string, limit?: number): Promise<ExerciseLogRow[]>;
+  saveExerciseLog(memberId: string, input: ExerciseLogInput): Promise<ExerciseLogRow | null>;
 
   // In-app member notifications
   ensureMemberNotification(memberId: string, input: MemberNotificationInput): Promise<boolean>;

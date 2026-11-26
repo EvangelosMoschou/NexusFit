@@ -277,7 +277,6 @@ NexusFit/
 │   └── registry.db               Tenant registry (host → tenant)
 │
 ├── public/
-│   ├── manifest.webmanifest      PWA manifest
 │   ├── icons/icon.svg
 │   └── .well-known/security.txt  RFC 9116 contact (replace the placeholders)
 │
@@ -320,7 +319,8 @@ NexusFit/
 │
 └── src/
     ├── app/
-    │   ├── layout.tsx            Root layout, Greek metadata, PWA link, dark theme
+    │   ├── layout.tsx            Root layout, per-tenant SSR config/metadata, dark theme
+    │   ├── manifest.webmanifest/route.ts  Dynamic per-tenant PWA manifest
     │   ├── page.tsx              Client entry: landing ⇄ portal ⇄ lite mode
     │   ├── admin/page.tsx        Admin console (login + 11 tabs)
     │   ├── checkin/page.tsx      Entrance tablet (PIN check-in/out)
@@ -363,7 +363,7 @@ NexusFit/
 | File | Responsibility |
 |---|---|
 | `sqliteDb.ts` | All data access: schema creation, seeding, PIN migration, member/plan/lead/config CRUD, input validation. Each function takes a `tenantId` (defaults to the default tenant). |
-| `db/` | The storage seam: `repository.ts` (async `Repository` interface), `sqliteRepository.ts` (per-tenant SQLite implementation), `index.ts` (`getRepository(tenantId)`), `types.ts`, plus the per-entity query modules (`members`, `staff`, `leads`, `media`, `visits`, `gymConfig`, `floorPlan`, `notifications`, `accessEvents`, `audit`, `memberSessions`, `schema`, `connection`, `tenant`). Swapping to Postgres means one new implementation here. |
+| `db/` | The storage seam: `repository.ts` (async `Repository` interface), `sqliteRepository.ts` (per-tenant SQLite implementation), `index.ts` (`getRepository(tenantId)`), `types.ts`, plus the per-entity query modules (`members`, `staff`, `staffSessions`, `exerciseLogs`, `leads`, `media`, `visits`, `gymConfig`, `floorPlan`, `notifications`, `accessEvents`, `audit`, `memberSessions`, `schema`, `connection`, `tenant`). Swapping to Postgres means one new implementation here. |
 | `tenants.ts` | Tenant registry (`data/registry.db`), host → tenant resolution with caching, tenant creation. |
 | `subscription.ts` | Subscription/tier gating: active flag plus a date comparison, so an expired plan loses premium features. |
 | `memberNotifications.ts` | Idempotent in-app notification generation (expiry, announcements, schedule) with `dedupe_key` hashing. |
@@ -520,13 +520,15 @@ opens the tenant's database, creates the schema and seeds defaults on first use.
 | Table | Key columns | Notes |
 |---|---|---|
 | `members` | `id`, `member_code` (unique), `email` (unique), `pin_code`, `tier_name`, `has_ai_access`, `subscription_status`, `expires_at`, `created_at` | `pin_code` stores an `scrypt:…` hash. |
-| `workout_plans` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `split_name`, `split_type`, `days_per_week`, `session_duration`, `plan_json`, `created_at` | `plan_json` is the full `GeneratedWorkoutPlan`. |
+| `workout_plans` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `split_name`, `split_type`, `days_per_week`, `session_duration`, `plan_json`, `created_at` | `plan_json` is the full `GeneratedWorkoutPlan` (capped at 64 KB). |
+| `exercise_logs` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `exercise_name`, `weight_kg`, `reps`, `logged_at` | Server-synced progressive-overload weight logs; ordered newest first and deleted with the member. |
 | `lead_inquiries` | `id`, `full_name`, `email`, `phone`, `goal`, `preferred_plan`, `notes`, `status`, `created_at` | `status`: `pending` / `contacted` / `registered`. |
 | `site_config` | `key` (PK), `value`, `updated_at` | The white-label config, stored under key `gym_config`. Deliberately does **not** hold the floor plan: see `floor_plan`. |
 | `floor_plan` | `id` (PK, always `default`), `payload` (BLOB), `payload_format`, `updated_at` | The gym floor plan, in its own table so it is never part of the `gym_config` blob every visitor downloads. One row per tenant database. `payload` is the plan **gzipped** behind a 3-byte `NF` + format-tag envelope (`payload_format` = `gzip`), which makes the stored row 21-103x smaller than the plain-text column it replaced; `src/lib/db/floorPlanCompression.ts` owns the container and the 8 MB inflate cap, and the data layer treats the contents as opaque bytes — the plan's format belongs to `src/modules/gym-floor-plan` and the codec seam at `src/app/api/floor-plan/codec.ts` (see [`docs/features/gym-floor-plan.md`](docs/features/gym-floor-plan.md)). A pre-existing `plan_json TEXT` row is compressed in place on first boot and the legacy column is removed. |
 | `media` | `id`, `filename`, `mime`, `size`, `alt`, `data` (BLOB), `created_at` | Gallery photos, stored in the tenant database so backups and isolation cover them. |
-| `visits` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `checked_in_at`, `checked_out_at`, `last_activity_at`, `created_at` | One row per visit; open visits (`checked_out_at IS NULL`) feed the occupancy count. Idle visits close after the configured window; older than 8 hours are always stale. |
-| `staff_accounts` | `id`, `name`, `email` (unique), `role` (`admin`/`trainer`), `password_hash`, `permissions` (JSON), `active`, `created_at`, `updated_at`, `last_login_at` | Named staff accounts per tenant. Deleting the row removes the account and invalidates its sessions; password hashes never leave the server. |
+| `visits` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `checked_in_at`, `checked_out_at`, `last_activity_at`, `created_at` | One row per visit; open visits (`checked_out_at IS NULL`) feed the occupancy count. Idle/stale visits close at `min(now, base + window)`. |
+| `staff_accounts` | `id`, `name`, `email` (unique), `role` (`admin`/`trainer`), `password_hash`, `permissions` (JSON), `active`, `created_at`, `updated_at`, `last_login_at` | Named staff accounts per tenant. Deleting/deactivating the account or rotating its password revokes its `staff_sessions` immediately; password hashes never leave the server. |
+| `staff_sessions` | `id` (PK), `actor_key`, `role`, `created_at`, `expires_at`, `revoked_at` | Server-side sessions for legacy admin/trainer logins and named staff accounts (`id` stores SHA-256 of the cookie session id). Checked on every admin/trainer request for revocation and expiry. |
 | `audit_log` | `id`, `actor_id`, `actor_name`, `actor_email`, `actor_role`, `actor_legacy`, `action`, `entity_type`, `entity_id`, `details` (JSON), `ip`, `created_at` | Append-only staff/admin action history. Retained 12 months and purged by the retention cron; actor identifiers are anonymized when a staff account is deleted. |
 | `member_notifications` | `id`, `member_id` (FK → members, `ON DELETE CASCADE`), `type`, `title`, `body`, `dedupe_key`, `read_at`, `created_at` | In-app notification feed. Unique `(member_id, dedupe_key)` makes generation idempotent; deleted with the member. |
 | `member_sessions` | `session_id_hash` (PK), `member_id` (FK → members, `ON DELETE CASCADE`), `created_at`, `last_seen_at`, `expires_at`, `revoked_at`, `ip`, `user_agent` | Server-side member sessions. Only the SHA-256 hash of the session id is stored; expiry and revocation are enforced on every member API. Expired/revoked rows are purged by the retention cron. |
@@ -563,19 +565,22 @@ standard error message if the handler throws.
 | `GET` | `/api/health` | Uptime probe (`force-dynamic`). | `200 { success, ok, uptime, timestamp }` |
 | `GET` | `/api/config` | Admin-editable gym config for the public site. The floor plan is **not** included (it has its own endpoint). | `200 { success, config }` |
 | `GET` | `/api/floor-plan` | Public gym floor plan, in its own table so it never bloats `/api/config`. The stored value is a gzipped payload, decompressed by the repository and decoded through the codec seam; an unreadable/invalid one yields `plan: null` + `invalid: true` instead of raw data. Cacheable: `Cache-Control: public, max-age=60, stale-while-revalidate=300` and a weak `ETag` derived from `updatedAt` (`304` on `If-None-Match`). | `200 { success, plan, updatedAt }` / `200 { success, plan: null, updatedAt: null }` (none saved) / `200 { success, plan: null, invalid: true, updatedAt }` (stored value invalid) / `304` / `500` |
-| `POST` | `/api/leads` | `{ fullName, email, phone?, goal?, preferredPlan?, notes? }`. | `200 { success }`, `400` missing name/email |
+| `POST` | `/api/leads` | `{ fullName, email, phone?, goal?, preferredPlan?, notes? }`. | `200 { success }`, `400` invalid fields |
 | `POST` | `/api/auth/member` | `{ identifier, pin }` (member code **or** email + PIN). Creates a server-side session and sets the **HMAC-signed** member cookie (`nexusfit_member_id`; `__Host-` prefixed in production; HttpOnly, `Secure` in prod, `SameSite=Lax`; cookie up to 30 days, server idle timeout 7 days by default). | `200 { success, member }`, `400`, `401`, `503` (no `SESSION_SECRET`), `500` |
 | `POST` | `/api/auth/logout` | Revokes the current server-side session and clears the cookie. `{ "all": true }` revokes every session for the member. | `200 { success, all }` |
+| `GET` | `/api/member/me` | Returns the signed-in member's live profile, subscription status and saved plans (`Cache-Control: no-store`). | `200 { success, member }`, `401`, `404` |
 | `GET` | `/api/member/sessions` | Lists the member's active sessions (hashed id, created/last-seen/expiry, IP, user agent, `current`). | `200 { success, sessions }`, `401` |
 | `DELETE` | `/api/member/sessions?id=<hashed-id>` | Revokes one of the member's sessions; revoking the current one also clears the cookie. | `200 { success, revokedCurrent }`, `400`, `401`, `404` |
-| `POST` | `/api/member/workouts` | `{ plan }`. Requires the member session cookie (`nexusfit_member_id`, or its `__Host-` production name). | `200 { success }`, `400` missing plan, `401` not authenticated |
-| `GET` | `/api/member/export` | GDPR access/portability: downloads the signed-in member's data, plans, visits, notifications, access events and session history as JSON (`Content-Disposition: attachment`). Requires the member cookie. | `200` file, `401`, `404` |
+| `POST` | `/api/member/workouts` | `{ plan }`. Requires the member session cookie (`nexusfit_member_id`, or its `__Host-` production name). Enforces 64 KB limit and ownership check. | `200 { success }`, `400` invalid plan, `401` not authenticated |
+| `GET` | `/api/member/logs` | Lists the signed-in member's recent exercise weight logs (`Cache-Control: no-store`). | `200 { success, logs }`, `401` |
+| `POST` | `/api/member/logs` | `{ exerciseName, weightKg, reps, loggedAt? }`. Saves a server-synced weight entry. | `201 { success, log }`, `400`, `401` |
+| `GET` | `/api/member/export` | GDPR access/portability: downloads the signed-in member's data, plans, exercise logs, visits, notifications, access events and session history as JSON (`Content-Disposition: attachment`). Requires the member cookie. | `200` file, `401`, `404` |
 | `GET` | `/api/member/notifications` | In-app notification feed; generates missing expiry/announcement/schedule entries idempotently. | `200 { success, notifications, unreadCount }`, `401`, `404` |
 | `POST` | `/api/member/notifications` | `{ markAll: true }` or `{ id }` to mark read. | `200 { success, unreadCount }`, `400`, `401` |
 | `GET` | `/api/member/access-token` | Rotating signed QR token (90 s) for the entrance scanner. Requires an active subscription and configured access control. | `200 { success, token, expiresAt }`, `401`, `403`, `503` |
-| `DELETE` | `/api/member/erase` | GDPR erasure: deletes the signed-in member, their plans (cascade) and any lead inquiries sharing their email, then clears the cookie. | `200 { success }`, `401` |
-| `POST` | `/api/cron/retention` | Deletes lead inquiries older than 12 months, closes idle/stale visits, purges audit entries/access events older than 12 months and expired/revoked member sessions. Requires the `x-cron-secret` header. | `200 { success, removed, visitsClosed, idleVisitsClosed, auditPurged, accessEventsPurged, memberSessionsPurged, tenants }`, `401`, `503` (no `CRON_SECRET`) |
-| `POST` | `/api/ai-agent/chat` | `{ query }`. Rate-limited per IP. | `200 { id, sender, text, timestamp, … }`, `400`, `429` (with `Retry-After`), `500` |
+| `DELETE` | `/api/member/erase` | GDPR erasure: deletes the signed-in member, their plans/logs (cascade) and any lead inquiries sharing their email, then clears the cookie. | `200 { success }`, `401` |
+| `POST` | `/api/cron/retention` | Deletes lead inquiries older than 12 months, closes idle/stale visits, purges audit entries/access events older than 12 months and expired/revoked member and staff sessions. Requires the `x-cron-secret` header. | `200 { success, removed, visitsClosed, idleVisitsClosed, auditPurged, accessEventsPurged, memberSessionsPurged, staffSessionsPurged, tenants }`, `401`, `503` (no `CRON_SECRET`) |
+| `POST` | `/api/ai-agent/chat` | `{ query, history? }`. Requires a signed-in member with an active AI subscription; rate-limited per IP and per member. Uses Gemini with `x-goog-api-key` header and falls back to the local engine on outage. | `200 { id, sender, text, timestamp, … }`, `400`, `401`, `403`, `429` (with `Retry-After`), `500` |
 | `GET` | `/api/media` | Published gallery metadata. | `200 { success, media }` |
 | `GET` | `/api/media/{id}` | Image bytes (`Cache-Control: immutable`, `nosniff`). | `200` image, `404` |
 | `GET` | `/api/occupancy` | Premium-member-only live count. Standard members, non-members and expired subscriptions get `{ locked: true }` without numbers; admin/trainer cookies are allowed. | `200 { success, locked, inside?, capacity?, updatedAt }` |
@@ -623,8 +628,9 @@ curl -X POST https://<domain>/api/access/scan \
 | `GET` | `/api/admin/leads` | — | List all leads. |
 | `DELETE` | `/api/admin/leads` | `?id=` | Delete a lead inquiry (GDPR erasure). |
 | `POST` | `/api/admin/leads` | `{ … }` | Update a lead's status. |
-| `GET` | `/api/admin/members` | — | List members (**never** includes `pin_code`). |
-| `POST` | `/api/admin/members` | member fields | Create or update a member (upsert on `member_code`). |
+| `GET` | `/api/admin/members` | `?id=` (optional) | List members (**never** includes `pin_code`), or fetch one member's profile, plans, visits and `exerciseLogs`. |
+| `POST` | `/api/admin/members` | member fields | Create or update a member (upsert on `member_code`). Returns `400` / `409` on validation or email conflict. |
+| `PATCH` | `/api/admin/members` | `{ id, updates }` | Edit profile fields, extend/toggle subscription or AI access, or rotate PIN (revokes member sessions). `400` / `404` / `409`. |
 | `DELETE` | `/api/admin/members` | `?id=` | Permanent GDPR erasure: member, plans, visits and lead inquiries with the same email. |
 | `GET` | `/api/admin/media` | — | List gallery photos with URLs and sizes. |
 | `POST` | `/api/admin/media` | multipart `file`, `alt` | Upload a photo. The MIME type is detected from the bytes; max 4 MB, JPG/PNG/WebP/AVIF. |
@@ -726,10 +732,11 @@ process resolves the tenant from the request's `Host` header.
 
 **The tenant registry** lives in its own SQLite database at `data/registry.db`
 (`tenants` table: `id`, `name`, `domains`, `admin_password_hash`,
-`trainer_password_hash`, `created_at`). A `default` tenant is seeded
-automatically on first use from the existing `ADMIN_PASSWORD` (and optional
-`TRAINER_PASSWORD`) variables, so an upgrade from single-tenant needs no manual
-step.
+`trainer_password_hash`, `access_key_hash`, `created_at`) in WAL mode. If a
+transient DB error occurs while refreshing the domain cache, the previous valid
+mapping is preserved rather than collapsing custom domains to `default`. A `default`
+tenant is seeded automatically on first use from `ADMIN_PASSWORD` (and optional
+`TRAINER_PASSWORD`), so an upgrade from single-tenant needs no manual step.
 
 **Provisioning a gym**
 
@@ -808,15 +815,18 @@ with an offline AI coach and an exercise checklist that makes **zero network req
 
 - **No SQL injection surface** — every query is a prepared statement with bound
   parameters.
-- **Admin auth** — the legacy `ADMIN_PASSWORD` still derives a SHA-256 cookie; named
-  staff admins use a signed, DB-checked staff cookie. Deleting/deactivating an
-  account or changing its password invalidates the session immediately.
+- **Admin & staff auth** — legacy admin, legacy trainer, and named staff accounts
+  all issue HMAC-SHA256 signed cookies backed by server-side `staff_sessions` rows
+  (8 h TTL, checked on every request for expiry and revocation, timing-safe
+  `DUMMY_SCRYPT_HASH` checks on missing accounts). Deleting/deactivating a staff
+  account, rotating its password, or calling logout revokes the sessions immediately.
 - **Member auth** — scrypt-hashed PINs, `timingSafeEqual` comparison, and an **HMAC-SHA256 signed, tenant-bound** session cookie (HttpOnly, `Secure` in production) that cannot be forged from a guessable member id or replayed against another gym. The cookie carries a random session id and absolute expiry; every member API checks `member_sessions` in the tenant database, so logout, per-device revocation, logout-all, PIN changes, member deletion and idle/absolute expiry take effect immediately.
 - **Member session lifecycle** — default idle timeout 7 days, absolute lifetime 30 days (both configurable by env), at most 10 active sessions per member (oldest revoked first), `last_seen_at` written at most once per minute, and expired/revoked rows purged by the retention cron. Login/logout/revocation/idle-expiry events are audited. The member profile menu exposes all-device logout and the portal lists active devices with individual revoke buttons.
 - **Staff permissions** — enforced server-side in `trainerRoute()`; UI tab hiding
   is only cosmetic. Permission changes apply on the next request without re-login.
 - **Access control** — rotating HMAC-signed QR tokens (90 s), device-key
-  authentication, explicit entry/exit direction, DB-enforced anti-passback,
+  authentication (supporting per-tenant `access_key_hash` with fallback to
+  `ACCESS_CONTROL_KEY`), explicit entry/exit direction, DB-enforced anti-passback,
   duplicate/quick-re-entry tracking, a weekly admin alarm and audit logging of
   denied scans. The device key and token are never accepted through cookies.
 - **Audit trail** — staff/admin logins, all staff-side writes and member session
@@ -824,8 +834,10 @@ with an offline AI coach and an exercise checklist that makes **zero network req
   oldest-session eviction) are appended to a tenant-scoped `audit_log` with
   actor, action, entity, details, IP and time. It is admin-only, retained 12
   months, and staff deletion anonymizes the actor fields.
-- **Rate limiting** on the AI endpoint, member login (per IP and per member
-  code), admin/trainer login (per IP and email) and lead submissions.
+- **Rate limiting** on the AI endpoint (per IP and per member), member login
+  (per IP and per member code), admin/trainer login (per IP and email), kiosk
+  check-in and lead submissions, using separate bounded IP and entity-identifier
+  bucket maps so identifier flooding cannot evict IP limits.
 - **No known-credential accounts in production** — demo members (`NX-8492` / PIN
   `1234`) and the `admin1` admin fallback are seeded only outside production and
   only for the default tenant, unless `DEMO_MODE=1` (or, for the members alone,
@@ -872,7 +884,9 @@ with an offline AI coach and an exercise checklist that makes **zero network req
   last-seen / expiry timestamps, IP and user agent, used only for authentication,
   revocation and security review. The raw session id is never stored; expired and
   revoked rows are purged by the retention job.
-- Consent-gated local storage: UTM parameters, saved plans and weight logs.
+- Consent-gated local storage: UTM parameters, saved plans and offline weight
+  logs (`exercise_logs` syncs signed-in members' weight entries server-side and is
+  included in GDPR export and cascade erasure).
   Theme/lite-mode preferences, the consent record and the member UI cache are
   functional storage disclosed in the privacy policy.
 - The privacy policy defaults (sections 3, 5, 7, 8, 9, 10, 11 and 12) cover
@@ -991,6 +1005,7 @@ on every push to `main` (`.github/workflows/pages.yml`).
 | `src/app/api/floor-plan/route.test.ts` | Public floor-plan endpoint: null when unsaved, validated plan + `updatedAt`, `invalid: true` instead of unvalidated data, the shared-cache headers and the weak-`ETag` `304` path. Writes through the codec seam, so it pins the byte path the repository actually stores. |
 | `src/app/api/floor-plan/codec.test.ts` | The codec seam: `encode`/`decode` round-trip, canonical bytes on encode, the module's issues (never a throw) for garbage, non-UTF-8 and semantically invalid bytes, both accepted input shapes, and the audit/log description helper. |
 | `src/app/api/admin/floor-plan/route.test.ts` | Admin floor-plan CRUD: the `adminRoute` guard, editor read shape (including `invalid`), validate-and-canonicalize on `POST` (extras stripped, string form accepted), `400` with the module's issues, no overwrite on invalid input, idempotent `DELETE` and the audit write. |
+| `src/app/api/ai-agent/chat/route.test.ts` | Member AI chat endpoint: `401`/`403`/`400`/`429` enforcement, deterministic local fallback, sanitized multi-turn history, and `x-goog-api-key` header delivery without URL `?key=`. |
 | `src/lib/demoMockApi.test.ts` | Demo mock API: config, demo login, plan persistence across logins, export attachment, erasure, lead submissions. |
 | `src/lib/demoApp.test.tsx` | The React demo shell end-to-end against the mock API (jsdom). |
 

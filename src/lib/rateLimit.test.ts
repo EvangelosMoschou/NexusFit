@@ -39,6 +39,20 @@ describe("rate limiter", () => {
   it("never uses the unknown-IP bucket to block a real key", () => {
     expect(checkRateLimit("unknown", 10, 60_000).allowed).toBe(true);
   });
+
+  it("isolates entity buckets from IP bucket flooding", () => {
+    const ipKey = `kiosk:ip:default:198.51.100.${Date.now() % 200}`;
+    expect(checkRateLimit(ipKey, 2, 60_000).allowed).toBe(true);
+
+    for (let i = 0; i < 5_100; i++) {
+      checkRateLimit(`kiosk:id:default:flood-${i}`, 5, 60_000);
+    }
+
+    // The IP bucket count stayed tracked rather than getting evicted by entity-key churn.
+    expect(checkRateLimit(ipKey, 2, 60_000).allowed).toBe(true);
+    expect(checkRateLimit(ipKey, 2, 60_000).allowed).toBe(false);
+    expect(rateLimitBucketCount()).toBeLessThanOrEqual(10_000);
+  });
 });
 
 describe("getClientIp", () => {

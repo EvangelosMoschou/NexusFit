@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   ShieldCheck,
   Lock,
@@ -27,20 +28,65 @@ import {
 } from "lucide-react";
 import { GymConfig } from "@/types";
 import { defaultGymConfig } from "@/config/gymConfig";
-import { LeadsTab, LeadItem } from "@/components/admin/LeadsTab";
-import { MembersTab, MemberItem } from "@/components/admin/MembersTab";
-import { PricingTab } from "@/components/admin/PricingTab";
-import { ScheduleTab } from "@/components/admin/ScheduleTab";
-import { FloorPlanTab } from "@/components/admin/FloorPlanTab";
-import { InfoTab } from "@/components/admin/InfoTab";
-import { AnnouncementsTab } from "@/components/admin/AnnouncementsTab";
-import { MediaTab } from "@/components/admin/MediaTab";
-import { OccupancyTab } from "@/components/admin/OccupancyTab";
-import { StaffTab } from "@/components/admin/StaffTab";
-import { AuditTab } from "@/components/admin/AuditTab";
-import { AccessTab } from "@/components/admin/AccessTab";
+import { useGymConfig } from "@/lib/useGymConfig";
+import type { LeadItem } from "@/components/admin/LeadsTab";
+import type { MemberItem } from "@/components/admin/MembersTab";
+
+const TabFallback = () => (
+  <div className="py-12 text-center text-xs text-secondary">Φόρτωση ενότητας...</div>
+);
+
+const LeadsTab = dynamic(
+  () => import("@/components/admin/LeadsTab").then((m) => m.LeadsTab),
+  { ssr: false, loading: TabFallback }
+);
+const MembersTab = dynamic(
+  () => import("@/components/admin/MembersTab").then((m) => m.MembersTab),
+  { ssr: false, loading: TabFallback }
+);
+const PricingTab = dynamic(
+  () => import("@/components/admin/PricingTab").then((m) => m.PricingTab),
+  { ssr: false, loading: TabFallback }
+);
+const ScheduleTab = dynamic(
+  () => import("@/components/admin/ScheduleTab").then((m) => m.ScheduleTab),
+  { ssr: false, loading: TabFallback }
+);
+const FloorPlanTab = dynamic(
+  () => import("@/components/admin/FloorPlanTab").then((m) => m.FloorPlanTab),
+  { ssr: false, loading: TabFallback }
+);
+const InfoTab = dynamic(
+  () => import("@/components/admin/InfoTab").then((m) => m.InfoTab),
+  { ssr: false, loading: TabFallback }
+);
+const AnnouncementsTab = dynamic(
+  () => import("@/components/admin/AnnouncementsTab").then((m) => m.AnnouncementsTab),
+  { ssr: false, loading: TabFallback }
+);
+const MediaTab = dynamic(
+  () => import("@/components/admin/MediaTab").then((m) => m.MediaTab),
+  { ssr: false, loading: TabFallback }
+);
+const OccupancyTab = dynamic(
+  () => import("@/components/admin/OccupancyTab").then((m) => m.OccupancyTab),
+  { ssr: false, loading: TabFallback }
+);
+const StaffTab = dynamic(
+  () => import("@/components/admin/StaffTab").then((m) => m.StaffTab),
+  { ssr: false, loading: TabFallback }
+);
+const AuditTab = dynamic(
+  () => import("@/components/admin/AuditTab").then((m) => m.AuditTab),
+  { ssr: false, loading: TabFallback }
+);
+const AccessTab = dynamic(
+  () => import("@/components/admin/AccessTab").then((m) => m.AccessTab),
+  { ssr: false, loading: TabFallback }
+);
 
 export default function AdminPortalPage() {
+  const { config: publicConfig } = useGymConfig();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
   const [adminPin, setAdminPin] = useState("");
@@ -69,6 +115,7 @@ export default function AdminPortalPage() {
   const [flaggedMemberIds, setFlaggedMemberIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>("Monday");
 
   const fetchAdminData = async () => {
@@ -150,6 +197,7 @@ export default function AdminPortalPage() {
   const handleSaveConfig = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
+    setActionError(null);
 
     try {
       const res = await fetch("/api/admin/config", {
@@ -157,27 +205,38 @@ export default function AdminPortalPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ config }),
       });
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.success) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        setActionError(data?.error || "Η αποθήκευση των ρυθμίσεων απέτυχε.");
       }
     } catch (err) {
       console.error("[admin] save config failed:", err);
+      setActionError("Σφάλμα σύνδεσης κατά την αποθήκευση ρυθμίσεων.");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleUpdateLeadStatus = async (id: string, status: "pending" | "contacted" | "registered") => {
+    setActionError(null);
     try {
-      await fetch("/api/admin/leads", {
+      const res = await fetch("/api/admin/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        setActionError(data?.error || "Η ενημέρωση του αιτήματος απέτυχε.");
+        return;
+      }
       setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
     } catch (err) {
       console.error("[admin] update lead status failed:", err);
+      setActionError("Σφάλμα σύνδεσης κατά την ενημέρωση αιτήματος.");
     }
   };
 
@@ -220,7 +279,9 @@ export default function AdminPortalPage() {
             <div className="w-12 h-12 rounded-xl bg-accent text-accent-ink font-extrabold flex items-center justify-center mx-auto shadow-md">
               <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
             </div>
-            <h1 className="text-xl font-bold text-primary tracking-tight">Nexus Athletics — Πίνακας Διαχείρισης</h1>
+            <h1 className="text-xl font-bold text-primary tracking-tight">
+              {publicConfig.gymName} — Πίνακας Διαχείρισης
+            </h1>
             <p className="text-xs text-secondary">
               Πίνακας διαχείρισης τιμών, προγραμμάτων και μελών γυμναστηρίου.
             </p>
@@ -246,7 +307,7 @@ export default function AdminPortalPage() {
                   id="admin-email"
                   type="email"
                   autoComplete="username"
-                  placeholder="admin@nexusathletics.gr"
+                  placeholder="admin@example.com"
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 rounded-lg bg-background border border-border text-primary text-xs outline-hidden focus:border-border-light font-mono"
@@ -397,6 +458,21 @@ export default function AdminPortalPage() {
 
       {/* Main Container */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+        {actionError && (
+          <div className="p-3 rounded-lg bg-red-950/40 border border-red-800/60 text-xs text-red-300 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{actionError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActionError(null)}
+              className="text-[11px] underline hover:text-red-200"
+            >
+              Κλείσιμο
+            </button>
+          </div>
+        )}
         {accessAlertCount > 0 && activeTab !== "access" && (
           <button
             type="button"

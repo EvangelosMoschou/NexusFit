@@ -155,6 +155,33 @@ export const SCHEMA_SQL = `
     CREATE INDEX IF NOT EXISTS idx_member_sessions_expiry
       ON member_sessions (expires_at);
 
+    CREATE TABLE IF NOT EXISTS staff_sessions (
+      id TEXT PRIMARY KEY,
+      actor_key TEXT NOT NULL,
+      role TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      revoked_at INTEGER
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_staff_sessions_actor
+      ON staff_sessions (actor_key, expires_at);
+    CREATE INDEX IF NOT EXISTS idx_staff_sessions_expiry
+      ON staff_sessions (expires_at);
+
+    CREATE TABLE IF NOT EXISTS exercise_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      member_id TEXT NOT NULL,
+      exercise_name TEXT NOT NULL,
+      weight_kg REAL NOT NULL,
+      reps INTEGER NOT NULL,
+      logged_at TEXT NOT NULL,
+      FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_exercise_logs_member
+      ON exercise_logs (member_id, logged_at DESC, id DESC);
+
     CREATE TABLE IF NOT EXISTS access_events (
       id TEXT PRIMARY KEY,
       member_id TEXT NOT NULL,

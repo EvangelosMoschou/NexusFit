@@ -1,16 +1,25 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  hashSessionId,
+  issueAdminSession,
+  issueStaffSession,
+  issueTrainerSession,
   parseMemberSession,
   parseStaffSession,
+  parseTrainerSession,
+  signAdminSession,
   signMemberSession,
   signStaffSession,
   signTrainerSession,
+  verifyAdminSession,
   verifyStaffSession,
+  verifyStaffSessionDetails,
   verifyTrainerSession,
 } from "./session";
 
 const SECRET = "test-session-secret-value-1234";
 const TENANT = "default";
+const ADMIN_HASH = "scrypt:00000000000000000000000000000000:1111111111111111";
 const TRAINER_HASH = "scrypt:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:bbbbbbbbbbbbbbbb";
 const STAFF_HASH = "scrypt:cccccccccccccccccccccccccccccccc:dddddddddddddddd";
 const SESSION_ID = "member-session-id-123";
@@ -20,6 +29,7 @@ function futureExpiry(ms = 60_000): number {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
 });
 
@@ -185,5 +195,54 @@ describe("staff session signing", () => {
     const staffToken = signStaffSession(TENANT, "staff-123", STAFF_HASH)!;
     expect(parseMemberSession(staffToken, TENANT)).toBeNull();
     expect(verifyTrainerSession(staffToken, TENANT, TRAINER_HASH)).toBe(false);
+  });
+
+  it("rejects expired staff and trainer tokens", () => {
+    vi.stubEnv("SESSION_SECRET", SECRET);
+    const now = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const trainerIssued = issueTrainerSession(TENANT, TRAINER_HASH, {
+      expiresAt: now + 5_000,
+    })!;
+    const staffIssued = issueStaffSession(TENANT, "staff-123", STAFF_HASH, {
+      expiresAt: now + 5_000,
+    })!;
+
+    expect(parseTrainerSession(trainerIssued.token, TENANT, TRAINER_HASH)?.sessionId).toBe(
+      trainerIssued.sessionId
+    );
+    expect(verifyStaffSessionDetails(staffIssued.token, TENANT, "staff-123", STAFF_HASH)?.sessionId).toBe(
+      staffIssued.sessionId
+    );
+
+    vi.setSystemTime(now + 6_000);
+    expect(verifyTrainerSession(trainerIssued.token, TENANT, TRAINER_HASH)).toBe(false);
+    expect(parseTrainerSession(trainerIssued.token, TENANT, TRAINER_HASH)).toBeNull();
+    expect(parseStaffSession(staffIssued.token)).toBeNull();
+    expect(verifyStaffSession(staffIssued.token, TENANT, "staff-123", STAFF_HASH)).toBe(false);
+  });
+});
+
+describe("admin session signing", () => {
+  it("issues, verifies and expires tenant-bound legacy admin sessions", () => {
+    vi.stubEnv("SESSION_SECRET", SECRET);
+    const now = Date.now();
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const issued = issueAdminSession(TENANT, ADMIN_HASH, { expiresAt: now + 10_000 })!;
+    expect(issued.token).toBeTruthy();
+    expect(hashSessionId(issued.sessionId)).toMatch(/^[0-9a-f]{64}$/);
+    expect(verifyAdminSession(issued.token, TENANT, ADMIN_HASH)?.sessionId).toBe(issued.sessionId);
+    expect(verifyAdminSession(issued.token, "gym-b", ADMIN_HASH)).toBeNull();
+    expect(verifyAdminSession(issued.token, TENANT, "scrypt:other:hash")).toBeNull();
+
+    const deterministic = signAdminSession(TENANT, ADMIN_HASH, "sid-1", now + 10_000)!;
+    expect(verifyAdminSession(deterministic, TENANT, ADMIN_HASH)?.sessionId).toBe("sid-1");
+
+    vi.setSystemTime(now + 11_000);
+    expect(verifyAdminSession(issued.token, TENANT, ADMIN_HASH)).toBeNull();
   });
 });

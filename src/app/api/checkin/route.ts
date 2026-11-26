@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     const ipLimit = checkRateLimit(
       `kiosk:ip:${tenantId}:${getClientIp(req.headers)}`,
-      20,
+      120,
       60_000
     );
     const idLimit = checkRateLimit(

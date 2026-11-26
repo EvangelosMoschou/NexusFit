@@ -13,6 +13,7 @@ import { adminSessionToken } from "./adminAuth";
 import {
   adminSeedPassword,
   createTenant,
+  ensureAccessKeyColumn,
   ensureTrainerPasswordColumn,
   getRegistry,
   getTenant,
@@ -300,5 +301,24 @@ describe("registry boot race", () => {
     } as unknown as DatabaseSync;
 
     expect(() => ensureTrainerPasswordColumn(staleColumnCheck)).not.toThrow();
+  });
+
+  it("enables WAL mode on the registry and supports per-tenant hashed access keys", () => {
+    const journal = getRegistry().prepare("PRAGMA journal_mode").get() as { journal_mode: string };
+    expect(journal.journal_mode.toLowerCase()).toBe("wal");
+
+    ensureAccessKeyColumn(getRegistry());
+    expect(
+      createTenant({
+        id: "kiosk-gym",
+        name: "Kiosk Gym",
+        domains: ["kiosk.example.com"],
+        adminPassword: "kiosk-admin-password",
+        accessKey: "per-tenant-turnstile-secret",
+      })
+    ).toBe(true);
+
+    const created = getTenant("kiosk-gym");
+    expect(created?.accessKeyHash).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 });

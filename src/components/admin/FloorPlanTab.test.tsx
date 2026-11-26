@@ -102,7 +102,7 @@ function paint(
 ): void {
   const svg = stubSvgBox(container, pxPerCell);
   fireEvent.pointerDown(svg, { button: 0, bubbles: true, ...pointAt(row, col, pxPerCell) });
-  if (to) fireEvent.pointerOver(svg, { bubbles: true, ...pointAt(to.row, to.col, pxPerCell) });
+  if (to) fireEvent.pointerMove(svg, { bubbles: true, ...pointAt(to.row, to.col, pxPerCell) });
   fireEvent.pointerUp(window);
 }
 
@@ -127,12 +127,10 @@ describe("FloorPlanTab (admin editor)", () => {
 
     await waitFor(() => expect(squareCount(container)).toBe(12));
 
-    // Roving tabindex: exactly one square is in the tab order.
-    // The editor is a single focus target now: the SVG. The roving cursor moves
-    // inside it and its ring is drawn in the viewBox, so there is exactly one
-    // tabbable element and zero per-square tab stops.
+    // Single focus target: the SVG itself carries one tab stop in the tab order,
+    // and the roving cursor moves inside it with zero per-square tab stops.
     const svg = svgOf(container);
-    expect(svg.getAttribute("tabindex")).toBe("-1");
+    expect(svg.getAttribute("tabindex")).toBe("0");
     expect(container.querySelectorAll("[data-row][data-col]")).toHaveLength(0);
   });
 
@@ -146,8 +144,8 @@ describe("FloorPlanTab (admin editor)", () => {
     // there is no per-square node to dispatch at any more.
     const svg = stubSvgBox(container);
     fireEvent.pointerDown(svg, { button: 0, bubbles: true, ...pointAt(0, 0) });
-    fireEvent.pointerOver(svg, { bubbles: true, ...pointAt(0, 1) });
-    fireEvent.pointerOver(svg, { bubbles: true, ...pointAt(0, 2) });
+    fireEvent.pointerMove(svg, { bubbles: true, ...pointAt(0, 1) });
+    fireEvent.pointerMove(svg, { bubbles: true, ...pointAt(0, 2) });
     fireEvent.pointerUp(window);
 
     screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
@@ -159,6 +157,28 @@ describe("FloorPlanTab (admin editor)", () => {
     expect(getCell(plan, "floor-1", 0, 1)).toEqual({ kind: "machine", categoryId: "cat-1" });
     expect(getCell(plan, "floor-1", 0, 2)).toEqual({ kind: "machine", categoryId: "cat-1" });
     expect(getCell(plan, "floor-1", 1, 0)).toEqual({ kind: "empty" });
+  });
+
+  it("ignores repeated pointerMove events within the same cell during a drag", async () => {
+    let saved: GymFloorPlanData | null = null;
+    mockApi({ plan: buildPlan(), onSave: (plan) => (saved = plan as GymFloorPlanData) });
+    const { container } = render(<FloorPlanTab />);
+    await waitFor(() => expect(squareCount(container)).toBe(12));
+
+    const svg = stubSvgBox(container, 10);
+    fireEvent.pointerDown(svg, { button: 0, bubbles: true, clientX: 2, clientY: 2 });
+    fireEvent.pointerMove(svg, { bubbles: true, clientX: 5, clientY: 5 });
+    fireEvent.pointerMove(svg, { bubbles: true, clientX: 8, clientY: 8 });
+    fireEvent.pointerMove(svg, { bubbles: true, ...pointAt(0, 1) });
+    fireEvent.pointerUp(window);
+
+    screen.getByRole("button", { name: /Αποθήκευση κάτοψης/ }).click();
+    await waitFor(() => expect(saved).not.toBeNull());
+
+    const plan = saved as unknown as GymFloorPlanData;
+    expect(getCell(plan, "floor-1", 0, 0)).toEqual({ kind: "machine", categoryId: "cat-1" });
+    expect(getCell(plan, "floor-1", 0, 1)).toEqual({ kind: "machine", categoryId: "cat-1" });
+    expect(getCell(plan, "floor-1", 0, 2)).toEqual({ kind: "empty" });
   });
 
   it("fills the gap when a drag skips cells (Bresenham stroke)", async () => {
@@ -483,10 +503,10 @@ describe("FloorPlanTab (admin editor)", () => {
     const { container } = render(<FloorPlanTab />);
     await waitFor(() => expect(squareCount(container)).toBe(12));
 
-    // The map is ONE focus target, so it must be click-focusable without being
-    // a tab stop, and a click must move focus there or `onKeyDown` never fires.
+    // The map is ONE focus target with one tab stop in the tab order, and a
+    // click must move focus there or `onKeyDown` never fires.
     const grid = svgOf(container);
-    expect(grid.getAttribute("tabindex")).toBe("-1");
+    expect(grid.getAttribute("tabindex")).toBe("0");
 
     // Do NOT focus it ourselves first: that would mask the bug.
     (document.activeElement as HTMLElement | null)?.blur();

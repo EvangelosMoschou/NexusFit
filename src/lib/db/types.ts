@@ -136,6 +136,53 @@ export interface MemberSessionInput {
   userAgent?: string | null;
 }
 
+export interface DbStaffSession {
+  id: string;
+  actor_key: string;
+  role: string;
+  created_at: number;
+  expires_at: number;
+  revoked_at: number | null;
+}
+
+export interface StaffSessionInput {
+  id: string;
+  actorKey: string;
+  role: string;
+  createdAt?: number;
+  expiresAt: number;
+}
+
+export interface ExerciseLogRow {
+  id: number;
+  member_id: string;
+  exercise_name: string;
+  weight_kg: number;
+  reps: number;
+  logged_at: string;
+}
+
+export interface ExerciseLogInput {
+  exerciseName: string;
+  weightKg: number;
+  reps: number;
+  loggedAt?: string;
+}
+
+export interface MemberUpdateInput {
+  fullName?: string;
+  email?: string;
+  tierName?: string;
+  hasAIAccess?: boolean;
+  subscriptionStatus?: "active" | "expired";
+  expiresAt?: string;
+  pinCode?: string;
+}
+
+export type MemberUpdateResult =
+  | { ok: true; member: DbAdminMember; pinRotated: boolean }
+  | { ok: false; code: "not_found" | "validation" | "conflict"; error: string };
+
 export interface InsideMember {
   member_id: string;
   member_code: string;

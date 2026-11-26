@@ -1,37 +1,70 @@
-const buckets = new Map<string, { count: number; resetAt: number }>();
+interface Bucket {
+  count: number;
+  resetAt: number;
+}
 
-// Bounds so a long-running server cannot grow this map without limit: expired
-// buckets are pruned periodically, and if the map still exceeds the cap (e.g. a
-// flood from many IPs inside one window) the oldest entries are evicted, since a
-// Map preserves insertion order.
-const MAX_BUCKETS = 10_000;
-const PRUNE_INTERVAL_MS = 60_000;
-let lastPruneAt = 0;
+class BoundedBucketStore {
+  private readonly buckets = new Map<string, Bucket>();
+  private lastPruneAt = 0;
 
-function pruneExpiredBuckets(now: number): void {
-  for (const [key, bucket] of buckets) {
-    if (bucket.resetAt < now) buckets.delete(key);
+  constructor(private readonly maxBuckets: number) {}
+
+  get size(): number {
+    return this.buckets.size;
+  }
+
+  private pruneExpired(now: number): void {
+    for (const [key, bucket] of this.buckets) {
+      if (bucket.resetAt < now) this.buckets.delete(key);
+    }
+  }
+
+  private enforceBound(now: number): void {
+    if (this.buckets.size < this.maxBuckets && now - this.lastPruneAt < PRUNE_INTERVAL_MS) return;
+
+    this.lastPruneAt = now;
+    this.pruneExpired(now);
+
+    if (this.buckets.size >= this.maxBuckets) {
+      let overflow = this.buckets.size - this.maxBuckets + 1;
+      for (const key of this.buckets.keys()) {
+        if (overflow-- <= 0) break;
+        this.buckets.delete(key);
+      }
+    }
+  }
+
+  check(key: string, limit: number, windowMs: number): { allowed: boolean; retryAfterSeconds: number } {
+    const now = Date.now();
+    this.enforceBound(now);
+
+    const bucket = this.buckets.get(key);
+    if (!bucket || bucket.resetAt < now) {
+      this.buckets.set(key, { count: 1, resetAt: now + windowMs });
+      return { allowed: true, retryAfterSeconds: 0 };
+    }
+
+    bucket.count += 1;
+    const allowed = bucket.count <= limit;
+    const retryAfterSeconds = Math.ceil((bucket.resetAt - now) / 1000);
+    return { allowed, retryAfterSeconds };
   }
 }
 
-function enforceBound(now: number): void {
-  if (buckets.size < MAX_BUCKETS && now - lastPruneAt < PRUNE_INTERVAL_MS) return;
+// Separate IP and entity-identifier bucket maps so an identifier-flood attack
+// cannot evict IP rate-limit buckets (or vice versa), while staying capped at 10,000 total.
+const MAX_BUCKETS_PER_STORE = 5_000;
+const PRUNE_INTERVAL_MS = 60_000;
+const ipBuckets = new BoundedBucketStore(MAX_BUCKETS_PER_STORE);
+const entityBuckets = new BoundedBucketStore(MAX_BUCKETS_PER_STORE);
 
-  lastPruneAt = now;
-  pruneExpiredBuckets(now);
-
-  if (buckets.size >= MAX_BUCKETS) {
-    let overflow = buckets.size - MAX_BUCKETS + 1;
-    for (const key of buckets.keys()) {
-      if (overflow-- <= 0) break;
-      buckets.delete(key);
-    }
-  }
+function isEntityBucketKey(key: string): boolean {
+  return key.includes(":id:") || key.includes(":email:") || key.includes(":member:");
 }
 
 // Exposed for tests and monitoring (bucket count must stay bounded).
 export function rateLimitBucketCount(): number {
-  return buckets.size;
+  return ipBuckets.size + entityBuckets.size;
 }
 
 export function checkRateLimit(
@@ -39,21 +72,8 @@ export function checkRateLimit(
   limit = 10,
   windowMs = 60000
 ): { allowed: boolean; retryAfterSeconds: number } {
-  const now = Date.now();
-
-  enforceBound(now);
-
-  const bucket = buckets.get(key);
-
-  if (!bucket || bucket.resetAt < now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return { allowed: true, retryAfterSeconds: 0 };
-  }
-
-  bucket.count += 1;
-  const allowed = bucket.count <= limit;
-  const retryAfterSeconds = Math.ceil((bucket.resetAt - now) / 1000);
-  return { allowed, retryAfterSeconds };
+  const store = isEntityBucketKey(key) ? entityBuckets : ipBuckets;
+  return store.check(key, limit, windowMs);
 }
 
 // Our reverse proxy appends the address it actually observed, so the right-most

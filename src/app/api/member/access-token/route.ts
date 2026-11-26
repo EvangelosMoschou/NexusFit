@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRepository } from "@/lib/db";
 import { authenticateMemberSession } from "@/lib/memberSessions";
-import { resolveTenantIdFromHeaders } from "@/lib/tenants";
+import { getTenant, resolveTenantIdFromHeaders } from "@/lib/tenants";
 import { isSubscriptionActive } from "@/lib/subscription";
 import { accessControlConfigured, signAccessToken } from "@/lib/accessToken";
 
@@ -12,8 +12,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
   }
   const memberId = session.memberId;
+  const tenantAccessKeyHash = getTenant(tenantId)?.accessKeyHash;
 
-  if (!accessControlConfigured()) {
+  if (!accessControlConfigured(tenantAccessKeyHash)) {
     return NextResponse.json(
       { success: false, error: "Η πρόσβαση με QR δεν έχει ρυθμιστεί." },
       { status: 503 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_GEMINI_MODEL, geminiEndpoint, resolveGeminiModel } from "./geminiModel";
+import { DEFAULT_GEMINI_MODEL, geminiEndpoint, geminiHeaders, resolveGeminiModel } from "./geminiModel";
 
 describe("resolveGeminiModel", () => {
   it("uses the default when the variable is unset or blank", () => {
@@ -44,9 +44,18 @@ describe("resolveGeminiModel", () => {
 });
 
 describe("geminiEndpoint", () => {
-  it("builds the generateContent URL for the given model", () => {
-    expect(geminiEndpoint("gemini-2.5-pro", "KEY")).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=KEY"
+  it("builds the generateContent URL without an API key query parameter", () => {
+    expect(geminiEndpoint("gemini-2.5-pro")).toBe(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
     );
+  });
+});
+
+describe("geminiHeaders", () => {
+  it("puts the Gemini API key in x-goog-api-key alongside JSON content-type", () => {
+    expect(geminiHeaders("KEY")).toEqual({
+      "Content-Type": "application/json",
+      "x-goog-api-key": "KEY",
+    });
   });
 });

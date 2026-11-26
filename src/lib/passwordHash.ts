@@ -3,6 +3,11 @@ import { randomBytes, scrypt, scryptSync, timingSafeEqual } from "node:crypto";
 const KEY_LENGTH = 32;
 const HASH_PREFIX = "scrypt";
 
+// Precomputed valid scrypt digest verified on missing-account login attempts
+// so response timing stays comparable to real password verification.
+export const DUMMY_SCRYPT_HASH =
+  "scrypt:000102030405060708090a0b0c0d0e0f:000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+
 function deriveKey(secret: string, salt: Buffer): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     scrypt(secret, salt, KEY_LENGTH, (error, derived) => {

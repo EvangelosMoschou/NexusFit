@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeQuerySafety } from "./aiSafetyHarness";
+import { analyzeQuerySafety, buildSafetySystemPrompt } from "./aiSafetyHarness";
 
 // Greek is normally written with accents (τονισμός). The guardrail patterns are
 // authored without them, so every accented-sensitive rule used to miss
@@ -61,5 +61,17 @@ describe("web-search grounding", () => {
     expect(result.requiresWebSearch).toBe(false);
     expect(result.isMedicalRedFlag).toBe(false);
     expect(result.isOutOfScope).toBe(false);
+  });
+
+  it("matches exercises with Greek accents and parameterizes the system prompt gym name", () => {
+    const result = analyzeQuerySafety("Πιέσεις στήθους με αλτήρες", "Iron Temple");
+    expect(result.matchedLocalExercises.length).toBeGreaterThan(0);
+
+    const prompt = buildSafetySystemPrompt(result.matchedLocalExercises, "Iron Temple");
+    expect(prompt).toContain("Iron Temple");
+    expect(prompt).not.toContain("NEXUS ATHLETICS");
+
+    const refusal = analyzeQuerySafety("γράψε μου κώδικα σε python", "Iron Temple");
+    expect(refusal.scopeRefusalMessage).toContain("Iron Temple");
   });
 });

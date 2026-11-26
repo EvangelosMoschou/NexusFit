@@ -40,7 +40,14 @@ export async function POST(req: NextRequest) {
       notes,
     });
 
-    return NextResponse.json({ success: saved });
+    if (!saved) {
+      return NextResponse.json(
+        { success: false, error: "Μη έγκυρα στοιχεία επικοινωνίας." },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(
       { success: false, error: "Database error saving lead inquiry" },

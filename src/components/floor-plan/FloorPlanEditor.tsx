@@ -493,7 +493,10 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
                     aria-pressed={active}
                     title={category.name}
                     aria-label={`Πινέλο: ${category.name}`}
-                    style={{ backgroundColor: category.color }}
+                    style={{
+                      backgroundColor: category.color,
+                      color: getInkColor(category.color),
+                    }}
                     className={`w-8 h-7 rounded-sm font-mono text-[10px] font-bold border ${
                       active ? "border-accent ring-1 ring-accent" : "border-border"
                     }`}
@@ -549,16 +552,18 @@ export const FloorPlanEditor: React.FC<FloorPlanEditorProps> = ({
             // `cellAtPoint`), so the editor only receives the square that was hit.
             // That is what replaced 9 216 per-square listeners.
             onCellPointerDown={(row, col, event) => handlePointerDown(row, col, event)}
-            onCellPointerOver={(row, col) => {
-              if (!lastPointRef.current) return;
+            onCellPointerMove={(row, col) => {
+              const last = lastPointRef.current;
+              if (!last) return;
+              if (last.row === row && last.col === col) return;
               extendStroke(row, col);
             }}
             gridProps={{
-              // The whole map is ONE focus target. `tabIndex=-1` makes it
-              // click-focusable without adding a tab stop: the roving cursor is
+              // The whole map is ONE focus target (`tabIndex={0}` gives the
+              // editor one tab stop in the tab order): the roving cursor is
               // drawn inside the viewBox, so a 96 × 96 floor is still one tab
               // stop rather than 9 216.
-              tabIndex: -1,
+              tabIndex: 0,
               role: "application",
               "aria-label": `Πίνακας κάτοψης: ${activeFloor.name}, ${activeFloor.rows} σειρές επί ${activeFloor.cols} στήλες`,
               onKeyDown: handleKeyDown,

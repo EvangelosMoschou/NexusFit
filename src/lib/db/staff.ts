@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getDatabase } from "./connection";
 import { DEFAULT_TENANT_ID } from "./tenant";
+import { revokeAllStaffSessions } from "./staffSessions";
 import type { DbStaffAccount, StaffAccount, StaffInput, StaffRole, StaffUpdate } from "./types";
 import { hashPin } from "@/lib/passwordHash";
 
@@ -170,6 +171,10 @@ export async function updateStaffAccount(
 
     db.prepare(`UPDATE staff_accounts SET ${fields.join(", ")} WHERE id = ?`).run(...values, id);
 
+    if (patch.active === false || (typeof patch.password === "string" && patch.password.length > 0)) {
+      revokeAllStaffSessions(`staff:${id}`, Date.now(), tenantId);
+    }
+
     const account = getStaffAccountById(id, tenantId);
     return account ? toPublicStaffAccount(account) : null;
   } catch (err) {
@@ -182,7 +187,11 @@ export function deleteStaffAccount(id: string, tenantId: string = DEFAULT_TENANT
   try {
     const db = getDatabase(tenantId);
     const result = db.prepare("DELETE FROM staff_accounts WHERE id = ?").run(id);
-    return Number(result.changes) > 0;
+    if (Number(result.changes) > 0) {
+      revokeAllStaffSessions(`staff:${id}`, Date.now(), tenantId);
+      return true;
+    }
+    return false;
   } catch (err) {
     console.error("[sqliteDb] deleteStaffAccount failed:", err);
     return false;

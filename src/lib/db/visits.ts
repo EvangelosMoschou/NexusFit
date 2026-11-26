@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
 import { getDatabase } from "./connection";
 import { DEFAULT_TENANT_ID } from "./tenant";
 import type { DbVisit, InsideMember, VisitWithMember } from "./types";
@@ -8,12 +9,58 @@ import { getSavedGymConfig } from "./gymConfig";
 
 const STALE_VISIT_HOURS = 8;
 
-function staleVisitCutoff(hours: number = STALE_VISIT_HOURS): string {
-  return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+function staleVisitCutoff(hours: number = STALE_VISIT_HOURS, nowMs: number = Date.now()): string {
+  return new Date(nowMs - hours * 60 * 60 * 1000).toISOString();
 }
 
-function idleVisitCutoff(minutes: number): string {
-  return new Date(Date.now() - minutes * 60 * 1000).toISOString();
+function idleVisitCutoff(minutes: number, nowMs: number = Date.now()): string {
+  return new Date(nowMs - minutes * 60 * 1000).toISOString();
+}
+
+function boundedCheckoutIso(baseIso: string, windowMs: number, nowMs: number): string {
+  const baseMs = Date.parse(baseIso);
+  if (!Number.isFinite(baseMs)) return new Date(nowMs).toISOString();
+  return new Date(Math.min(nowMs, baseMs + windowMs)).toISOString();
+}
+
+function closeVisitsWithWindow(
+  db: DatabaseSync,
+  whereSql: string,
+  params: Array<string | number>,
+  baseField: "checked_in_at" | "last_activity_at",
+  windowMs: number,
+  nowMs: number
+): number {
+  const rows = db
+    .prepare(
+      `SELECT id, checked_in_at, last_activity_at
+       FROM visits
+       WHERE ${whereSql}`
+    )
+    .all(...params) as Array<{
+    id: string;
+    checked_in_at: string;
+    last_activity_at: string | null;
+  }>;
+
+  if (rows.length === 0) return 0;
+
+  const update = db.prepare(
+    "UPDATE visits SET checked_out_at = ? WHERE id = ? AND checked_out_at IS NULL"
+  );
+  let closed = 0;
+  for (const row of rows) {
+    const baseIso =
+      baseField === "last_activity_at" ? (row.last_activity_at ?? row.checked_in_at) : row.checked_in_at;
+    const result = update.run(boundedCheckoutIso(baseIso, windowMs, nowMs), row.id);
+    closed += Number(result.changes);
+  }
+  return closed;
+}
+
+function isUniqueConstraintError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /UNIQUE constraint failed/i.test(message);
 }
 
 export function getLastCheckoutAt(
@@ -93,36 +140,59 @@ export function checkInMember(
   memberId: string,
   tenantId: string = DEFAULT_TENANT_ID
 ): { status: "in" | "already_in" | "unknown"; visit?: DbVisit } {
+  const idleMinutes = getSavedGymConfig(tenantId).idleCheckoutMinutes || 0;
+  let db: DatabaseSync | null = null;
+  let inTx = false;
+
   try {
-    const db = getDatabase(tenantId);
+    db = getDatabase(tenantId);
+    db.exec("BEGIN IMMEDIATE");
+    inTx = true;
+
     const member = db.prepare("SELECT id FROM members WHERE id = ?").get(memberId);
-    if (!member) return { status: "unknown" };
-
-    const now = new Date().toISOString();
-    // A forgotten check-out should not keep someone "inside" forever.
-    db.prepare(
-      `UPDATE visits SET checked_out_at = ?
-       WHERE member_id = ? AND checked_out_at IS NULL AND checked_in_at < ?`
-    ).run(now, memberId, staleVisitCutoff());
-
-    const idleMinutes = getSavedGymConfig(tenantId).idleCheckoutMinutes || 0;
-    if (idleMinutes > 0) {
-      db.prepare(
-        `UPDATE visits SET checked_out_at = ?
-         WHERE member_id = ? AND checked_out_at IS NULL
-           AND COALESCE(last_activity_at, checked_in_at) < ?`
-      ).run(now, memberId, idleVisitCutoff(idleMinutes));
+    if (!member) {
+      db.exec("COMMIT");
+      inTx = false;
+      return { status: "unknown" };
     }
 
-    const open = db
-      .prepare(
-        `SELECT * FROM visits
-         WHERE member_id = ? AND checked_out_at IS NULL
-         ORDER BY checked_in_at DESC LIMIT 1`
-      )
-      .get(memberId) as DbVisit | undefined;
+    const nowMs = Date.now();
+    const now = new Date(nowMs).toISOString();
 
-    if (open) return { status: "already_in", visit: open };
+    // Close forgotten visits at their accurate expiry boundary (check-in + window)
+    // rather than clamping to `now`.
+    closeVisitsWithWindow(
+      db,
+      "member_id = ? AND checked_out_at IS NULL AND checked_in_at < ?",
+      [memberId, staleVisitCutoff(STALE_VISIT_HOURS, nowMs)],
+      "checked_in_at",
+      STALE_VISIT_HOURS * 60 * 60 * 1000,
+      nowMs
+    );
+
+    if (idleMinutes > 0) {
+      closeVisitsWithWindow(
+        db,
+        `member_id = ? AND checked_out_at IS NULL
+         AND COALESCE(last_activity_at, checked_in_at) < ?`,
+        [memberId, idleVisitCutoff(idleMinutes, nowMs)],
+        "last_activity_at",
+        idleMinutes * 60 * 1000,
+        nowMs
+      );
+    }
+
+    const openQuery = db.prepare(
+      `SELECT * FROM visits
+       WHERE member_id = ? AND checked_out_at IS NULL
+       ORDER BY checked_in_at DESC LIMIT 1`
+    );
+    const open = openQuery.get(memberId) as DbVisit | undefined;
+    if (open) {
+      db.exec("COMMIT");
+      inTx = false;
+      return { status: "already_in", visit: open };
+    }
 
     const visit: DbVisit = {
       id: `visit-${randomUUID()}`,
@@ -132,19 +202,39 @@ export function checkInMember(
       last_activity_at: now,
       created_at: now,
     };
-    db.prepare(
-      "INSERT INTO visits (id, member_id, checked_in_at, checked_out_at, last_activity_at, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(
-      visit.id,
-      visit.member_id,
-      visit.checked_in_at,
-      visit.checked_out_at,
-      visit.last_activity_at,
-      visit.created_at
-    );
 
+    try {
+      db.prepare(
+        "INSERT INTO visits (id, member_id, checked_in_at, checked_out_at, last_activity_at, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+      ).run(
+        visit.id,
+        visit.member_id,
+        visit.checked_in_at,
+        visit.checked_out_at,
+        visit.last_activity_at,
+        visit.created_at
+      );
+    } catch (insertErr) {
+      if (isUniqueConstraintError(insertErr)) {
+        db.exec("ROLLBACK");
+        inTx = false;
+        const concurrentOpen = openQuery.get(memberId) as DbVisit | undefined;
+        if (concurrentOpen) return { status: "already_in", visit: concurrentOpen };
+      }
+      throw insertErr;
+    }
+
+    db.exec("COMMIT");
+    inTx = false;
     return { status: "in", visit };
   } catch (err) {
+    if (db && inTx) {
+      try {
+        db.exec("ROLLBACK");
+      } catch {
+        // Ignore rollback failure when connection already closed/aborted.
+      }
+    }
     console.error("[sqliteDb] checkInMember failed:", err);
     return { status: "unknown" };
   }
@@ -254,14 +344,15 @@ export function closeIdleVisits(minutes: number, tenantId: string = DEFAULT_TENA
   try {
     if (!Number.isFinite(minutes) || minutes <= 0) return 0;
     const db = getDatabase(tenantId);
-    const result = db
-      .prepare(
-        `UPDATE visits SET checked_out_at = ?
-         WHERE checked_out_at IS NULL
-           AND COALESCE(last_activity_at, checked_in_at) < ?`
-      )
-      .run(new Date().toISOString(), idleVisitCutoff(minutes));
-    return Number(result.changes);
+    const nowMs = Date.now();
+    return closeVisitsWithWindow(
+      db,
+      `checked_out_at IS NULL AND COALESCE(last_activity_at, checked_in_at) < ?`,
+      [idleVisitCutoff(minutes, nowMs)],
+      "last_activity_at",
+      minutes * 60 * 1000,
+      nowMs
+    );
   } catch (err) {
     console.error("[sqliteDb] closeIdleVisits failed:", err);
     return 0;
@@ -349,12 +440,15 @@ export function closeStaleVisits(
 ): number {
   try {
     const db = getDatabase(tenantId);
-    const result = db
-      .prepare(
-        "UPDATE visits SET checked_out_at = ? WHERE checked_out_at IS NULL AND checked_in_at < ?"
-      )
-      .run(new Date().toISOString(), staleVisitCutoff(hours));
-    return Number(result.changes);
+    const nowMs = Date.now();
+    return closeVisitsWithWindow(
+      db,
+      "checked_out_at IS NULL AND checked_in_at < ?",
+      [staleVisitCutoff(hours, nowMs)],
+      "checked_in_at",
+      hours * 60 * 60 * 1000,
+      nowMs
+    );
   } catch (err) {
     console.error("[sqliteDb] closeStaleVisits failed:", err);
     return 0;

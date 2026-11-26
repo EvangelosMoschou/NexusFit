@@ -1,12 +1,39 @@
 import { defaultGymConfig } from "@/config/gymConfig";
 import { GeneratedWorkoutPlan, GymConfig } from "@/types";
 import { MemberUser } from "@/lib/auth";
+import { processAgentQuery } from "@/lib/aiAgentChat";
 
 // Demo API: every fetch to /api/* is answered in the browser. Nothing leaves
 // the page and nothing is persisted outside localStorage.
 
 const PLANS_KEY_PREFIX = "nexusfit_demo_plans_";
+const LOGS_KEY_PREFIX = "nexusfit_demo_logs_";
 let currentMemberCode: string | null = null;
+
+interface MockExerciseLogRow {
+  id: number;
+  member_id: string;
+  exercise_name: string;
+  weight_kg: number;
+  reps: number;
+  logged_at: string;
+}
+
+function readMockLogs(memberCode: string): MockExerciseLogRow[] {
+  try {
+    const raw = localStorage.getItem(`${LOGS_KEY_PREFIX}${memberCode}`);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeMockLogs(memberCode: string, logs: MockExerciseLogRow[]): void {
+  try {
+    localStorage.setItem(`${LOGS_KEY_PREFIX}${memberCode}`, JSON.stringify(logs));
+  } catch {}
+}
 
 const demoExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
@@ -165,6 +192,47 @@ export function installMockApi(): void {
       return json({ success: true, revokedCurrent: true });
     }
 
+    // Member refresh
+    if (url.pathname === "/api/member/me" && method === "GET") {
+      const member = currentMemberCode ? findMember(currentMemberCode) : undefined;
+      if (!member) {
+        return json({ success: false, error: "Not authenticated" }, 401);
+      }
+      return json({ success: true, member: withPlans(member) });
+    }
+
+    // Exercise load logs
+    if (url.pathname === "/api/member/logs" && method === "GET") {
+      if (!currentMemberCode) {
+        return json({ success: false, error: "Not authenticated" }, 401);
+      }
+      return json({ success: true, logs: readMockLogs(currentMemberCode) });
+    }
+
+    if (url.pathname === "/api/member/logs" && method === "POST") {
+      const member = currentMemberCode ? findMember(currentMemberCode) : undefined;
+      if (!member) {
+        return json({ success: false, error: "Not authenticated" }, 401);
+      }
+      const exerciseName = String(body.exerciseName ?? body.exerciseId ?? "").trim();
+      const weightKg = Number(body.weightKg);
+      const reps = Number(body.reps ?? body.repsAchieved ?? 8);
+      if (!exerciseName || !Number.isFinite(weightKg) || weightKg <= 0 || !Number.isInteger(reps) || reps < 1) {
+        return json({ success: false, error: "Μη έγκυρη καταγραφή βάρους." }, 400);
+      }
+      const log: MockExerciseLogRow = {
+        id: Date.now(),
+        member_id: member.id,
+        exercise_name: exerciseName,
+        weight_kg: weightKg,
+        reps,
+        logged_at: typeof body.loggedAt === "string" ? body.loggedAt : new Date().toISOString(),
+      };
+      const nextLogs = [log, ...readMockLogs(member.memberCode)].slice(0, 200);
+      writeMockLogs(member.memberCode, nextLogs);
+      return json({ success: true, log }, 201);
+    }
+
     // Lead form
     if (url.pathname === "/api/leads" && method === "POST") {
       return json({ success: true });
@@ -180,6 +248,15 @@ export function installMockApi(): void {
       return json({ success: true });
     }
 
+    // AI chat mock
+    if (url.pathname === "/api/ai-agent/chat" && method === "POST") {
+      const query = String(body.query ?? "").trim();
+      if (!query) {
+        return json({ success: false, error: "Συμπληρώστε ένα ερώτημα." }, 400);
+      }
+      return json({ success: true, ...processAgentQuery(query) });
+    }
+
     // GDPR export
     if (url.pathname === "/api/member/export" && method === "GET") {
       const member = demoMembers.find((m) => m.memberCode === currentMemberCode);
@@ -187,6 +264,7 @@ export function installMockApi(): void {
         exportedAt: new Date().toISOString(),
         note: "Demo export generated in the browser.",
         member: member ? withPlans(member) : null,
+        exerciseLogs: currentMemberCode ? readMockLogs(currentMemberCode) : [],
       };
       return json(payload, 200, {
         "Content-Disposition": 'attachment; filename="nexusfit-member-export.json"',
@@ -197,6 +275,7 @@ export function installMockApi(): void {
     if (url.pathname === "/api/member/erase" && method === "DELETE") {
       if (currentMemberCode) {
         localStorage.removeItem(`${PLANS_KEY_PREFIX}${currentMemberCode}`);
+        localStorage.removeItem(`${LOGS_KEY_PREFIX}${currentMemberCode}`);
       }
       currentMemberCode = null;
       return json({ success: true });

@@ -18,11 +18,12 @@ export async function GET(req: NextRequest) {
   if (!data.member) {
     return NextResponse.json({ success: false, error: "Member not found" }, { status: 404 });
   }
-  const [visits, notifications, accessEvents, sessions] = await Promise.all([
+  const [visits, notifications, accessEvents, sessions, exerciseLogs] = await Promise.all([
     repo.getMemberVisits(memberId, 1000),
     repo.listMemberNotifications(memberId, 1000),
     repo.listMemberAccessEvents(memberId, 1000),
     repo.listMemberSessionHistory(memberId, 1000),
+    repo.listExerciseLogs(memberId, 500),
   ]);
 
   return NextResponse.json(
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
       notifications,
       accessEvents,
       sessions,
+      exerciseLogs,
     },
     {
       headers: {

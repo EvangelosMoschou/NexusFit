@@ -1,9 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { X, Send, Bot, User } from "lucide-react";
-import { useLocalAgentChat } from "@/lib/useLocalAgentChat";
+import { ChatMessage, processAgentQuery } from "@/lib/aiAgentChat";
+import { memberFetch } from "@/lib/memberFetch";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { useGymConfig } from "@/lib/useGymConfig";
 import { equipmentLabel, muscleGroupLabel } from "@/lib/format";
 
 interface AICoachChatModalProps {
@@ -11,14 +13,106 @@ interface AICoachChatModalProps {
   onClose: () => void;
 }
 
+function nowTimestamp(): string {
+  return new Date().toLocaleTimeString("el-GR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function makeMessageId(prefix: string): string {
+  return `${prefix}-${Date.now()}`;
+}
+
 export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onClose }) => {
-  const { input, setInput, messages, loading, send } = useLocalAgentChat(
-    "Γεια σας! Είμαι ο ψηφιακός προπονητής του NexusFit. Έχω πρόσβαση στη βάση δεδομένων του γυμναστηρίου για όλες τις ασκήσεις, τα μηχανήματα και την ασφάλεια τραυματισμών. Πώς μπορώ να σας βοηθήσω στη σημερινή σας προπόνηση;"
-  );
+  const { config } = useGymConfig();
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    {
+      id: "init-1",
+      sender: "agent",
+      text: `Γεια σας! Είμαι ο ψηφιακός προπονητής του ${config.gymName}. Έχω πρόσβαση στη βάση δεδομένων του γυμναστηρίου για όλες τις ασκήσεις, τα μηχανήματα και την ασφάλεια τραυματισμών. Πώς μπορώ να σας βοηθήσω στη σημερινή σας προπόνηση;`,
+      timestamp: nowTimestamp(),
+    },
+  ]);
 
   useEscapeKey(isOpen, onClose);
 
   if (!isOpen) return null;
+
+  const send = async (text?: string) => {
+    const query = (text ?? input).trim();
+    if (!query || loading) return;
+
+    const history = messages
+      .filter((msg) => msg.id !== "init-1")
+      .slice(-6)
+      .map((msg) => ({
+        role: msg.sender === "user" ? ("user" as const) : ("model" as const),
+        text: msg.text,
+      }));
+
+    const userMsg: ChatMessage = {
+      id: makeMessageId("user"),
+      sender: "user",
+      text: query,
+      timestamp: nowTimestamp(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    if (!text) setInput("");
+    setLoading(true);
+
+    try {
+      const res = await memberFetch("/api/ai-agent/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, history }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.success && typeof data.text === "string") {
+        const reply: ChatMessage = {
+          id: typeof data.id === "string" ? data.id : makeMessageId("agent"),
+          sender: "agent",
+          text: data.text,
+          timestamp: typeof data.timestamp === "string" ? data.timestamp : nowTimestamp(),
+          matchedExercises: Array.isArray(data.matchedExercises)
+            ? data.matchedExercises
+            : undefined,
+        };
+        setMessages((prev) => [...prev, reply]);
+        return;
+      }
+
+      if (res.status === 403 || res.status === 429 || res.status === 400) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: makeMessageId("agent-err"),
+            sender: "agent",
+            text:
+              typeof data?.error === "string"
+                ? data.error
+                : "Δεν ήταν δυνατή η απάντηση αυτή τη στιγμή.",
+            timestamp: nowTimestamp(),
+          },
+        ]);
+        return;
+      }
+
+      if (res.status === 401) {
+        return;
+      }
+
+      // Fallback to local deterministic engine on server 5xx
+      setMessages((prev) => [...prev, processAgentQuery(query)]);
+    } catch {
+      // Offline / network error fallback
+      setMessages((prev) => [...prev, processAgentQuery(query)]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const quickPrompts = [
     "Εναλλακτική για Πιέσεις Πάγκου",
@@ -45,7 +139,7 @@ export const AICoachChatModal: React.FC<AICoachChatModalProps> = ({ isOpen, onCl
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-primary">Ψηφιακός Βοηθός NexusFit</h3>
+                <h3 className="text-sm font-bold text-primary">Ψηφιακός Βοηθός {config.gymName}</h3>
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span className="text-[10px] text-emerald-400 font-mono">Συνδεδεμένη βάση ασκήσεων</span>
               </div>

@@ -14,7 +14,7 @@ import { DatabaseSync } from "node:sqlite";
 const tempDir = mkdtempSync(path.join(tmpdir(), "nexusfit-conn-test-"));
 process.env.SQLITE_DATA_DIR = tempDir;
 
-import { DEFAULT_TENANT_ID, getDatabase, getDataDir } from "@/lib/sqliteDb";
+import { DEFAULT_TENANT_ID, getDatabase, getDataDir, getSavedGymConfig, updateSavedGymConfig } from "@/lib/sqliteDb";
 import { defaultGymConfig } from "@/config/gymConfig";
 import { verifyPin } from "@/lib/passwordHash";
 
@@ -349,5 +349,23 @@ describe("one-time migrations", () => {
 describe("default tenant id", () => {
   it("is the documented 'default' value", () => {
     expect(DEFAULT_TENANT_ID).toBe("default");
+  });
+
+  it("enables WAL mode, initializes staff_sessions and exercise_logs, and invalidates config cache on write", () => {
+    const db = getDatabase("t-wal-cache");
+    const journal = db.prepare("PRAGMA journal_mode").get() as { journal_mode: string };
+    expect(journal.journal_mode.toLowerCase()).toBe("wal");
+
+    const tables = (
+      db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Array<{
+        name: string;
+      }>
+    ).map((r) => r.name);
+    expect(tables).toContain("staff_sessions");
+    expect(tables).toContain("exercise_logs");
+
+    expect(getSavedGymConfig("t-wal-cache").gymName).toBe(defaultGymConfig.gymName);
+    expect(updateSavedGymConfig({ gymName: "Cached Iron Gym" }, "t-wal-cache")).toBe(true);
+    expect(getSavedGymConfig("t-wal-cache").gymName).toBe("Cached Iron Gym");
   });
 });

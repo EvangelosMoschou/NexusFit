@@ -1,4 +1,5 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { verifyPinSync } from "./passwordHash";
 
 export const ACCESS_TOKEN_TTL_SECONDS = 90;
 
@@ -85,17 +86,37 @@ export function reentryCooldownMessage(seconds: number): string {
   }.`;
 }
 
-export function accessControlConfigured(): boolean {
+export function accessControlConfigured(tenantAccessKeyHash?: string): boolean {
+  if (tenantAccessKeyHash && tenantAccessKeyHash.trim().length > 0) return true;
   const key = process.env.ACCESS_CONTROL_KEY;
   return Boolean(key && key.length >= 16);
 }
 
-export function verifyAccessDeviceKey(provided: string | undefined): boolean {
-  const expected = process.env.ACCESS_CONTROL_KEY;
-  if (!expected || expected.length < 16 || !provided) return false;
+export function verifyAccessDeviceKey(
+  provided: string | undefined,
+  tenantAccessKeyHash?: string
+): boolean {
+  if (!provided) return false;
 
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
+  const tenantHash = tenantAccessKeyHash?.trim();
+  if (tenantHash) {
+    if (tenantHash.startsWith("scrypt:")) {
+      return verifyPinSync(provided, tenantHash);
+    }
+    if (tenantHash.startsWith("sha256:")) {
+      const expectedHex = tenantHash.slice("sha256:".length);
+      if (!/^[0-9a-f]{64}$/i.test(expectedHex)) return false;
+      const actualDigest = createHash("sha256").update(provided).digest();
+      const expectedBuf = Buffer.from(expectedHex, "hex");
+      return expectedBuf.length === actualDigest.length && timingSafeEqual(actualDigest, expectedBuf);
+    }
+    return false;
+  }
+
+  const expected = process.env.ACCESS_CONTROL_KEY;
+  if (!expected || expected.length < 16) return false;
+
+  const a = createHash("sha256").update(provided).digest();
+  const b = createHash("sha256").update(expected).digest();
   return timingSafeEqual(a, b);
 }

@@ -92,10 +92,13 @@ export const MembersTab: React.FC<MembersTabProps> = ({
           <span>Έκδοση Νέας Κάρτας Μέλους</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
           <div>
-            <label className="block text-[11px] text-secondary mb-1">Κωδικός Κάρτας</label>
+            <label htmlFor="member-code" className="block text-[11px] text-secondary mb-1">
+              Κωδικός Κάρτας
+            </label>
             <input
+              id="member-code"
               type="text"
               required
               placeholder="π.χ. NX-9921"
@@ -106,8 +109,11 @@ export const MembersTab: React.FC<MembersTabProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] text-secondary mb-1">Ονοματεπώνυμο</label>
+            <label htmlFor="member-full-name" className="block text-[11px] text-secondary mb-1">
+              Ονοματεπώνυμο
+            </label>
             <input
+              id="member-full-name"
               type="text"
               required
               placeholder="π.χ. Κωνσταντίνος Νικολάου"
@@ -118,8 +124,11 @@ export const MembersTab: React.FC<MembersTabProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] text-secondary mb-1">Ηλεκτρονικό Ταχυδρομείο</label>
+            <label htmlFor="member-email" className="block text-[11px] text-secondary mb-1">
+              Ηλεκτρονικό Ταχυδρομείο
+            </label>
             <input
+              id="member-email"
               type="email"
               required
               placeholder="member@example.com"
@@ -130,14 +139,31 @@ export const MembersTab: React.FC<MembersTabProps> = ({
           </div>
 
           <div>
-            <label className="block text-[11px] text-secondary mb-1">PIN Σύνδεσης (4 ψηφία)</label>
+            <label htmlFor="member-pin" className="block text-[11px] text-secondary mb-1">
+              PIN Σύνδεσης (4 ψηφία)
+            </label>
             <input
+              id="member-pin"
               type="text"
               required
               maxLength={6}
               value={newMember.pinCode}
               onChange={(e) => setNewMember({ ...newMember, pinCode: e.target.value })}
               className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs outline-hidden font-mono tracking-widest"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="member-expires-at" className="block text-[11px] text-secondary mb-1">
+              Λήξη Συνδρομής
+            </label>
+            <input
+              id="member-expires-at"
+              type="date"
+              required
+              value={newMember.expiresAt}
+              onChange={(e) => setNewMember({ ...newMember, expiresAt: e.target.value })}
+              className="w-full px-3 py-2 rounded-sm bg-background border border-border text-primary text-xs outline-hidden font-mono"
             />
           </div>
         </div>
@@ -149,8 +175,9 @@ export const MembersTab: React.FC<MembersTabProps> = ({
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <label className="flex items-center gap-2 cursor-pointer text-xs">
+          <label htmlFor="member-ai-access" className="flex items-center gap-2 cursor-pointer text-xs">
             <input
+              id="member-ai-access"
               type="checkbox"
               checked={newMember.hasAIAccess}
               onChange={(e) => setNewMember({ ...newMember, hasAIAccess: e.target.checked })}
@@ -253,6 +280,7 @@ export const MembersTab: React.FC<MembersTabProps> = ({
         <MemberDetailModal
           memberId={selectedMemberId}
           onClose={() => setSelectedMemberId(null)}
+          onUpdated={onRefresh}
         />
       )}
     </div>

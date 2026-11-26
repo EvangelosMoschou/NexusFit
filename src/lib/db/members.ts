@@ -1,30 +1,33 @@
+import type { DatabaseSync } from "node:sqlite";
 import { getDatabase } from "./connection";
 import { DEFAULT_TENANT_ID } from "./tenant";
-import type { DbAdminMember, DbMember, DbWorkoutPlan, MemberAccess } from "./types";
+import type {
+  DbAdminMember,
+  DbMember,
+  DbWorkoutPlan,
+  MemberAccess,
+  MemberSession,
+  MemberUpdateInput,
+  MemberUpdateResult,
+} from "./types";
 import type { GeneratedWorkoutPlan } from "@/types";
-import { hashPin, verifyPin } from "@/lib/passwordHash";
+import { DUMMY_SCRYPT_HASH, hashPin, verifyPin } from "@/lib/passwordHash";
 import { revokeAllMemberSessions } from "./memberSessions";
 
 // Member records, workout plans and the GDPR access/erasure paths.
 
-export async function getMemberByCredentials(
-  identifier: string,
-  pin: string,
-  tenantId: string = DEFAULT_TENANT_ID
-) {
-  const db = getDatabase(tenantId);
-  const cleanId = identifier.trim();
-  const cleanPin = pin.trim();
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PIN_RE = /^\d{4,6}$/;
+const DATE_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_WORKOUT_PLAN_BYTES = 65_536;
 
-  const stmt = db.prepare(`
-    SELECT * FROM members 
-    WHERE LOWER(member_code) = LOWER(?) OR LOWER(email) = LOWER(?)
-  `);
+function isValidIsoDate(value: string): boolean {
+  if (!DATE_ISO_RE.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
 
-  const member = stmt.get(cleanId, cleanId) as DbMember | undefined;
-  if (!member || !(await verifyPin(cleanPin, member.pin_code))) return null;
-
-  // Retrieve Saved Plans
+function buildMemberSession(db: DatabaseSync, member: DbMember): MemberSession {
   const plansStmt = db.prepare(`
     SELECT * FROM workout_plans 
     WHERE member_id = ? 
@@ -61,37 +64,97 @@ export async function getMemberByCredentials(
   };
 }
 
+export async function getMemberByCredentials(
+  identifier: string,
+  pin: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): Promise<MemberSession | null> {
+  const db = getDatabase(tenantId);
+  const cleanId = identifier.trim();
+  const cleanPin = pin.trim();
+
+  const stmt = db.prepare(`
+    SELECT * FROM members 
+    WHERE member_code = UPPER(?) OR email = LOWER(?)
+  `);
+
+  const member = stmt.get(cleanId, cleanId) as DbMember | undefined;
+  if (!member) {
+    await verifyPin(cleanPin, DUMMY_SCRYPT_HASH);
+    return null;
+  }
+  if (!(await verifyPin(cleanPin, member.pin_code))) return null;
+
+  return buildMemberSession(db, member);
+}
+
+export function getMemberById(
+  memberId: string,
+  tenantId: string = DEFAULT_TENANT_ID
+): MemberSession | null {
+  if (!memberId) return null;
+  try {
+    const db = getDatabase(tenantId);
+    const member = db.prepare("SELECT * FROM members WHERE id = ?").get(memberId) as
+      | DbMember
+      | undefined;
+    return member ? buildMemberSession(db, member) : null;
+  } catch (err) {
+    console.error("[sqliteDb] getMemberById failed:", err);
+    return null;
+  }
+}
+
 export function saveWorkoutPlanToDb(
   memberId: string,
   plan: GeneratedWorkoutPlan,
   tenantId: string = DEFAULT_TENANT_ID
 ): boolean {
-  if (typeof plan.id !== "string" || plan.id.trim().length === 0) {
+  if (!plan || typeof plan !== "object" || Array.isArray(plan)) {
+    return false;
+  }
+  const id = typeof plan.id === "string" ? plan.id.trim() : "";
+  const splitName = typeof plan.splitName === "string" ? plan.splitName.trim() : "";
+  if (!id || id.length > 100 || !splitName || splitName.length > 120) {
     console.error("[sqliteDb] invalid plan payload:", { memberId, plan });
     return false;
   }
-  if (typeof plan.splitName !== "string" || plan.splitName.trim().length === 0) {
-    console.error("[sqliteDb] invalid plan payload:", { memberId, plan });
+  if (!Array.isArray(plan.days) || plan.days.length > 7) {
+    console.error("[sqliteDb] invalid plan days payload:", { memberId, id });
     return false;
   }
+
+  const serialized = JSON.stringify(plan);
+  if (Buffer.byteLength(serialized, "utf8") > MAX_WORKOUT_PLAN_BYTES) {
+    console.error("[sqliteDb] workout plan payload exceeds 64 KB cap:", { memberId, id });
+    return false;
+  }
+
   try {
     const db = getDatabase(tenantId);
     const stmt = db.prepare(`
       INSERT INTO workout_plans (id, member_id, split_name, split_type, days_per_week, session_duration, plan_json, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        split_name = excluded.split_name,
+        split_type = excluded.split_type,
+        days_per_week = excluded.days_per_week,
+        session_duration = excluded.session_duration,
+        plan_json = excluded.plan_json
+      WHERE workout_plans.member_id = excluded.member_id
     `);
 
-    stmt.run(
-      plan.id || `plan-${Date.now()}`,
+    const result = stmt.run(
+      id,
       memberId,
-      plan.splitName,
-      plan.splitType,
-      plan.daysPerWeek,
-      plan.sessionDuration,
-      JSON.stringify(plan),
-      plan.createdAt || new Date().toISOString()
+      splitName,
+      typeof plan.splitType === "string" ? plan.splitType : "custom",
+      Number.isFinite(Number(plan.daysPerWeek)) ? Number(plan.daysPerWeek) : plan.days.length,
+      Number.isFinite(Number(plan.sessionDuration)) ? Number(plan.sessionDuration) : 60,
+      serialized,
+      typeof plan.createdAt === "string" && plan.createdAt ? plan.createdAt : new Date().toISOString()
     );
-    return true;
+    return Number(result.changes) > 0;
   } catch (err) {
     console.error("[sqliteDb] saveWorkoutPlanToDb failed:", err);
     return false;
@@ -125,13 +188,14 @@ export async function upsertMemberAdmin(
   },
   tenantId: string = DEFAULT_TENANT_ID
 ): Promise<boolean> {
-  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const fullName = typeof member.fullName === "string" ? member.fullName.trim() : "";
   const memberCode = typeof member.memberCode === "string" ? member.memberCode.trim() : "";
+  const email = typeof member.email === "string" ? member.email.trim() : "";
+  const pinCode = typeof member.pinCode === "string" ? member.pinCode.trim() : "";
 
   if (
-    !emailRe.test(member.email) ||
-    !/^\d{4,6}$/.test(member.pinCode) ||
+    !EMAIL_RE.test(email) ||
+    !PIN_RE.test(pinCode) ||
     fullName.length < 2 ||
     fullName.length > 80 ||
     memberCode.length < 3
@@ -148,7 +212,7 @@ export async function upsertMemberAdmin(
   try {
     const db = getDatabase(tenantId);
     const memberId = member.id || `mem-${Date.now()}`;
-    const normalizedCode = member.memberCode.toUpperCase().trim();
+    const normalizedCode = memberCode.toUpperCase();
     const existing = db
       .prepare("SELECT id, pin_code FROM members WHERE member_code = ? OR id = ?")
       .get(normalizedCode, member.id ?? "") as { id: string; pin_code: string } | undefined;
@@ -169,9 +233,9 @@ export async function upsertMemberAdmin(
     stmt.run(
       memberId,
       normalizedCode,
-      member.fullName.trim(),
-      member.email.toLowerCase().trim(),
-      await hashPin(member.pinCode.trim()),
+      fullName,
+      email.toLowerCase(),
+      await hashPin(pinCode),
       member.tierName.trim(),
       member.hasAIAccess ? 1 : 0,
       member.subscriptionStatus,
@@ -184,7 +248,7 @@ export async function upsertMemberAdmin(
     const actual = db
       .prepare("SELECT id FROM members WHERE member_code = ?")
       .get(normalizedCode) as { id: string } | undefined;
-    if (existing && actual && !(await verifyPin(member.pinCode.trim(), existing.pin_code))) {
+    if (existing && actual && !(await verifyPin(pinCode, existing.pin_code))) {
       revokeAllMemberSessions(actual.id, Date.now(), tenantId);
     }
 
@@ -193,6 +257,132 @@ export async function upsertMemberAdmin(
     console.error("[sqliteDb] upsertMemberAdmin failed:", err);
     return false;
   }
+}
+
+export async function updateMemberAdmin(
+  id: string,
+  patch: MemberUpdateInput,
+  tenantId: string = DEFAULT_TENANT_ID
+): Promise<MemberUpdateResult> {
+  if (!id || !id.trim()) {
+    return { ok: false, code: "validation", error: "Λείπει το αναγνωριστικό μέλους." };
+  }
+
+  const db = getDatabase(tenantId);
+  const existing = db.prepare("SELECT id FROM members WHERE id = ?").get(id) as
+    | { id: string }
+    | undefined;
+  if (!existing) {
+    return { ok: false, code: "not_found", error: "Το μέλος δεν βρέθηκε." };
+  }
+
+  const sets: string[] = [];
+  const values: Array<string | number> = [];
+  let pinRotated = false;
+
+  if (patch.fullName !== undefined) {
+    const fullName = typeof patch.fullName === "string" ? patch.fullName.trim() : "";
+    if (fullName.length < 2 || fullName.length > 80) {
+      return {
+        ok: false,
+        code: "validation",
+        error: "Το ονοματεπώνυμο πρέπει να έχει 2-80 χαρακτήρες.",
+      };
+    }
+    sets.push("full_name = ?");
+    values.push(fullName);
+  }
+
+  if (patch.email !== undefined) {
+    const email = typeof patch.email === "string" ? patch.email.trim().toLowerCase() : "";
+    if (!EMAIL_RE.test(email) || email.length > 160) {
+      return { ok: false, code: "validation", error: "Μη έγκυρη διεύθυνση email." };
+    }
+    sets.push("email = ?");
+    values.push(email);
+  }
+
+  if (patch.tierName !== undefined) {
+    const tierName = typeof patch.tierName === "string" ? patch.tierName.trim() : "";
+    if (!tierName || tierName.length > 80) {
+      return { ok: false, code: "validation", error: "Μη έγκυρο όνομα πακέτου." };
+    }
+    sets.push("tier_name = ?");
+    values.push(tierName);
+  }
+
+  if (patch.hasAIAccess !== undefined) {
+    if (typeof patch.hasAIAccess !== "boolean") {
+      return { ok: false, code: "validation", error: "Μη έγκυρη ρύθμιση ψηφιακού βοηθού." };
+    }
+    sets.push("has_ai_access = ?");
+    values.push(patch.hasAIAccess ? 1 : 0);
+  }
+
+  if (patch.subscriptionStatus !== undefined) {
+    if (patch.subscriptionStatus !== "active" && patch.subscriptionStatus !== "expired") {
+      return { ok: false, code: "validation", error: "Μη έγκυρη κατάσταση συνδρομής." };
+    }
+    sets.push("subscription_status = ?");
+    values.push(patch.subscriptionStatus);
+  }
+
+  if (patch.expiresAt !== undefined) {
+    const expiresAt = typeof patch.expiresAt === "string" ? patch.expiresAt.trim() : "";
+    if (!isValidIsoDate(expiresAt)) {
+      return {
+        ok: false,
+        code: "validation",
+        error: "Μη έγκυρη ημερομηνία λήξης (YYYY-MM-DD).",
+      };
+    }
+    sets.push("expires_at = ?");
+    values.push(expiresAt);
+  }
+
+  if (patch.pinCode !== undefined) {
+    const pinCode = typeof patch.pinCode === "string" ? patch.pinCode.trim() : "";
+    if (!PIN_RE.test(pinCode)) {
+      return { ok: false, code: "validation", error: "Το PIN πρέπει να αποτελείται από 4-6 ψηφία." };
+    }
+    sets.push("pin_code = ?");
+    values.push(await hashPin(pinCode));
+    pinRotated = true;
+  }
+
+  if (sets.length === 0) {
+    return { ok: false, code: "validation", error: "Δεν δόθηκαν πεδία προς ενημέρωση." };
+  }
+
+  try {
+    db.prepare(`UPDATE members SET ${sets.join(", ")} WHERE id = ?`).run(...values, id);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE constraint failed/i.test(message)) {
+      return {
+        ok: false,
+        code: "conflict",
+        error: "Υπάρχει ήδη μέλος με αυτό το email.",
+      };
+    }
+    throw err;
+  }
+
+  if (pinRotated) {
+    revokeAllMemberSessions(id, Date.now(), tenantId);
+  }
+
+  const updated = db
+    .prepare(
+      "SELECT id, member_code, full_name, email, tier_name, has_ai_access, subscription_status, expires_at, created_at FROM members WHERE id = ?"
+    )
+    .get(id) as unknown as DbAdminMember | undefined;
+
+  if (!updated) {
+    return { ok: false, code: "not_found", error: "Το μέλος δεν βρέθηκε." };
+  }
+
+  return { ok: true, member: updated, pinRotated };
 }
 
 export function deleteMemberAdmin(id: string, tenantId: string = DEFAULT_TENANT_ID): boolean {

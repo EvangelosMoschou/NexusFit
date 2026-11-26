@@ -95,6 +95,8 @@ export interface SvgPatternTile {
   /** Unique across the page — includes the floor id. */
   id: string;
   appearanceIndex: number;
+  kind: CellAppearance["kind"];
+  backgroundColor: string;
   width: number;
   height: number;
   /** Stroke/fill colour for the tile shapes (the appearance's contrast ink). */
@@ -110,6 +112,7 @@ export interface SvgPatternTile {
 export interface SvgLabelTile {
   id: string;
   appearanceIndex: number;
+  kind: CellAppearance["kind"];
   text: string;
   inkColor: string;
   /** Font size in cell units; see `LABEL_FONT_SIZE_RATIO`. */
@@ -308,6 +311,8 @@ export function cellSetPath(
 /** Pattern geometry for one appearance, in cell units. `null` means solid. */
 function patternTile(
   pattern: CellPattern,
+  kind: CellAppearance["kind"],
+  backgroundColor: string,
   inkColor: string,
   id: string,
   appearanceIndex: number
@@ -322,6 +327,8 @@ function patternTile(
       return {
         id,
         appearanceIndex,
+        kind,
+        backgroundColor,
         width: 0.4,
         height: 0.4,
         inkColor,
@@ -332,6 +339,8 @@ function patternTile(
       return {
         id,
         appearanceIndex,
+        kind,
+        backgroundColor,
         width: 0.3,
         height: 0.3,
         inkColor,
@@ -342,6 +351,8 @@ function patternTile(
       return {
         id,
         appearanceIndex,
+        kind,
+        backgroundColor,
         width: 0.5,
         height: 0.5,
         inkColor,
@@ -356,6 +367,8 @@ function patternTile(
       return {
         id,
         appearanceIndex,
+        kind,
+        backgroundColor,
         width: 1,
         height: 1,
         inkColor,
@@ -436,7 +449,14 @@ export function buildSvgScene(model: FloorRenderModel, options: SvgSceneOptions 
     if (geometry.squareCount === 0) continue;
 
     const patternId = `${idPrefix}-pattern-${appearanceIndex}`;
-    const tile = patternTile(appearance.pattern, appearance.inkColor, patternId, appearanceIndex);
+    const tile = patternTile(
+      appearance.pattern,
+      appearance.kind,
+      appearance.color,
+      appearance.inkColor,
+      patternId,
+      appearanceIndex
+    );
     if (tile !== null) patterns.push(tile);
 
     layers.push({
@@ -458,6 +478,7 @@ export function buildSvgScene(model: FloorRenderModel, options: SvgSceneOptions 
       labelTiles.push({
         id: labelId,
         appearanceIndex,
+        kind: appearance.kind,
         text: appearance.shortLabel,
         inkColor: appearance.inkColor,
         fontSize: LABEL_FONT_SIZE_RATIO,

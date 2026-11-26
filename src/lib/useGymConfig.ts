@@ -1,24 +1,37 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { GymConfig } from "@/types";
 import { defaultGymConfig } from "@/config/gymConfig";
+
+export const GymConfigContext = createContext<GymConfig | null>(null);
 
 let sharedFetch: Promise<GymConfig | null> | null = null;
 
 function fetchGymConfig(): Promise<GymConfig | null> {
-  sharedFetch ??= fetch("/api/config")
-    .then((res) => (res.ok ? res.json() : null))
-    .then((data) => (data?.success && data.config ? (data.config as GymConfig) : null))
-    .catch(() => null);
+  if (!sharedFetch) {
+    sharedFetch = fetch("/api/config")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && data.config) return data.config as GymConfig;
+        sharedFetch = null;
+        return null;
+      })
+      .catch(() => {
+        sharedFetch = null;
+        return null;
+      });
+  }
   return sharedFetch;
 }
 
-// Loads the admin-editable gym config (pricing/schedule/info) once per page
-// session. Renders the static default until the server copy arrives.
+// Reads the SSR-injected gym config when present, or fetches /api/config once
+// per page session in standalone/demo contexts.
 export function useGymConfig(): { config: GymConfig; loaded: boolean } {
-  const [config, setConfig] = useState<GymConfig>(defaultGymConfig);
-  const [loaded, setLoaded] = useState(false);
+  const initialConfig = useContext(GymConfigContext);
+  const [config, setConfig] = useState<GymConfig>(initialConfig ?? defaultGymConfig);
+  const [loaded, setLoaded] = useState(initialConfig !== null);
 
   useEffect(() => {
+    if (initialConfig !== null) return;
     let active = true;
     fetchGymConfig().then((remote) => {
       if (!active) return;
@@ -28,7 +41,7 @@ export function useGymConfig(): { config: GymConfig; loaded: boolean } {
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialConfig]);
 
   return { config, loaded };
 }

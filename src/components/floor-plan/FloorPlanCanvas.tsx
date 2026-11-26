@@ -22,7 +22,7 @@
  * ## Hit-testing
  *
  * The editor paints by dragging. There is exactly ONE `pointerdown` and ONE
- * `pointerover` handler, both on the `<svg>`, and both go through
+ * `pointermove` handler, both on the `<svg>`, and both go through
  * `cellAtPoint(clientX, clientY, rect, rows, cols)` — pure coordinate maths
  * against `getBoundingClientRect()`. No per-square listener exists because no
  * per-square node exists. The maths mirrors `preserveAspectRatio="xMidYMid
@@ -39,16 +39,16 @@
  *   - the legend stays a sibling DOM list, exactly one per plan, rendered by the
  *     caller through `legendMode`.
  *
- * In the editor the `<svg>` itself is the focus target (`tabIndex=-1`, so it is
- * click-focusable but not a tab stop): it holds `onKeyDown` and the roving
- * cursor. The cursor's focus ring is drawn INSIDE the SVG as a
- * non-scaling-stroke rect, because there is no per-square DOM node that could
- * carry `:focus-visible`.
+ * In the editor the `<svg>` itself is the focus target (`tabIndex={0}`, a single
+ * tab stop in the tab order): it holds `onKeyDown` and the roving cursor. The
+ * cursor's focus ring is drawn INSIDE the SVG as a non-scaling-stroke rect,
+ * because there is no per-square DOM node that could carry `:focus-visible`.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   buildFloorRenderModel,
+  type CellAppearance,
   type FloorPlanLabels,
   type FloorPlanTheme,
   type GymFloorPlan,
@@ -59,7 +59,6 @@ import {
   cellSetPath,
   type CellCoord,
   type SvgScene,
-  type SvgTileShape,
 } from "@/modules/gym-floor-plan/renderSvg";
 import { cellKey, strokePreviewFill, themeVariablesStyle } from "@/components/floor-plan/cellStyle";
 import { FloorPlanLegend } from "@/components/floor-plan/FloorPlanLegend";
@@ -71,15 +70,26 @@ export interface StrokePreview {
   label: string;
 }
 
-/**
- * Colour applied to the in-progress stroke.
- */
 /** Focus ring geometry, in cell units. Non-scaling, so it stays 2px on screen. */
 const FOCUS_RING_INSET = 0.12;
 const FOCUS_RING_STROKE_WIDTH = 2;
 
 /** Seed width before the first measurement; the plan's content column on a laptop. */
 const DEFAULT_MEASURED_WIDTH = 720;
+
+function themeFillStyle(kind: CellAppearance["kind"]): React.CSSProperties | undefined {
+  if (kind === "empty") return { fill: "var(--fp-empty)" };
+  if (kind === "void") return { fill: "var(--fp-void)" };
+  return undefined;
+}
+
+function themeStrokeStyle(kind: CellAppearance["kind"]): React.CSSProperties | undefined {
+  return kind === "machine" ? undefined : { stroke: "var(--fp-ink)" };
+}
+
+function themeInkFillStyle(kind: CellAppearance["kind"]): React.CSSProperties | undefined {
+  return kind === "machine" ? undefined : { fill: "var(--fp-ink)" };
+}
 
 interface FloorPlanCanvasProps {
   plan: GymFloorPlan;
@@ -106,14 +116,13 @@ interface FloorPlanCanvasProps {
   focusCol?: number;
   /** Painted-but-not-yet-committed stroke feedback. */
   strokePreview?: StrokePreview | null;
-  /** The element that receives DOM focus and `onKeyDown` in the editor. */
   /** Receives the map element so the caller can move focus to it. */
-  gridRef?: React.Ref<SVGSVGElement>;
+  gridRef?: React.RefObject<SVGSVGElement | null>;
   gridProps?: React.SVGProps<SVGSVGElement>;
   /** Pointer entry point: `(row, col, event)` for a press inside the grid. */
   onCellPointerDown?: (row: number, col: number, event: React.PointerEvent<SVGSVGElement>) => void;
   /** Pointer move inside the grid; the editor decides whether a stroke is open. */
-  onCellPointerOver?: (row: number, col: number, event: React.PointerEvent<SVGSVGElement>) => void;
+  onCellPointerMove?: (row: number, col: number, event: React.PointerEvent<SVGSVGElement>) => void;
 }
 
 /** One `<pattern>` def, rendered without per-square nodes. */
@@ -121,21 +130,25 @@ const PatternDef: React.FC<{ scene: SvgScene; tile: SvgScene["patterns"][number]
   scene,
   tile,
 }) => {
-  const shapeProps = (shape: SvgTileShape) => ({
-    stroke: shape.kind === "circle" ? "none" : tile.inkColor,
-    fill: shape.kind === "circle" ? tile.inkColor : "none",
-    strokeWidth: "strokeWidth" in shape ? shape.strokeWidth : undefined,
-    vectorEffect: "non-scaling-stroke" as const,
+  const inkStrokeStyle = themeStrokeStyle(tile.kind);
+  const inkFillStyle = themeInkFillStyle(tile.kind);
+  const strokeShapeProps = (strokeWidth: number) => ({
+    stroke: tile.inkColor,
+    fill: "none",
+    strokeWidth,
+    strokeOpacity: tile.opacity,
+    style: inkStrokeStyle,
   });
 
   return (
-    <pattern
-      id={tile.id}
-      patternUnits="userSpaceOnUse"
-      width={tile.width}
-      height={tile.height}
-      opacity={tile.opacity}
-    >
+    <pattern id={tile.id} patternUnits="userSpaceOnUse" width={tile.width} height={tile.height}>
+      <rect
+        width={tile.width}
+        height={tile.height}
+        fill={tile.backgroundColor}
+        style={themeFillStyle(tile.kind)}
+        data-pattern-bg
+      />
       {tile.shapes.map((shape, index) => {
         if (shape.kind === "circle") {
           return (
@@ -145,6 +158,8 @@ const PatternDef: React.FC<{ scene: SvgScene; tile: SvgScene["patterns"][number]
               cy={shape.cy}
               r={shape.r}
               fill={tile.inkColor}
+              fillOpacity={tile.opacity}
+              style={inkFillStyle}
             />
           );
         }
@@ -156,11 +171,18 @@ const PatternDef: React.FC<{ scene: SvgScene; tile: SvgScene["patterns"][number]
               y1={shape.y1}
               x2={shape.x2}
               y2={shape.y2}
-              {...shapeProps(shape)}
+              strokeLinecap="square"
+              {...strokeShapeProps(shape.strokeWidth)}
             />
           );
         }
-        return <path key={`${tile.id}-${index}`} d={shape.d} {...shapeProps(shape)} fill="none" />;
+        return (
+          <path
+            key={`${tile.id}-${index}`}
+            d={shape.d}
+            {...strokeShapeProps(shape.strokeWidth)}
+          />
+        );
       })}
       <title>{`pattern for ${scene.floorName}`}</title>
     </pattern>
@@ -178,6 +200,7 @@ const LabelDef: React.FC<{ tile: SvgScene["labelTiles"][number] }> = ({ tile }) 
       fontSize={tile.fontSize}
       fontWeight={700}
       fill={tile.inkColor}
+      style={themeInkFillStyle(tile.kind)}
     >
       {tile.text}
     </text>
@@ -199,13 +222,14 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   gridRef,
   gridProps,
   onCellPointerDown,
-  onCellPointerOver,
+  onCellPointerMove,
 }) => {
   // The map element. The caller supplies the ref (the editor focuses it), so
   // there is exactly one ref and React itself assigns it — nothing writes into a
   // prop, which is what `react-hooks/immutability` rejects.
   const ownRef = useRef<SVGSVGElement | null>(null);
-  const svgRef = (gridRef as React.RefObject<SVGSVGElement | null>) ?? ownRef;
+  const svgRef = gridRef ?? ownRef;
+  const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   /**
    * Measured width of the map in CSS pixels.
    *
@@ -264,10 +288,11 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         // so the scene needs a nominal width to decide legibility. The real
         // width is applied by CSS; this only chooses whether a label is legible.
         widthPx: measuredWidth,
-        idPrefix: `fp-${model.floorId}`,
+        idPrefix: `fp-${instanceId}-${model.floorId}`,
       }),
-    [model, measuredWidth]
+    [model, measuredWidth, instanceId]
   );
+  const cursorId = `fp-${instanceId}-${scene.floorId}-cursor`;
 
   /** Resolves a pointer event to a square via the element's rendered box. */
   const coordFromEvent = (event: React.PointerEvent<SVGSVGElement>): CellCoord | null => {
@@ -312,7 +337,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   const {
     onPointerDown: externalPointerDown,
-    onPointerOver: externalPointerOver,
+    onPointerMove: externalPointerMove,
     style: externalStyle,
     ...restGridProps
   } = gridProps ?? {};
@@ -332,7 +357,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         className="m-0 rounded-xl border border-border bg-surface p-3 sm:p-4"
       >
         <svg
-          ref={gridRef ?? ownRef}
+          ref={svgRef}
           {...restGridProps}
           viewBox={scene.viewBox}
           preserveAspectRatio="xMidYMid meet"
@@ -356,27 +381,33 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           aria-hidden={interactive ? undefined : true}
           {...(interactive
             ? {
-                tabIndex: -1,
+                tabIndex: 0,
                 role: "application",
                 // Points at the visually-hidden live region below, so a screen
                 // reader knows which square the cursor is on without 9 216
                 // labelled nodes existing.
-                "aria-describedby": `${scene.floorId}-cursor`,
+                "aria-describedby": cursorId,
               }
             : {})}
           onPointerDown={(event) => {
             externalPointerDown?.(event);
             if (!interactive || !onCellPointerDown) return;
             const point = coordFromEvent(event);
-            if (point) onCellPointerDown(point.row, point.col, event);
+            if (!point) return;
+            if (typeof event.currentTarget.setPointerCapture === "function" && event.pointerId != null) {
+              try {
+                event.currentTarget.setPointerCapture(event.pointerId);
+              } catch {
+                // Synthetic pointer events or detached elements cannot capture.
+              }
+            }
+            onCellPointerDown(point.row, point.col, event);
           }}
-          onPointerOver={(event) => {
-            // `pointerover` bubbles (unlike `pointerenter`), so one listener on
-            // the root covers every square without any per-square node.
-            externalPointerOver?.(event);
-            if (!interactive || !onCellPointerOver) return;
+          onPointerMove={(event) => {
+            externalPointerMove?.(event);
+            if (!interactive || !onCellPointerMove) return;
             const point = coordFromEvent(event);
-            if (point) onCellPointerOver(point.row, point.col, event);
+            if (point) onCellPointerMove(point.row, point.col, event);
           }}
         >
           {/* No <title>: the figure's `aria-label` is already the accessible
@@ -397,10 +428,13 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
           {/* One shape per appearance — never one per square. */}
           {scene.layers.map((layer) => (
-            <path key={layer.appearanceIndex} d={layer.d} fill={layer.fill} />
+            <path
+              key={layer.appearanceIndex}
+              d={layer.d}
+              fill={layer.fill}
+              style={layer.pattern === "solid" ? themeFillStyle(layer.kind) : undefined}
+            />
           ))}
-
-          {showFocusRing ? null : null}
 
           {scene.labelLayers.map((layer) => (
             <path key={`label-${layer.appearanceIndex}`} d={layer.d} fill={layer.fill} />
@@ -473,7 +507,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           // One polite live region per plan: arrow-key moves announce the square
           // the cursor landed on. `cursor.ariaLabel` is derived for this square
           // only — never for the whole floor.
-          <p id={`${scene.floorId}-cursor`} aria-live="polite" className="sr-only">
+          <p id={cursorId} aria-live="polite" className="sr-only">
             {cursor?.ariaLabel ?? ""}
           </p>
         )}

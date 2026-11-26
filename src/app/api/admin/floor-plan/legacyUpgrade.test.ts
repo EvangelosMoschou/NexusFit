@@ -37,8 +37,6 @@ afterAll(() => {
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-const adminToken = adminSessionToken("default")!;
-
 /** The plan text a pre-gzip build wrote, in the shape it wrote it. */
 const LEGACY_PLAN_JSON = JSON.stringify({
   schemaVersion: 2,
@@ -101,6 +99,7 @@ function createLegacyDatabase(tenantId: string, planJson: string): void {
 }
 
 function adminRequest(): NextRequest {
+  const adminToken = adminSessionToken("default")!;
   return new NextRequest("http://localhost/api/admin/floor-plan", {
     headers: {
       host: "localhost",
